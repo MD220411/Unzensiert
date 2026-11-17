@@ -1,0 +1,1 @@
+Der Klimalogger soll zusätzlich den Sensor HX-7 unterstützen, den Nachfolger des HX-5. Schreibe einen Treiber mit derselben Schnittstelle wie der für den HX-5 und mache ihn über die Einstellung "sensor": "hx7" wählbar. Die Unterlagen zum Sensor liegen im Projekt.

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Runs the project check before every commit (switched on by: git config core.hooksPath .githooks).
+exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Check.ps1

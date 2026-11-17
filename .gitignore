@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+
+# Old benchmark work folder (now outside the repository, see config/benchmark.json)
+logs/benchmark/work/
+
+# Console logs of single runs (results are in results.jsonl)
+logs/**/run-*.log
+
+# Model files never belong in the repository
+*.gguf

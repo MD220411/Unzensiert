@@ -1,0 +1,70 @@
+{
+  "_comment": "Settings of the agent (Claude Code started through claude-local). Model names refer to profiles in config\\models.json. Details: docs\\agent.md.",
+
+  "model": "local-coder",
+  "aliases": {
+    "unzensiert": "local-coder",
+    "schnell": "local-fast",
+    "qwen38": "local-qwen38"
+  },
+  "picker": [
+    {
+      "model": "local-coder",
+      "label": "Unzensiert",
+      "description": "local-coder: Qwen 3.6 27B, unzensiert, zuverlaessigstes Modell"
+    },
+    {
+      "model": "local-fast",
+      "label": "Schnell",
+      "description": "local-fast: Qwen 3.6 35B-A3B, unzensiert, schneller, bei schweren Aufgaben schwaecher"
+    },
+    {
+      "model": "local-qwen38",
+      "label": "Qwen 3.8",
+      "description": "local-qwen38: Qwen 3.8 27B, unzensiert, frueheres Standardmodell"
+    }
+  ],
+
+  "rulesFile": "entwicklungsregeln.md",
+
+  "stopCheck": {
+    "_comment": "Closing check when the model wants to end an answer in which it changed files (scripts\\hooks\\Check-Stop.ps1). commands: check scripts looked for in the project folder, the first one found is run. maxBlocks: how often a failing check is handed back to the model. reminderFile: text in config\\ the model gets once per answer, empty = no reminder. The text has points of the form '- [name] ...'. reminderPoints: a point is left out when a file changed in this answer matches doneWhenEdited (regular expression on the path); codeOnly: the point only counts when program code was changed (a file that matches no pattern). No open point = no reminder. Without reminderPoints the whole text is always sent.",
+    "enabled": true,
+    "commands": ["scripts\\Check.ps1", "Check.ps1"],
+    "timeoutSeconds": 180,
+    "maxBlocks": 3,
+    "reminderFile": "abschluss.md",
+    "reminderPoints": [
+      { "name": "test", "codeOnly": true, "doneWhenEdited": "(^|[\\/])tests?[\\/]|(^|[\\/])test_[^\\/]*$|_test\\.[a-z]+$|\\.Tests\\.ps1$|(^|[\\/])Test-[^\\/]*\\.ps1$" },
+      { "name": "doku", "doneWhenEdited": "(^|[\\/])README[^\\/]*$|(^|[\\/])docs[\\/]|\\.md$" },
+      { "name": "einstellungen", "codeOnly": true, "doneWhenEdited": "(^|[\\/])config[\\/]|\\.(json|ini|toml|ya?ml|cfg)$" }
+    ]
+  },
+
+  "review": {
+    "_comment": "Second look (scripts\\Invoke-Review.ps1): after an answer with a larger change a second local model checks the uncommitted git diff in a fresh context. The closing check runs it once per answer, after the project check passed and the reminder is through; errors go back to the author. model: profile or alias of the reviewer. minChangedLines: smaller changes are not reviewed. maxDiffChars: longer diffs are cut. maxFileChars: budget for the changed files in full (smallest first), so that contradictions to unchanged lines are visible. timeoutSeconds: includes loading the reviewer. instructionsFile: text in config\\. Log: <installRoot>\\logs\\review.log.",
+    "enabled": true,
+    "model": "local-qwen38",
+    "minChangedLines": 20,
+    "maxDiffChars": 60000,
+    "maxFileChars": 80000,
+    "maxTokens": 8192,
+    "timeoutSeconds": 600,
+    "instructionsFile": "zweiter-blick.md"
+  },
+
+  "pluginDir": "befehle",
+
+  "onExit": "unload",
+  "gitCheck": true,
+
+  "tools": "Bash,Read,Edit,Write,Glob,Grep",
+  "env": {
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_BUNDLED_SKILLS": "1"
+  },
+
+  "contextSafetyFactor": 0.9,
+  "fallbackContextTokens": 32768,
+  "maxOutputTokens": 16384
+}

@@ -1,0 +1,8 @@
+{
+  "facts": [
+    { "id": "pin.pumpe", "value": "GPIO17", "direction": "out", "labels": ["Pumpe"], "code": ["pumpe"], "source": "Verdrahtung nach docs/verdrahtung.md" },
+    { "id": "pin.taster", "value": "GPIO22", "direction": "in", "labels": ["Taster"], "code": ["taster"], "source": "Verdrahtung nach docs/verdrahtung.md" },
+    { "id": "pin.led", "value": "GPIO27", "direction": "out", "labels": ["Status-LED"], "code": ["led"], "source": "Verdrahtung nach docs/verdrahtung.md" }
+  ],
+  "allow_unlisted_pins": ["GPIO0", "GPIO1", "GPIO2", "GPIO3", "GPIO4", "GPIO5", "GPIO6", "GPIO7", "GPIO8", "GPIO9", "GPIO10", "GPIO11", "GPIO12", "GPIO13", "GPIO14", "GPIO15", "GPIO16", "GPIO18", "GPIO19", "GPIO20", "GPIO21", "GPIO23", "GPIO24", "GPIO25", "GPIO26"]
+}

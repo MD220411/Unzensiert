@@ -1,0 +1,4 @@
+{
+  "lowStockThreshold": 5,
+  "defaultWarehouse": "main"
+}

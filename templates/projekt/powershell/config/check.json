@@ -1,0 +1,8 @@
+{
+  "steps": [
+    { "name": "Syntax und ASCII der Skripte", "builtin": "powershell-syntax" },
+    { "name": "Tests", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests\\Run-Tests.ps1" },
+    { "name": "Fakten (facts\\facts.json gegen Doku und Code)", "command": "python -B scripts\\check_facts.py", "needs": "python", "optional": true },
+    { "name": "Linter (PSScriptAnalyzer)", "command": "powershell -NoProfile -Command \"$r = @(Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning); $r | Format-Table -AutoSize; exit [int]($r.Count -gt 0)\"", "needs": "Invoke-ScriptAnalyzer", "optional": true }
+  ]
+}

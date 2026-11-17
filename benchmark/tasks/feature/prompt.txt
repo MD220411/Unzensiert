@@ -1,0 +1,1 @@
+Implement the command line tool described in SPEC.md as csvsum.py. Test it with sample.csv using python before you finish.

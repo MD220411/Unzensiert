@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {
+      "name": "Syntax",
+      "command": "python -m compileall -q inventory tests"
+    },
+    {
+      "name": "Tests",
+      "command": "python -m unittest discover -s tests"
+    }
+  ]
+}

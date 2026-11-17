@@ -1,0 +1,3 @@
+This folder contains the shoprules package, see README.md. Apply every item of docs/changes-2027.md to it.
+
+The country modules are written in different styles, so read a module before you change it. Nothing except the listed items may change. The tests (python -m unittest discover -s tests) cover only a little; adapt them where an item changes a tested value, and verify your work yourself before you finish.

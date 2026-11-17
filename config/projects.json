@@ -1,0 +1,14 @@
+{
+  "_comment": "Settings of scripts\\New-Project.ps1. templateDir: folder with the project templates, relative to the repository. sharedTemplate: subfolder copied into every new project. languages: one subfolder per language. projectsRoot: where new projects are created unless -Path is given. Details: docs\\projekte.md.",
+
+  "templateDir": "templates\\projekt",
+  "sharedTemplate": "gemeinsam",
+  "projectsRoot": "E:\\Projekte",
+  "defaultLanguage": "python",
+  "languages": {
+    "python": "Python-Paket mit unittest",
+    "powershell": "Skripte fuer Windows PowerShell 5.1"
+  },
+  "checkCommand": "scripts\\Check.ps1",
+  "firstCommitMessage": "Projektstruktur angelegt"
+}

@@ -1,0 +1,161 @@
+﻿=== 2026-11-13 14:09:41  model: local-coder
+speed: 23.8 tokens/s  (94 tokens, model load 61 s, prompt 26 tokens)
+answer contains code: True
+tool calling: OK  (read_file path=src/main.py)
+NAME                  ID              SIZE     PROCESSOR    CONTEXT    RUNNER      UNTIL               
+local-coder:latest    3d9bc4e2df0a    21 GB    100% GPU     32768      llamacpp    29 minutes from now
+NVIDIA GeForce RTX 5070 Ti, 15224 MiB, 16303 MiB
+NVIDIA GeForce RTX 3060, 9039 MiB, 12288 MiB
+=== 2026-11-13 14:12:40  model: local-coder
+speed: 24.2 tokens/s  (130 tokens, model load 8.8 s, prompt 26 tokens)
+answer contains code: True
+tool calling: OK  (read_file path=src/main.py)
+NAME                  ID              SIZE     PROCESSOR    CONTEXT    RUNNER      UNTIL               
+local-coder:latest    57aa44a3045b    22 GB    100% GPU     65536      llamacpp    29 minutes from now
+NVIDIA GeForce RTX 5070 Ti, 15719 MiB, 16303 MiB
+NVIDIA GeForce RTX 3060, 9159 MiB, 12288 MiB
+=== 2026-11-14 14:58:28  model: local-coder
+speed: 54.9 tokens/s  (96 tokens, model load 4.9 s, prompt 26 tokens)
+answer contains code: True
+tool calling: OK  (read_file path=src/main.py)
+NAME                  ID              SIZE     PROCESSOR    CONTEXT    RUNNER      UNTIL               
+local-coder:latest    b7eff12f2e1a    20 GB    100% GPU     65536      llamacpp    29 minutes from now
+NVIDIA GeForce RTX 5070 Ti, 12242 MiB, 16303 MiB
+NVIDIA GeForce RTX 3060, 8647 MiB, 12288 MiB
+=== 2026-11-14 15:37:59  model: local-coder  (llama.cpp b12359)
+load: 7.7 s
+speed: 56.8 tokens/s  (400 tokens, MTP on, 61 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 13298, RTX 3060 7631
+=== 2026-11-14 15:38:16  model: local-fast  (llama.cpp b12359)
+load: 49.7 s
+speed: 136.0 tokens/s  (400 tokens, MTP off)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 14422, RTX 3060 7777
+=== 2026-11-14 17:20:16  model: local-fast  (llama.cpp b12359)
+load: 42.7 s
+speed: 146.5 tokens/s  (400 tokens, MTP off)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 14426, RTX 3060 7783
+=== 2026-11-14 17:22:34  model: local-coder  (llama.cpp b12359)
+load: 7.5 s
+speed: 60.3 tokens/s  (400 tokens, MTP on, 64 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 13298, RTX 3060 7631
+=== 2026-11-14 18:42:38  model: local-coder  (llama.cpp b12359)
+load: 6.2 s
+speed: 56.5 tokens/s  (400 tokens, MTP on, 58 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 13298, RTX 3060 7631
+=== 2026-11-14 19:02:00  model: cand-qwen36-35b  (llama.cpp b12359)
+load: 13.5 s
+speed: 84.0 tokens/s  (400 tokens, MTP on, 63 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 14104, RTX 3060 9768
+=== 2026-11-14 19:02:57  model: cand-gpt-oss-20b  (llama.cpp b12359)
+load: 27.8 s
+speed: 206.1 tokens/s  (400 tokens, MTP off)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 12340, RTX 3060 472
+=== 2026-11-14 20:52:39  model: local-coder  (llama.cpp b12359)
+load: 6.5 s
+speed: 60.5 tokens/s  (400 tokens, MTP on, 63 % of drafted tokens accepted)
+answer contains code: False
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 13592, RTX 3060 7547
+=== 2026-11-14 20:52:54  model: local-fast  (llama.cpp b12359)
+load: 9.2 s
+speed: 140.8 tokens/s  (400 tokens, MTP on, 57 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 14104, RTX 3060 9349
+=== 2026-11-14 20:53:08  model: local-qwen38  (llama.cpp b12359)
+load: 8 s
+speed: 51.8 tokens/s  (400 tokens, MTP on, 52 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+GPU memory used (MiB): RTX 5070 Ti 13304, RTX 3060 7631
+=== 2026-11-14 21:09:11  model: local-coder  (llama.cpp b12359)
+load: 7.1 s
+speed: 56.9 tokens/s  (400 tokens, MTP on, 58 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 5078 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14832, RTX 3060 7547
+=== 2026-11-14 21:09:36  model: local-fast  (llama.cpp b12359)
+load: 9.7 s
+speed: 129.6 tokens/s  (400 tokens, MTP on, 57 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4660 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 15318, RTX 3060 9349
+=== 2026-11-14 21:09:51  model: local-qwen38  (llama.cpp b12359)
+load: 8 s
+speed: 53.3 tokens/s  (400 tokens, MTP on, 54 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4267 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14260, RTX 3060 7631
+=== 2026-11-14 23:57:05  model: local-coder  (llama.cpp b12359)
+load: 7 s
+speed: 65.1 tokens/s  (400 tokens, MTP on, 67 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 2032 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14840, RTX 3060 7547
+=== 2026-11-14 23:57:23  model: local-fast  (llama.cpp b12359)
+load: 9.1 s
+speed: 136.7 tokens/s  (400 tokens, MTP on, 62 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 9187 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 15324, RTX 3060 9351
+=== 2026-11-14 23:57:38  model: local-qwen38  (llama.cpp b12359)
+load: 8 s
+speed: 54.3 tokens/s  (400 tokens, MTP on, 54 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 3183 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14268, RTX 3060 7633
+=== 2026-11-15 08:36:17  model: local-coder  (llama.cpp b12359)
+load: 11.3 s
+speed: 59.4 tokens/s  (400 tokens, MTP on, 64 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 6506 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14840, RTX 3060 7547
+=== 2026-11-16 09:41:39  model: local-coder  (llama.cpp b12359, Claude Code 2.1.325)
+load: 8.2 s
+speed: 59.3 tokens/s  (400 tokens, MTP on, 62 % of drafted tokens accepted)
+answer contains code: False
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 2702 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 15596, RTX 3060 10417
+=== 2026-11-16 12:41:13  model: local-coder  (llama.cpp b12433, Claude Code 2.1.325)
+load: 7.6 s
+speed: 58.7 tokens/s  (400 tokens, MTP on, 60 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 8909 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 15596, RTX 3060 10417
+=== 2026-11-16 12:42:31  model: local-coder-rb2048  (llama.cpp b12433, Claude Code 2.1.325)
+load: 8.6 s
+speed: 57.5 tokens/s  (400 tokens, MTP on, 58 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4684 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 15596, RTX 3060 10417
+=== 2026-11-16 12:42:52  model: local-coder-rb0  (llama.cpp b12433, Claude Code 2.1.325)
+load: 8.3 s
+speed: 72.8 tokens/s  (400 tokens, MTP on, 82 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 7083 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 15596, RTX 3060 10417

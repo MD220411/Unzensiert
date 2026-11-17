@@ -1,0 +1,66 @@
+# Configuration for the VS Code extension "Continue".
+# Source of truth is this file. scripts\Install-Continue.ps1 copies it to
+# %USERPROFILE%\.continue\config.yaml (an existing file is backed up first).
+#
+# All models are profiles of the local llama.cpp server (config\models.json). The address
+# must match host and port in config\server.json. The server has to be running:
+# scripts\Start-Server.ps1 (claude-local starts it by itself).
+#
+# contextLength must not be larger than ctx-size of the profile in config\models.json.
+#
+# __LLAMA_API_KEY__ is replaced by Install-Continue.ps1 with the key of the server
+# (config\server.json, "requireApiKey"). The key itself is not part of the repository.
+
+name: Lokal
+version: 1.0.0
+schema: v1
+
+models:
+  # Chat, edit and apply in the Continue side panel.
+  # provider "openai" = the OpenAI-compatible API of llama-server (/v1/chat/completions);
+  # the server applies the chat template and parses tool calls.
+  - name: local-coder
+    provider: openai
+    model: local-coder
+    apiBase: http://127.0.0.1:8080/v1
+    apiKey: __LLAMA_API_KEY__
+    defaultCompletionOptions:
+      contextLength: 65536
+    roles:
+      - chat
+      - edit
+      - apply
+      - summarize
+
+  # Fast alternative, selectable in the model menu of the side panel
+  - name: local-fast
+    provider: openai
+    model: local-fast
+    apiBase: http://127.0.0.1:8080/v1
+    apiKey: __LLAMA_API_KEY__
+    defaultCompletionOptions:
+      contextLength: 65536
+    roles:
+      - chat
+      - edit
+      - apply
+      - summarize
+
+  # Tab autocomplete. Must be a base model trained for fill-in-the-middle (FIM);
+  # chat and agent models produce poor completions.
+  # provider "llama.cpp" = the native /completion endpoint. Continue builds the FIM prompt
+  # itself and picks the prompt format from the model name, so the profile name has to
+  # contain "qwen2.5-coder".
+  - name: Autocomplete (qwen2.5-coder 1.5B)
+    provider: llama.cpp
+    model: qwen2.5-coder-1.5b-base
+    apiBase: http://127.0.0.1:8080
+    apiKey: __LLAMA_API_KEY__
+    # sent explicitly as well, in case the provider ignores apiKey
+    requestOptions:
+      headers:
+        Authorization: Bearer __LLAMA_API_KEY__
+    defaultCompletionOptions:
+      contextLength: 8192
+    roles:
+      - autocomplete

@@ -1,0 +1,1 @@
+Auf GPIO17 kommt ein Regensensor (Modul mit offenem Kollektor: bei Regen zieht er den Pin auf Masse). Die Pumpe wandert deshalb auf GPIO23. Wenn es regnet, soll nicht gegossen werden, auch nicht über den Taster.

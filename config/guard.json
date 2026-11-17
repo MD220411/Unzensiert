@@ -1,0 +1,148 @@
+{
+  "_comment": "Rules of the safety guard for claude-local sessions (scripts\\hooks\\Guard-Tool.ps1, docs\\sicherheit.md). The guard protects THIS machine and the user's own data from destructive tool calls of the local model. It does not judge what the model works on. 'deny' stops a call, 'ask' hands the decision to the user (in runs without a user, -p, an 'ask' counts as 'no'). Patterns are .NET regular expressions, matched case-insensitively against the whole command; in JSON every backslash is written twice. Paths may use %VARIABLES%. After a change run scripts\\Test-Guard.ps1.",
+
+  "enabled": true,
+
+  "systemPaths": [
+    "%SystemRoot%",
+    "%ProgramFiles%",
+    "%ProgramFiles(x86)%"
+  ],
+
+  "criticalPaths": [
+    "%SystemRoot%",
+    "%ProgramFiles%",
+    "%ProgramFiles(x86)%",
+    "%ProgramData%",
+    "%USERPROFILE%",
+    "%USERPROFILE%\\Documents",
+    "%USERPROFILE%\\Desktop",
+    "%USERPROFILE%\\Downloads",
+    "%USERPROFILE%\\Pictures",
+    "%USERPROFILE%\\Videos",
+    "%USERPROFILE%\\Music",
+    "%USERPROFILE%\\OneDrive",
+    "%USERPROFILE%\\AppData",
+    "%APPDATA%",
+    "%LOCALAPPDATA%",
+    "%USERPROFILE%\\.claude",
+    "E:\\LlamaCpp",
+    "E:\\Projekte"
+  ],
+
+  "freeDeleteRoots": [
+    "%TEMP%"
+  ],
+
+  "secretPaths": [
+    "%USERPROFILE%\\.ssh",
+    "%USERPROFILE%\\.aws",
+    "%USERPROFILE%\\.azure",
+    "%USERPROFILE%\\.gnupg",
+    "%USERPROFILE%\\.kube",
+    "%USERPROFILE%\\.docker\\config.json",
+    "%USERPROFILE%\\.git-credentials",
+    "%USERPROFILE%\\.netrc",
+    "%USERPROFILE%\\_netrc",
+    "%USERPROFILE%\\.claude\\.credentials.json",
+    "%APPDATA%\\GitHub CLI",
+    "%APPDATA%\\gcloud",
+    "%LOCALAPPDATA%\\Google\\Chrome\\User Data",
+    "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data",
+    "%LOCALAPPDATA%\\BraveSoftware",
+    "%APPDATA%\\Mozilla\\Firefox\\Profiles",
+    "%APPDATA%\\Microsoft\\Credentials",
+    "%LOCALAPPDATA%\\Microsoft\\Credentials",
+    "%APPDATA%\\Microsoft\\Protect",
+    "E:\\LlamaCpp\\run\\api-key.txt"
+  ],
+  "secretFileNames": [
+    "*.kdbx",
+    "*.pfx",
+    "*.p12",
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
+    "id_dsa"
+  ],
+  "secretExceptions": [
+    "*.pub",
+    "known_hosts",
+    "known_hosts.old"
+  ],
+
+  "guardFiles": [
+    "config\\guard.json",
+    "scripts\\hooks\\Guard-Tool.ps1",
+    "%USERPROFILE%\\.claude\\settings.json"
+  ],
+
+  "commandRules": [
+    {
+      "id": "disk-format",
+      "decision": "deny",
+      "pattern": "(^|[\\s;&|(\"'])(format(\\.com)?\\s+[a-z]:|diskpart\\b|mkfs(\\.\\w+)?\\s|Format-Volume\\b|Clear-Disk\\b|Initialize-Disk\\b|Remove-Partition\\b)|\\bdd\\s[^|;&]*\\bof=[\"']?(\\\\\\\\\\.\\\\|/dev/(sd|nvme|hd))",
+      "reason": "Formatieren oder Ueberschreiben eines Laufwerks"
+    },
+    {
+      "id": "boot-and-backups",
+      "decision": "deny",
+      "pattern": "\\b(bcdedit|bootrec|bcdboot)\\b|\\bvssadmin(\\.exe)?\\s+(delete|resize)|\\bwbadmin(\\.exe)?\\s+delete|\\bcipher(\\.exe)?\\s+/w|\\bsdelete(64)?(\\.exe)?\\b|\\bwmic\\s+shadowcopy\\s+delete|\\bRemove-CimInstance\\b[^|;&]*ShadowCopy",
+      "reason": "Eingriff in Startkonfiguration, Schattenkopien oder Sicherungen"
+    },
+    {
+      "id": "registry-change",
+      "decision": "ask",
+      "pattern": "\\breg(\\.exe)?\\s+(delete|add|import|restore|unload)\\b|\\b(Remove-Item|Remove-ItemProperty|Set-ItemProperty|New-ItemProperty|New-Item|ri|rm|sp)\\b[^|;&]*\\b(HKLM|HKCU|HKCR|HKU|Registry)::?",
+      "reason": "Aenderung an der Windows-Registrierung"
+    },
+    {
+      "id": "security-off",
+      "decision": "ask",
+      "pattern": "\\bSet-MpPreference\\b[^|;&]*-Disable|\\bAdd-MpPreference\\b[^|;&]*-Exclusion|\\bnetsh(\\.exe)?\\s+(advfirewall|firewall)\\b[^|;&]*\\b(off|disable)\\b|\\bSet-NetFirewallProfile\\b[^|;&]*-Enabled\\s+\\$?False|\\bSet-ExecutionPolicy\\b[^|;&]*-Scope\\s+(LocalMachine|CurrentUser)|\\bnet1?(\\.exe)?\\s+(user|localgroup)\\b[^|;&]*/add\\b|\\b(New-LocalUser|Add-LocalGroupMember)\\b|\\bDisable-WindowsOptionalFeature\\b|\\bsc(\\.exe)?\\s+(delete|config)\\s",
+      "reason": "Aenderung an Virenschutz, Firewall, Benutzerkonten oder Diensten"
+    },
+    {
+      "id": "autostart",
+      "decision": "ask",
+      "pattern": "\\bschtasks(\\.exe)?\\s+/create\\b|\\b(Register-ScheduledTask|New-Service)\\b|CurrentVersion\\\\+Run\\b|Start Menu\\\\+Programs\\\\+Startup",
+      "reason": "Eintrag, der ein Programm dauerhaft oder beim Anmelden startet"
+    },
+    {
+      "id": "shutdown",
+      "decision": "ask",
+      "pattern": "(^|[\\s;&|(\"'])(shutdown(\\.exe)?\\s+[/-][srhpl]\\b|Restart-Computer\\b|Stop-Computer\\b|logoff(\\.exe)?(\\s|$))",
+      "reason": "Herunterfahren, Neustart oder Abmelden"
+    },
+    {
+      "id": "download-and-run",
+      "decision": "ask",
+      "pattern": "\\b(curl|wget)(\\.exe)?\\b[^;&]*\\|\\s*(sudo\\s+)?(ba|z|da)?sh\\b|\\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod|curl|wget)\\b[^;&]*\\|\\s*(iex|Invoke-Expression)\\b|\\b(iex|Invoke-Expression)\\b[^;&|]*\\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod|DownloadString|Net\\.WebClient)\\b|\\bDownloadString\\s*\\([^)]*\\)\\s*\\|\\s*(iex|Invoke-Expression)|\\b(ba)?sh\\s+<\\(\\s*(curl|wget)\\b|\\bmshta(\\.exe)?\\s+https?:|\\bregsvr32\\b[^;&|]*/i:https?:",
+      "reason": "Programm aus dem Netz laden und sofort ausfuehren"
+    },
+    {
+      "id": "git-discard",
+      "decision": "ask",
+      "pattern": "\\bgit\\b[^|;&]*\\s(reset\\s+(--hard|--merge)|clean\\s+(-[a-z]*f|--force)|checkout\\s+(-f|--force|(--\\s+)?\\.(\\s|$))|restore\\s+(--staged\\s+)?(--worktree\\s+)?\\.(\\s|$)|stash\\s+(drop|clear)|branch\\s+-D\\b|reflog\\s+expire|filter-branch|update-ref\\s+-d)",
+      "reason": "Git-Befehl, der nicht gesicherte Arbeit oder Verlauf verwirft"
+    },
+    {
+      "id": "git-force-push",
+      "decision": "ask",
+      "pattern": "\\bgit\\b[^|;&]*\\spush\\b[^|;&]*(\\s--force(?!-with-lease)\\b|\\s-[a-z]*f[a-z]*(\\s|$)|\\s--mirror\\b|\\s--delete\\b|\\s\\+\\S+)",
+      "reason": "Git-Push, der den Stand auf dem Server ueberschreibt oder loescht"
+    },
+    {
+      "id": "credential-tools",
+      "decision": "ask",
+      "pattern": "\\bcmdkey(\\.exe)?\\s+/list|\\bvaultcmd\\b|\\bGet-StoredCredential\\b|\\bgh\\s+auth\\s+token\\b|\\bgit\\s+credential(-manager)?\\s+(fill|get)\\b|\\bsecurity\\s+find-(generic|internet)-password\\b|\\bnetsh\\s+wlan\\s+show\\s+profile\\b[^|;&]*key\\s*=\\s*clear",
+      "reason": "Auslesen gespeicherter Zugangsdaten"
+    },
+    {
+      "id": "secret-paths",
+      "decision": "ask",
+      "pattern": "[\\\\/]\\.ssh[\\\\/](?!known_hosts|[\\w.-]+\\.pub\\b|config\\b)[\\w.-]+|[\\\\/]\\.aws[\\\\/]credentials|[\\\\/]\\.git-credentials\\b|[\\\\/]\\.claude[\\\\/]\\.credentials\\.json|[\\\\/]\\.gnupg[\\\\/]|User Data[\\\\/][^|;&]*(Login Data|Cookies|Local State)|Firefox[\\\\/]Profiles[\\\\/][^|;&]*(logins\\.json|key4\\.db|cookies\\.sqlite)|\\.kdbx\\b|[\\\\/]run[\\\\/]api-key\\.txt",
+      "reason": "Zugriff auf Schluessel, Passwoerter oder Anmeldedaten"
+    }
+  ]
+}

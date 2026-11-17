@@ -1,0 +1,20 @@
+{
+  "_comment": "Settings of the llama.cpp server (llama-server). Read by scripts\\lib\\Config.ps1. After a change run scripts\\Restart-Server.ps1. Details: docs\\backend.md.",
+
+  "installRoot": "E:\\LlamaCpp",
+  "build": "b12433",
+  "package": "win-cuda-13.5-x64",
+
+  "modelsDir": "E:\\LlamaCpp\\models",
+
+  "host": "127.0.0.1",
+  "port": 8080,
+  "requireApiKey": true,
+  "corsOrigins": "localhost",
+
+  "modelsMax": 3,
+  "memoryMarginMiB": 512,
+
+  "startTimeoutSeconds": 60,
+  "loadTimeoutSeconds": 300
+}

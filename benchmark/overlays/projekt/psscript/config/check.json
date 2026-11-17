@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {
+      "name": "Syntax and ASCII of the scripts",
+      "builtin": "powershell-syntax"
+    },
+    {
+      "name": "Tests",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests\\Test-LogParser.ps1"
+    }
+  ]
+}
