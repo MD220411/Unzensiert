@@ -6,6 +6,10 @@
 
   "cases": [
     { "expect": "none", "command": "python -m pytest -q" },
+    { "expect": "none", "command": "pytest" },
+    { "expect": "none", "command": "cd tests && pytest" },
+    { "expect": "none", "command": "make; ls" },
+    { "expect": "none", "command": "python -c \"import calc; print(calc.mul(6, 7))\"" },
     { "expect": "none", "command": "git status && git add -A && git commit -m \"feature\"" },
     { "expect": "none", "command": "git push origin main" },
     { "expect": "none", "command": "git push --force-with-lease origin feature" },

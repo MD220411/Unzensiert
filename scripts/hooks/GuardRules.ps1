@@ -83,7 +83,8 @@ function Test-RecursiveDelete([string]$Command, [string]$Cwd, $Config, [int]$Dep
     foreach ($segment in ($Command -split '\|\||&&|[;|\r\n]')) {
         # redirections such as "2>/dev/null" are not targets
         $segment = [regex]::Replace($segment, '(^|\s)\d*(>>?|<)\s*(&\d|"[^"]*"|''[^'']*''|\S+)', ' ')
-        $tokens = Get-CommandTokens $segment
+        # @(): a segment of one word would otherwise be a string, and $tokens[0] a character
+        $tokens = @(Get-CommandTokens $segment)
         if ($tokens.Count -eq 0) { continue }
         # a quoted command line, as in: cmd /c "rd /s /q C:\x", bash -c 'rm -rf ~'
         if ($Depth -lt 2) {
