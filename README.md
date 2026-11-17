@@ -32,7 +32,7 @@ The installer looks at your machine and asks before it installs or downloads any
 | 2 | picks an install folder for llama.cpp, models and logs (the drive with the most free space) |
 | 3 | installs Claude Code (Anthropic's official installer) and Git for Windows, if they are missing |
 | 4 | installs llama.cpp in the build that fits your graphics card |
-| 5 | downloads the model that fits your graphics memory (17 to 22 GB from Hugging Face, checked by SHA-256) |
+| 5 | downloads the model that fits your graphics memory (17 to 22 GB from Hugging Face, checked by SHA-256), then measures your cards and computes how to spread the model over them and the main memory, and tests that (one to two minutes) |
 | 6 | sets up the command `claude-local` |
 | 7 | runs a short test |
 
@@ -47,20 +47,24 @@ No Anthropic account is needed for the local model. Inside a session, `/model` s
 between the models you have installed. More models: `scripts\Get-Model.ps1 -List`.
 
 **Which model you get** depends on the graphics memory (all cards added up,
-`config\setups.json`):
+`config\setups.json`). **How it is spread** over your cards and main memory is not taken
+from a table: the installer measures how fast each card and the main memory are, asks
+llama.cpp how much memory each layout needs, and computes the fastest layout and the
+largest context that costs at most 15 % speed ([docs/planer.md](docs/planer.md)).
 
-| Graphics memory | Model | Context | Measured on | Answer speed | Session start |
-|---|---|---|---|---|---|
-| 26 GB or more | `local-coder` (Qwen 3.6 27B) | 128k | RTX 5070 Ti + RTX 3060 | 44 tokens/s (60 tuned) | 32 s |
-| 22 GB or more | `local-coder` | 64k | both cards limited to about 23 GB | 49 tokens/s | 30 s |
-| 15 GB or more | `local-coder`, partly in main memory | 64k | RTX 5070 Ti alone | 21 tokens/s | 46 s |
-| 11 GB or more | `local-fast` (Qwen 3.6 35B-A3B), partly in main memory | 64k | RTX 3060 alone | 62 tokens/s | 107 s |
-| 7 GB or more | `local-fast`, mostly in main memory | 64k | RTX 3060 with 4 GB kept free | 57 tokens/s | 126 s |
-| no usable card | `local-fast` on the processor | 32k | Core i9-14900K | 26 tokens/s | 354 s |
+| Graphics memory | Model | Measured on | Layout by llama.cpp alone | Computed layout |
+|---|---|---|---|---|
+| 26 GB or more | `local-coder` (Qwen 3.6 27B) | RTX 5070 Ti + RTX 3060 | 44 tokens/s, 128k | **66–71 tokens/s**, 128k |
+| 22 GB or more | `local-coder` | both cards limited to about 23 GB | 49 tokens/s, 64k | not measured |
+| 15 GB or more | `local-coder`, partly in main memory | RTX 5070 Ti alone | 21 tokens/s, 64k | **22 tokens/s** at 64k; it picks 96k at 19 tokens/s |
+| 11 GB or more | `local-fast` (Qwen 3.6 35B-A3B), experts partly in main memory | RTX 3060 alone | 62 tokens/s, 64k | **65 tokens/s** at 64k; it picks 128k at 58 tokens/s |
+| 7 GB or more | `local-fast`, experts mostly in main memory | RTX 3060 with 4 GB kept free | 57 tokens/s, 64k | 54 tokens/s at 128k |
+| no usable card | `local-fast` on the processor | Core i9-14900K | 26 tokens/s, 32k | |
 
-"Session start" is how long the model needs to read the roughly 26,000 tokens Claude Code
-sends first. `local-fast` answers faster but solves hard tasks less reliably; on 16 GB it
-runs at 97 tokens/s (`-Model local-fast` when installing). The cards were measured alone by
+Speeds are answer speeds with the model guessing ahead (MTP); they vary by a few percent
+from run to run. Reading the roughly 26,000 tokens Claude Code sends first takes 30 s on
+the two cards and up to 2 min on small cards. `local-fast` answers faster but solves hard
+tasks less reliably (`-Model local-fast` when installing). The single cards were measured by
 hiding the others from llama.cpp; a real card of that size can be faster or slower.
 
 **Update:** run the install line again. **Remove:** double-click **Uninstall.cmd**; it
@@ -143,10 +147,10 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
 | | |
 |---|---|
 | Modell | `local-coder` = Qwen 3.6 27B, unzensiert (Heretic v2), mit MTP, 128k Kontext |
-| Tempo | `local-coder` etwa 60 Tokens/s, `local-fast` 83 bis 140; beide vollständig auf den Grafikkarten (RTX 5070 Ti + RTX 3060) |
+| Tempo | `local-coder` 66 bis 71 Tokens/s mit der berechneten Verteilung (vorher etwa 60 von Hand, 44 mit `--fit`), `local-fast` 83 bis 140; beide vollständig auf den Grafikkarten (RTX 5070 Ti + RTX 3060) ([planer.md](docs/planer.md)) |
 | Benchmark | `local-coder`: alle 24 Läufe der vier älteren Aufgaben bestanden, 14 von 15 der fünf schwereren, 89 % der Arbeitsregeln eingehalten, mit Projektvorlage 91 % (gemessen mit 64k); die zwei Aufgaben zu Faktentreue und Konsistenz über Dateien 6 von 6. `local-fast` (Stand vor der Abschlussprüfung): 3 von 15, 52 % ([modellwahl.md](docs/modellwahl.md)) |
 | Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle im Installationsordner (`config\machine.json`) |
-| Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme ([einrichtung.md](docs/einrichtung.md)); erprobt nur auf diesem Rechner |
+| Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme, misst die Karten und berechnet die Verteilung auf Karten und Hauptspeicher ([einrichtung.md](docs/einrichtung.md), [planer.md](docs/planer.md)); erprobt nur auf diesem Rechner |
 | Agent | Claude Code über die Anthropic-kompatible Schnittstelle von `llama-server` |
 
 ## Grenzen
@@ -186,6 +190,7 @@ mit dem meisten Platz).
 |---|---|
 | [docs/architektur.md](docs/architektur.md) | Schichten, Ordner, Grundsätze, Begründungen |
 | [docs/einrichtung.md](docs/einrichtung.md) | Installer Schritt für Schritt, Hardware-Stufen, Aktualisieren, Deinstallieren, Werte des Rechners (`machine.json`), Überblick der Konfigurationsdateien |
+| [docs/planer.md](docs/planer.md) | Planer: Speicher- und Tempo-Rechnung, Kalibrierung, Suche nach der schnellsten Verteilung, Messwerte, Grenzen |
 | [docs/backend.md](docs/backend.md) | llama-server: bedienen, einstellen, aktualisieren, Fehlersuche |
 | [docs/modelle.md](docs/modelle.md) | Modellprofile, MTP, Chat-Vorlage, neues Modell aufnehmen |
 | [docs/agent.md](docs/agent.md) | `claude-local`, Modellauswahl, Arbeitsregeln, Abschlussprüfung, zweiter Blick, Befehle für feste Abläufe |
@@ -210,20 +215,21 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 | `Uninstall.ps1` | wieder entfernen, mit Rückfragen; löscht nur, was der Installer angelegt hat (auch über `Uninstall.cmd`) |
 | `Install-LlamaCpp.ps1` | llama.cpp in der Version aus `config\server.json` laden, prüfen, entpacken; Paket passend zur Grafikkarte |
 | `Get-Model.ps1` | Dateien eines Modellprofils von Hugging Face laden (fortsetzbar, mit SHA-256), `-List` zeigt alle Profile |
+| `Plan-Models.ps1` | Verteilung jedes Modells auf Karten und Hauptspeicher berechnen (Kalibrierung mit `llama-bench`, Speicher von `llama-fit-params`), in `config\machine.json` schreiben; `-Verify` lädt und testet |
 | `Add-Model.ps1` | eigene GGUF-Datei in den Modellordner legen (Hardlink oder Kopie) |
 | `Start-Server.ps1` | Server starten, Modellprofile anzeigen |
 | `Stop-Server.ps1` | Server und alle Modelle beenden |
 | `Restart-Server.ps1` | Neustart, nötig nach Änderungen an `server.json` oder `models.json` |
 | `Test-Model.ps1` | Tempo, Tool-Calls, Bild-Eingabe und GPU-Speicher eines Profils prüfen |
 | `Test-Setup.ps1` | Konfiguration und Skripte prüfen, ohne ein Modell zu laden (wenige Sekunden) |
-| `Test-Install.ps1` | Logik des Installers prüfen, ohne Download und ohne Grafikkarte: `machine.json`, Geräteliste, Wahl der Stufe, Download-Einträge, Probelauf `-Plan` |
+| `Test-Install.ps1` | Logik des Installers prüfen, ohne Download und ohne Grafikkarte: `machine.json`, Geräteliste, Wahl der Stufe, Download-Einträge, Probelauf `-Plan`, Planer mit einem nachgebildeten Speichermodell |
 | `Test-Guard.ps1` | Schutzregeln gegen die Fälle in `tests\guard-cases.json` prüfen |
 | `Test-Tasks.ps1` | Benchmark-Aufgaben prüfen, ohne ein Modell: Vorlage fällt durch, Musterlösung besteht |
 | `Test-Templates.ps1` | Projektvorlagen prüfen: neues Projekt besteht seinen Prüfbefehl, eingebaute Fehler (Widerspruch zu `facts\facts.json`, Fakt ohne Quelle, scheiternder Test) lassen ihn scheitern |
 | `New-Project.ps1` | neues Projekt aus der Vorlage anlegen (Python oder PowerShell), mit Prüfbefehl und erstem Commit |
 | `Invoke-Review.ps1` | zweiter Blick: ein zweites lokales Modell prüft die nicht committete Änderung eines Projekts (läuft auch in der Abschlussprüfung) |
 | `Benchmark-Models.ps1` | Profile vergleichen: Rohwerte, Agenten-Aufgaben und eingehaltene Arbeitsregeln |
-| `Measure-Setup.ps1` | eine Hardware-Stufe auf diesem Rechner nachstellen und messen (nur bestimmte Karten sichtbar, ohne Feinabstimmung), für `measured` in `config\setups.json` |
+| `Measure-Setup.ps1` | eine Hardware-Stufe auf diesem Rechner nachstellen und messen (nur bestimmte Karten sichtbar, Verteilung durch llama.cpp oder mit `-Planned` durch den Planer), für `measured` in `config\setups.json` |
 | `Install-Path.ps1` | `bin\` in den PATH aufnehmen |
 | `Install-Continue.ps1` | Continue installieren und Konfiguration kopieren |
 | `Install-Font.ps1` | Schrift des Erscheinungsbilds (IBM Plex Mono) für den Benutzer installieren |

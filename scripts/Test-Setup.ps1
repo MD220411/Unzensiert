@@ -95,6 +95,15 @@ foreach ($setup in (Get-Setups)) {
     Assert-That $ok "setups.json: setup '$($setup.name)' uses agent profiles ('$($setup.model)') and sets ctx-size"
 }
 
+# the planner (Plan-Models.ps1): sensible settings, and the two llama.cpp tools it calls
+$pcfg = Get-PlannerConfig
+$ctxList = @($pcfg.ctxCandidates | ForEach-Object { [int]$_ })
+Assert-That ($ctxList.Count -gt 0 -and @($ctxList | Where-Object { $_ -lt 4096 }).Count -eq 0 -and [int]$pcfg.minCtx -le ($ctxList | Measure-Object -Maximum).Maximum) 'planner.json: context sizes of at least 4096, minCtx not above the largest'
+Assert-That ([double]$pcfg.speedTolerance -ge 0 -and [double]$pcfg.speedTolerance -lt 1 -and [double]$pcfg.reserveMiB -ge 0 -and [double]$pcfg.mtpReserveMiB -ge 0) 'planner.json: tolerance between 0 and 1, reserves not negative'
+if (Test-Path $server.exe) {
+    foreach ($tool in 'llama-fit-params', 'llama-bench') { Assert-That (Test-Path (Get-LlamaTool $tool)) "llama.cpp brings $tool.exe (needed by the planner)" }
+}
+
 $bench = Get-BenchmarkConfig
 foreach ($name in $bench.models) { Assert-That ($profiles -contains [string]$name) "benchmark.json: model '$name' is a profile" }
 foreach ($task in $bench.tasks) { Assert-That (Test-Path (Join-Path $script:ProjectRoot "benchmark\tasks\$task\check.py")) "benchmark.json: task '$task' has a check.py" }

@@ -45,9 +45,9 @@ oder lädt. Enter nimmt jeweils den Vorschlag.
 | 2. Installationsordner | Vorschlag: `claude-local` auf dem Laufwerk mit dem meisten Platz, auf dem Systemlaufwerk `%LOCALAPPDATA%\claude-local`. Nie ein ganzes Laufwerk, nie im Programmordner. Ein früher gewählter Ordner bleibt. |
 | 3. Claude Code, Git | Claude Code mit dem offiziellen Befehl von Anthropic (`irm https://claude.ai/install.ps1 \| iex`, in eigenem Prozess), Git for Windows über `winget`. Ohne Git bekommt der Agent das Werkzeug PowerShell statt Bash ([agent.md](agent.md)). |
 | 4. llama.cpp | `Install-LlamaCpp.ps1`: Paket nach Grafikkarte (`packages` in `config\server.json`). Danach prüft er mit `llama-server --list-devices`, ob llama.cpp die Karte sieht; wenn nicht, nimmt er das nächste Paket ([backend.md](backend.md)). |
-| 5. Modell | Stufe aus `config\setups.json` nach Grafikspeicher (Summe aller Karten ohne integrierte Grafik) und Hauptspeicher, siehe unten. Download mit `Get-Model.ps1`. |
+| 5. Modell | Stufe aus `config\setups.json` nach Grafikspeicher (Summe aller Karten ohne integrierte Grafik) und Hauptspeicher, siehe unten. Download mit `Get-Model.ps1`. Danach berechnet `Plan-Models.ps1 -Verify` die Verteilung auf Karten und Hauptspeicher und prüft sie ([planer.md](planer.md)); scheitert das, verteilt llama.cpp selbst (`--fit`). Ein vorhandener Plan bleibt. |
 | 6. Befehl | `bin\` in den PATH des Benutzers (`Install-Path.ps1`) |
-| 7. Test | `Test-Setup.ps1` (nur Fehler werden gezeigt), dann `Test-Model.ps1 -NoLog` mit dem gewählten Modell |
+| 7. Test | `Test-Setup.ps1` (nur Fehler werden gezeigt), dann `Test-Model.ps1 -NoLog`, falls der Planer das Modell nicht schon getestet hat |
 
 | Schalter | Wirkung |
 |---|---|
@@ -70,9 +70,11 @@ vollständig. `Get-Model.ps1 -List` zeigt alle Profile mit Größe und Stand,
 ### Hardware-Stufen
 
 `config\setups.json` ordnet dem Grafikspeicher ein Modell und eine Kontextgröße zu. Die
-erste Stufe, deren Bedarf der Rechner erfüllt, wird vorgeschlagen. Was nicht in den
-Grafikspeicher passt, legt llama.cpp selbst in den Arbeitsspeicher (`--fit`, siehe
-[modelle.md](modelle.md)). Das funktioniert, ist aber langsamer.
+erste Stufe, deren Bedarf der Rechner erfüllt, wird vorgeschlagen. Wie das Modell dann auf
+Karten und Hauptspeicher verteilt wird und welcher Kontext tatsächlich gilt, berechnet der
+Planer für den einzelnen Rechner ([planer.md](planer.md)); die Kontextgröße der Stufe gilt
+nur, wenn er scheitert. Die Messwerte unten stammen aus Läufen, in denen llama.cpp selbst
+verteilte (`--fit`); die Werte mit Planer stehen in [planer.md](planer.md).
 
 | Grafikspeicher | Hauptspeicher | Modell | Kontext | Gemessen auf | Antwort | Sitzungsbeginn |
 |---|---|---|---|---|---|---|
@@ -121,26 +123,31 @@ gleichen Namens:
 | `models` | ein Profil in `models.json` | `args` (Aufteilung, Karte, Kontext), `file` |
 
 Objekte werden Schlüssel für Schlüssel zusammengeführt, `null` entfernt einen Schlüssel.
-Pfade dürfen `%VARIABLEN%` enthalten. So sieht die Datei auf dem Entwicklungsrechner aus
-(RTX 5070 Ti + RTX 3060, Aufteilung gemessen in [gpu-tuning.md](gpu-tuning.md)):
+Pfade dürfen `%VARIABLEN%` enthalten. Dazu kommen die Abschnitte `plans` und
+`calibration` des Planers ([planer.md](planer.md)) und `planner` (überschreibt
+`config\planner.json`). So sieht die Datei auf dem Entwicklungsrechner aus (RTX 5070 Ti +
+RTX 3060, Verteilung berechnet):
 
 ```json
 {
   "server": { "installRoot": "E:\\LlamaCpp", "package": "win-cuda-13.5-x64" },
   "projects": { "projectsRoot": "E:\\Projekte" },
   "agent": { "model": "local-coder" },
-  "modelDefaults": { "gpu-layers": 999 },
   "models": {
-    "local-coder": { "args": { "tensor-split": "70,30", "mmproj-device": "CUDA1", "ctx-size": 131072 } },
-    "local-fast": { "args": { "tensor-split": "60,40", "mmproj-device": "CUDA1" } },
+    "local-coder": { "args": { "ctx-size": 131072, "fit": "off", "gpu-layers": 66,
+                               "device": "CUDA1,CUDA0", "tensor-split": "29,37",
+                               "mmproj-offload": false } },
     "qwen2.5-coder-1.5b-base": { "file": "qwen2.5-coder-1.5b-base-Q4_K_M.gguf", "args": { "device": "CUDA1" } }
-  }
+  },
+  "plans": { "local-coder": { "ctx": 131072, "predictedTokensPerSecond": 28, "measuredTokensPerSecond": 70.7 } },
+  "calibration": { "local-coder": { "speed": { "Host": 19.89, "CUDA0": 1.38, "CUDA1": 3.57 } } }
 }
 ```
 
-Von Hand ändern ist erlaubt. Der Installer behält die Werte, nur fehlende ergänzt er.
-Danach `scripts\Restart-Server.ps1`, dann `scripts\Test-Setup.ps1`. Der Wächter fragt
-nach, bevor das Modell die Datei ändert ([sicherheit.md](sicherheit.md)).
+Von Hand ändern ist erlaubt. Der Installer behält die Werte, nur fehlende ergänzt er;
+`Plan-Models.ps1` überschreibt die Optionen, die es selbst setzt. Danach
+`scripts\Restart-Server.ps1`, dann `scripts\Test-Setup.ps1`. Der Wächter fragt nach,
+bevor das Modell die Datei ändert ([sicherheit.md](sicherheit.md)).
 
 ## Aktualisieren
 

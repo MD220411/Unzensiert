@@ -51,19 +51,19 @@ diese Modelle: [modellwahl.md](modellwahl.md).
   Liste zeigt `<installRoot>\<build>\llama-server.exe --help`.
 - `defaults` gelten für jedes Profil; ein Wert in `args` überschreibt sie, `null` entfernt
   ihn.
-- **Keine Aufteilung auf bestimmte Karten in dieser Datei.** llama.cpp verteilt das Modell
-  selbst auf die vorhandenen Karten (`--fit`, voreingestellt) und legt, was nicht passt, in
-  den Arbeitsspeicher. Werte für einen bestimmten Rechner (`tensor-split`, `device`,
-  `mmproj-device`, `gpu-layers`, kleinerer Kontext) stehen in `config\machine.json` unter
-  `models.<profil>.args` bzw. `modelDefaults` ([einrichtung.md](einrichtung.md)).
-  `Test-Install.ps1` prüft das.
+- **Keine Aufteilung auf bestimmte Karten in dieser Datei.** Die Verteilung auf die Karten
+  eines Rechners (`tensor-split`, `device`, `mmproj-device`, `gpu-layers`, `n-cpu-moe`,
+  Kontext) berechnet der Planer und schreibt sie nach `config\machine.json` unter
+  `models.<profil>.args` ([planer.md](planer.md)). Ohne Plan verteilt llama.cpp selbst
+  (`--fit`, voreingestellt). `Test-Install.ps1` prüft, dass hier nichts davon steht.
 
 Nach jeder Änderung: `scripts\Restart-Server.ps1`, dann `scripts\Test-Model.ps1 -Model <name>`.
 
 ### Optionen, die hier benutzt werden
 
-Die Werte von `gpu-layers`, `tensor-split`, `device` und `mmproj-device` gelten für den
-Entwicklungsrechner (RTX 5070 Ti + RTX 3060) und stehen dort in `machine.json`.
+Die Werte von `gpu-layers`, `tensor-split`, `device`, `mmproj-device` und `n-cpu-moe`
+berechnet der Planer je Rechner ([planer.md](planer.md)); die Beispiele unten stammen
+vom Entwicklungsrechner (RTX 5070 Ti + RTX 3060).
 
 | Option | Wert | Zweck |
 |---|---|---|

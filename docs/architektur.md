@@ -50,7 +50,8 @@ config\              alle Einstellungen
   server.json          llama-server: Version, Pakete je Grafikkarte, Adresse, Grenzen
   models.json          Modellprofile: Datei, Download, Kontext, Sampling
   setups.json          Hardware-Stufen: welches Modell der Installer für wie viel Grafikspeicher vorschlägt
-  machine.json         Werte dieses Rechners (Ordner, Kartenaufteilung, Standardmodell); vom Installer, nicht im Repository
+  planner.json         Planer: Reserven, Kontextgrößen, Toleranz (planer.md)
+  machine.json         Werte dieses Rechners (Ordner, berechnete Verteilung, Standardmodell, Kalibrierung); vom Installer, nicht im Repository
   agent.json           Claude Code: Standardmodell, Kurznamen, Modellauswahl, Regeln
   entwicklungsregeln.md  Arbeitsregeln, die das lokale Modell in jeder Sitzung bekommt
   abschluss.md         Erinnerung der Abschlussprüfung (Test, README, Einstellungen)
@@ -65,7 +66,7 @@ config\              alle Einstellungen
   styles\              je Stil Farben, Zeichen, Texte, Schrift für Bilder aus Zeichen: ausbruch.json, nachtschicht.json
 scripts\             ein Skript je Aufgabe (Einrichten, Starten, Testen, Messen)
   style\               Shell.ps1 (Eingabezeile, Begrüßung), Statusline.ps1 (Statuszeile von Claude Code)
-  lib\                 gemeinsame Bausteine: Config.ps1, Machine.ps1, Download.ps1, Dialog.ps1, Server.ps1,
+  lib\                 gemeinsame Bausteine: Config.ps1, Machine.ps1, Download.ps1, Planner.ps1, Dialog.ps1, Server.ps1,
                        Measure.ps1, Session.ps1, Safety.ps1, Quality.ps1, Review.ps1, Tasks.ps1, Projects.ps1,
                        Style.ps1, CharArt.ps1
   hooks\               Guard-Tool.ps1: Wächter, den Claude Code vor jedem Werkzeug-Aufruf startet;

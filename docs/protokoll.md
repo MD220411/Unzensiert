@@ -3,6 +3,78 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-17 abends: Planer – Verteilung auf Karten und Hauptspeicher berechnen
+
+Wunsch des Nutzers: Das Programm soll bei der Installation die Ausstattung des Rechners
+ansehen und mathematisch berechnen, wie es die Modelle am besten auf die Ressourcen
+verteilt. Gebaut im Arbeitsordner `Unzensiert-planer` (Zweig `planer`).
+
+### Durchgeführt
+
+1. **Rechnung** (`scripts\lib\Planner.ps1`, Beschreibung [planer.md](planer.md)):
+   Speicher je Gerät aus `llama-fit-params --fit-print on` (Schätzung von llama.cpp für eine
+   gegebene Verteilung) plus Reserve, MTP-Zuschlag und Bild-Encoder; Zeit je Token =
+   Σ gelesene MiB × µs/MiB je Gerät; µs/MiB aus einer Kalibrierung mit `llama-bench` (Lauf nur
+   auf dem Prozessor, je Karte ein Lauf „diese Karte zuerst“, lineares Gleichungssystem).
+   Suche je Kontextgröße: schnellste Karte zuerst füllen und zuletzt in `--device` stellen
+   (Ausgabe- und MTP-Schicht dorthin), bei MoE zuerst Experten auslagern (`--n-cpu-moe`),
+   Bild-Encoder dahin, wo Platz bleibt, sonst Prozessor. Gewählt: größter Kontext ab 64k
+   mit höchstens 15 % weniger Tempo als der schnellste.
+2. **`scripts\Plan-Models.ps1`** (`-Model`, `-Recalibrate`, `-Verify`, `-Show`): schreibt
+   die Optionen in `config\machine.json` (`fit: off`, `gpu-layers`, `device`,
+   `tensor-split`, `n-cpu-moe`, `mmproj-device`/`mmproj-offload`, `ctx-size`), dazu
+   `plans` und `calibration`. `-Verify` lädt und testet; lädt ein Modell nicht oder
+   stürzt es unter einer Anfrage ab (Fehler 500), plant es mit 1 GB mehr Reserve neu.
+   Kartenwerte eines MoE-Modells übernimmt es aus der Kalibrierung eines dichten Modells.
+3. **`config\planner.json`**: Reserve 1024 MiB je Karte, MTP-Zuschlag 1408 MiB,
+   Hauptspeicher-Reserve 6 GB, Kontextgrößen 128k/96k/64k/32k, `minCtx` 64k,
+   Toleranz 15 %.
+4. **Installer**: nach dem Download `Plan-Models.ps1 -Model <modell> -Verify`; scheitert
+   das, nimmt `Clear-ModelPlan` die Optionen wieder heraus (llama.cpp verteilt selbst).
+5. **`Measure-Setup.ps1 -Planned`**: Planer für genau die sichtbar gemachten Karten.
+6. **Tests**: `Test-Install.ps1` +15 Prüfungen mit einem nachgebildeten Speichermodell
+   (Reihenfolge, volle schnelle Karte, Kontextwahl, Experten, Bild-Encoder, Lösen der
+   Kalibrierung, unplausible Kalibrierung); `Test-Setup.ps1` prüft `planner.json` und
+   dass `llama-fit-params.exe` und `llama-bench.exe` da sind.
+
+### Gemessen
+
+- Kalibrierung auf beiden Karten (`local-coder`): RTX 5070 Ti 1,38 µs/MiB (≈ 760 GB/s),
+  RTX 3060 3,57 µs/MiB (≈ 294 GB/s), Hauptspeicher 19,9 µs/MiB. Verhältnis der Karten 2,6,
+  Herstellerangaben 2,5. Drei Aufteilungen von Hand (70/30, 55/45, 45/55: 31,5 / 27,3 /
+  25,1 Tok./s mit `llama-bench`) ergeben dieselbe Differenz (2,16 und 2,10 µs je MiB).
+- Zusatzspeicher, den die Schätzung nicht kennt (Aufteilung 30/36, ohne Grenze): erste
+  Karte +650 MiB (CUDA-Kontext), letzte Karte +2025 MiB (davon ≈ 1375 MiB MTP-Entwurf).
+  Die RTX 5070 Ti hat eine feste Grenze bei 15,58 GB; darüber lagert der Treiber still aus
+  (Sysmem Fallback). Die Handeinstellung 70/30 stand auf das MiB an dieser Grenze.
+- **Absturz mit 512 MiB Reserve**: Nach dem Start misst der Router die anderen Modelle mit
+  eigenen Prozessen (`measure_next`, je ≈ 550 MiB CUDA-Kontext); in diesem Moment starb
+  `local-coder` (Status -1073741819). Daher Reserve 1024 MiB.
+- Ergebnisse (`Test-Model.ps1`, Tempo mit MTP; Tool-Calls und Bilder überall OK):
+
+  | Karten | Modell, Kontext | `--fit` | Hand 70/30 | Planer |
+  |---|---|---|---|---|
+  | beide | `local-coder`, 128k | 44 | 58,5 / 61,8 | 65,7 / 70,7 (37 + 29 Einheiten) |
+  | RTX 5070 Ti allein | `local-coder`, 64k | 20,9 | | 21,8 |
+  | RTX 5070 Ti allein | `local-fast`, 64k | 97,1 | | 105,7 |
+  | RTX 3060 allein | `local-fast`, 64k | 62,2 | | 65,0 |
+
+  Freie Wahl des Planers: RTX 5070 Ti allein `local-coder` 96k mit 18,7 Tok./s; RTX 3060
+  allein `local-fast` 128k mit 58,2; RTX 3060 mit 4 GB frei 128k mit 53,6. Die
+  Handeinstellung mit umgekehrter Reihenfolge lud nicht (zu voll).
+- Kalibrierung mit MoE-Modell unzuverlässig: RTX 3060 0,55 µs/MiB (unmöglich), RTX 5070 Ti
+  unplausibel (Ersatzwert). Für eine Karte ohne Folgen, bei mehreren Karten übernimmt der
+  Planer die Werte eines dichten Modells.
+- Ohne Modell: `Test-Setup`, `Test-Install`, `Test-Guard` (91), `Test-Templates`,
+  `Test-Tasks` bestanden.
+
+### Offen
+
+- Echte Rechner mit anderen Karten, AMD/Intel, mehr als zwei Karten: ungeprüft.
+- Ob ein Plan auslagert, prüft `-Verify` nicht (nur, ob er läuft).
+- Die Formel berücksichtigt keine Kontext-Tiefe; ob `local-coder` mit dem Plan im
+  Benchmark so zuverlässig bleibt, ist nicht gemessen (nur `Test-Model.ps1`).
+
 ## 2026-11-17: Installer für jeden Windows-Rechner
 
 Ziel des Nutzers: Jeder soll das Projekt herunterladen, installieren und nutzen können, so

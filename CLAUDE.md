@@ -37,6 +37,10 @@ mit zwei Grafikkarten. Überblick: `README.md`, Aufbau: `docs\architektur.md`.
   `lib\Download.ps1`, `config\setups.json`, `download` in `config\models.json`):
   `scripts\Test-Install.ps1`. Neue Stufen in `setups.json` mit `Test-Model.ps1` messen und
   in `measured` eintragen.
+- **Nach Änderungen am Planer** (`Plan-Models.ps1`, `lib\Planner.ps1`, `config\planner.json`):
+  `scripts\Test-Install.ps1`, dann auf diesem Rechner `scripts\Plan-Models.ps1 -Verify` und
+  das Tempo mit dem vorigen Plan vergleichen (`docs\planer.md`). Die Verteilung auf die
+  Karten nicht von Hand in `machine.json` tunen, sondern im Planer verbessern.
 - **Der Schutz dient dem Rechner des Nutzers** (`docs\sicherheit.md`): keine Regeln zu
   Inhalten, und nichts, was die normale Arbeit des lokalen Modells im Projektordner behindert.
 - **Messen statt behaupten.** Aussagen über Tempo oder Qualität brauchen einen Lauf von
@@ -53,6 +57,7 @@ powershell -ExecutionPolicy Bypass -File scripts\Test-Tasks.ps1            # Ben
 powershell -ExecutionPolicy Bypass -File scripts\Test-Templates.ps1        # Projektvorlagen, ohne Modell, etwa 20 s
 powershell -ExecutionPolicy Bypass -File scripts\Test-Install.ps1          # Installer-Logik, ohne Download und Modell, etwa 30 s
 powershell -ExecutionPolicy Bypass -File scripts\Install.ps1 -Plan         # Probelauf des Installers auf diesem Rechner, ändert nichts
+powershell -ExecutionPolicy Bypass -File scripts\Plan-Models.ps1 -Verify  # Verteilung auf die Karten berechnen und prüfen, 2 bis 5 min
 powershell -ExecutionPolicy Bypass -File scripts\Test-Model.ps1            # ein Profil, etwa 30 s
 powershell -ExecutionPolicy Bypass -File scripts\Benchmark-Models.ps1      # alle Profile, etwa 10 bis 40 min
 ```

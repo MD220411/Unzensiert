@@ -4,6 +4,7 @@
 #   lib\Config.ps1   reads config\*.json (server, models, agent) and config\machine.json
 #   lib\Machine.ps1  this machine: graphics cards, memory, disk space, programs, setups
 #   lib\Download.ps1 downloads with resume and checksum (llama.cpp, model files)
+#   lib\Planner.ps1  computes how each model is best spread over cards and main memory
 #   lib\Dialog.ps1   steps, notes and yes/no questions of the installer and uninstaller
 #   lib\Server.ps1   starts, stops and queries llama-server
 #   lib\Measure.ps1  speed, tool-call and GPU-memory measurements
@@ -23,6 +24,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\Config.ps1"
 . "$PSScriptRoot\lib\Machine.ps1"
 . "$PSScriptRoot\lib\Download.ps1"
+. "$PSScriptRoot\lib\Planner.ps1"
 . "$PSScriptRoot\lib\Dialog.ps1"
 . "$PSScriptRoot\lib\Server.ps1"
 . "$PSScriptRoot\lib\Measure.ps1"

@@ -3,9 +3,11 @@
 #   2. chooses the install folder (llama.cpp, models, logs: about 20 to 25 GB)
 #   3. Claude Code (from Anthropic) and Git for Windows, if missing - after asking
 #   4. llama.cpp in the package that fits the graphics card
-#   5. the model that fits the graphics memory (config\setups.json) - after asking
+#   5. the model that fits the graphics memory (config\setups.json) - after asking; then
+#      the best distribution over cards and main memory is computed from measurements and
+#      tested (Plan-Models.ps1, docs\planer.md)
 #   6. the command claude-local on the PATH
-#   7. a test: the settings, then the model once
+#   7. a test: the settings (and the model once, if planning did not test it already)
 # What this machine needs to remember goes into config\machine.json. Values already there
 # are kept, so running the installer again repairs an install without undoing changes.
 #
@@ -196,6 +198,26 @@ try {
     }
     Set-MachineSetup $chosen $setup
 
+    # how the model is best spread over the cards and main memory of this machine, computed
+    # from measurements (Plan-Models.ps1, docs\planer.md); a plan from an earlier run stays
+    $verified = $false
+    if ($haveModel -or $Plan) {
+        $plans = (Get-MachineConfig).PSObject.Properties['plans']
+        if ($plans -and $plans.Value.PSObject.Properties[$chosen]) {
+            Write-Note 'distribution over cards and main memory: kept from the last install (scripts\Plan-Models.ps1 computes it again)'
+        } elseif ($Plan) {
+            Write-Note 'would compute the best distribution over cards and main memory and test it (Plan-Models.ps1, one to two minutes)'
+        } else {
+            Write-Note 'computing the best distribution over cards and main memory and testing it (one to two minutes) ...'
+            if ((Invoke-ProjectScript 'Plan-Models.ps1' @('-Model', $chosen, '-Verify')) -eq 0) {
+                $verified = $true
+            } else {
+                Clear-ModelPlan $chosen
+                Write-Warn 'The distribution could not be computed or tested; llama.cpp now places the model by itself (--fit).'
+            }
+        }
+    }
+
     # --- 6. command ---------------------------------------------------------------------------
     Write-Step 'The command claude-local' $steps
     if ($Plan) { Write-Note "would add $(Join-Path $script:ProjectRoot 'bin') to the user PATH" }
@@ -207,7 +229,9 @@ try {
         Write-Note 'would run Test-Setup.ps1 and Test-Model.ps1'
     } else {
         if ((Invoke-ProjectScript 'Test-Setup.ps1' -OnlyProblems) -ne 0) { throw 'The settings check failed (see above).' }
-        if ($haveModel -and (Confirm-Step 'Load the model once to test it? (up to a minute)')) {
+        if ($verified) {
+            Write-Note 'the model was loaded and tested while its distribution was computed'
+        } elseif ($haveModel -and (Confirm-Step 'Load the model once to test it? (up to a minute)')) {
             if ((Invoke-ProjectScript 'Test-Model.ps1' @('-Model', $chosen, '-NoLog')) -ne 0) { throw "The model test failed (see above). Log: $($server.logFile)" }
         }
     }

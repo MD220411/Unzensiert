@@ -80,6 +80,18 @@ function Set-MachineValue([string]$Section, [string]$Key, $Value) {
     Save-MachineConfig $machine
 }
 
+function Set-MachineModelArgs([string]$Name, $Values) {
+    # Lays $Values (name -> value) over models.<Name>.args of this machine. A value $null
+    # stays in the file as null and removes that option from the profile (Merge-ConfigObject).
+    $machine = Get-MachineConfig
+    if (-not $machine.PSObject.Properties['models']) { $machine | Add-Member -NotePropertyName models -NotePropertyValue ([pscustomobject]@{}) }
+    if (-not $machine.models.PSObject.Properties[$Name]) { $machine.models | Add-Member -NotePropertyName $Name -NotePropertyValue ([pscustomobject]@{}) }
+    $entry = $machine.models.$Name
+    if (-not $entry.PSObject.Properties['args']) { $entry | Add-Member -NotePropertyName args -NotePropertyValue ([pscustomobject]@{}) }
+    foreach ($key in @($Values.Keys)) { Set-ConfigValue $entry.args ([string]$key) $Values[$key] }
+    Save-MachineConfig $machine
+}
+
 function Read-Config([string]$Name) {
     # config\<Name>.json with the section <Name> of config\machine.json laid over it.
     $cfg = Read-JsonFile (Join-Path $script:ConfigDir "$Name.json")

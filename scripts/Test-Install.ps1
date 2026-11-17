@@ -130,6 +130,104 @@ try {
         $target = [regex]::Match($text, '%~dp0(scripts\\[\w-]+\.ps1)').Groups[1].Value
         Assert-That ($target -and (Test-Path (Join-Path $script:ProjectRoot $target))) "$cmd starts $target"
     }
+
+    # --- 9. planner (lib\Planner.ps1) with a made-up memory model instead of llama.cpp -------------
+    # The stand-in follows the rules of llama.cpp: the first layers stay on the host, the
+    # offloaded ones go to the cards in --device order, the output layer is one more unit and
+    # goes to the last card only when every layer is offloaded, the experts of the first N
+    # layers stay on the host (--n-cpu-moe). Sizes like the real models (docs\planer.md).
+    $script:FakeSpec = $null
+    $script:FitEstimator = {
+        param($Model, $Ctx, $Order, $Counts, $Ncmoe)
+        $s = $script:FakeSpec
+        if ("$Ctx" -eq 'meta') { return @{ nLayerAll = $s.layers; nExpert = $s.experts; nExpertUsed = $s.used } }
+        $n = $s.layers
+        $ngl = 0
+        foreach ($c in $Counts) { $ngl += $c }
+        $cpuLayers = $n - [math]::Min($ngl, $n)
+        $outputOnCard = $ngl -gt $n
+        $kv = $s.kvPer1k * [int]$Ctx / 1024.0
+        $last = -1
+        for ($j = $Counts.Count - 1; $j -ge 0; $j--) { if ($Counts[$j] -gt 0) { $last = $j; break } }
+        $result = @{}
+        $start = $cpuLayers
+        for ($j = 0; $j -lt $Counts.Count; $j++) {
+            $layers = $Counts[$j]
+            if ($outputOnCard -and $j -eq $last) { $layers -= 1 }
+            $end = $start + $layers
+            $withExperts = [math]::Max(0, $end - [math]::Max($start, $Ncmoe))
+            $weights = $layers * $s.denseMiB + $withExperts * $s.expertMiB
+            if ($outputOnCard -and $j -eq $last) { $weights += $s.outputMiB }
+            $compute = 0.0
+            if ($Counts[$j] -gt 0) { $compute = $s.computeMiB }
+            $result[[string]$Order[$j]] = [pscustomobject]@{ model = $weights; context = $layers * $kv; compute = $compute; total = $weights + $layers * $kv + $compute }
+            $start = $end
+        }
+        $hostExperts = [math]::Min($n, [math]::Max($cpuLayers, $Ncmoe))
+        $hostWeights = $s.embdMiB + $cpuLayers * $s.denseMiB + $hostExperts * $s.expertMiB
+        if (-not $outputOnCard) { $hostWeights += $s.outputMiB }
+        $result['Host'] = [pscustomobject]@{ model = $hostWeights; context = $cpuLayers * $kv; compute = 600.0; total = $hostWeights + $cpuLayers * $kv + 600.0 }
+        return $result
+    }
+    $dense = @{ layers = 65; experts = 0; used = 0; denseMiB = 248.0; expertMiB = 0.0; outputMiB = 994.0; embdMiB = 682.0; kvPer1k = 0.55; computeMiB = 1200.0 }
+    $moe = @{ layers = 41; experts = 256; used = 8; denseMiB = 27.0; expertMiB = 498.0; outputMiB = 335.0; embdMiB = 335.0; kvPer1k = 0.12; computeMiB = 800.0 }
+    $pcfg = Get-PlannerConfig
+    $speed = @{ Host = 20.0; FAST = 1.4; SLOW = 3.5 }
+
+    # two cards, dense model: the fast card is filled first and stands last (output layer)
+    $script:FakeSpec = $dense; $script:FitCache = @{}
+    $m = Get-PlannerModel 'local-coder' @([pscustomobject]@{ id = 'FAST' })
+    Assert-That ($m.nLayerAll -eq 65 -and $m.hostBaseMiB -eq 682 -and $m.expertMiB -eq 0 -and $m.mtpMiB -gt 0) 'planner: model facts (layers, host share never read, MTP draft)'
+    $m.mmprojMiB = 1100
+    $cards = @([pscustomobject]@{ id = 'FAST'; name = 'fast'; capMiB = 14000.0; usPerMiB = 1.4 }, [pscustomobject]@{ id = 'SLOW'; name = 'slow'; capMiB = 12500.0; usPerMiB = 3.5 })
+    $plan = New-ModelPlan $m $cards $speed $pcfg 100000
+    $fast = [array]::IndexOf($plan.order, 'FAST')
+    Assert-That ($plan.order[-1] -eq 'FAST' -and $plan.allOnCards -and $plan.ncmoe -eq 0) "planner: two cards - fast card last, every layer on a card (order $($plan.order -join ','), units $($plan.counts -join ','))"
+    $more = [int[]]$plan.counts.Clone(); $more[$fast] += 1; $more[1 - $fast] -= 1
+    $needFast = Get-CardNeed $m $plan.estimate $plan.order $plan.counts $fast
+    Assert-That ($needFast -le 14000 -and (Get-CardNeed $m (Invoke-FitEstimate $m $plan.ctx $plan.order $more 0) $plan.order $more $fast) -gt 14000) "planner: the fast card is as full as possible (needs $([int]$needFast) of 14000 MiB, one unit more would not fit)"
+    Assert-That ($plan.ctx -eq 131072) "planner: two cards - the largest context (got $($plan.ctx))"
+    $roomSlow = 12500 - (Get-CardNeed $m $plan.estimate $plan.order $plan.counts (1 - $fast))
+    Assert-That (($roomSlow -ge 1100 -and $plan.mmproj -eq 'SLOW') -or ($roomSlow -lt 1100 -and $plan.mmproj -eq 'cpu')) "planner: image encoder where room is left ($($plan.mmproj), $([int]$roomSlow) MiB free on the slow card)"
+
+    # one card of 12 GB, dense model: part of the layers stays on the host, and of the
+    # context sizes the largest one within the tolerance is taken
+    $script:FitCache = @{}
+    $one = @([pscustomobject]@{ id = 'SLOW'; name = 'slow'; capMiB = 11000.0; usPerMiB = 3.5 })
+    $plan = New-ModelPlan $m $one $speed $pcfg 100000
+    $pool = @($plan.candidates | Where-Object { $_.ctx -ge [int]$pcfg.minCtx })
+    $best = ($pool | Measure-Object -Property ms -Minimum).Minimum
+    $bigger = @($pool | Where-Object { $_.ctx -gt $plan.ctx -and $_.ms -le $best * (1 + [double]$pcfg.speedTolerance) })
+    Assert-That (-not $plan.allOnCards -and $plan.counts[0] -gt 0 -and $plan.ctx -ge [int]$pcfg.minCtx) "planner: one small card - some layers on the host ($($plan.counts[0]) units on the card, context $($plan.ctx))"
+    Assert-That ($plan.ms -le $best * (1 + [double]$pcfg.speedTolerance) -and $bigger.Count -eq 0) 'planner: the largest context within the speed tolerance'
+    Assert-That ($plan.mmproj -eq 'cpu') 'planner: image encoder on the processor when the card is full'
+
+    # mixture of experts on one card: experts move to the host, the layers stay on the card
+    $script:FakeSpec = $moe; $script:FitCache = @{}
+    $mm = Get-PlannerModel 'local-fast' @([pscustomobject]@{ id = 'SLOW' })
+    Assert-That ($mm.nExpert -eq 256 -and [math]::Abs($mm.expertMiB - 498) -lt 1 -and [math]::Abs($mm.activeFraction - 8 / 256.0) -lt 1e-9) 'planner: experts per layer and the active share are found'
+    $plan = New-ModelPlan $mm $one $speed $pcfg 100000
+    Assert-That ($plan.allOnCards -and $plan.ncmoe -gt 0 -and $plan.counts[0] -eq 42) "planner: mixture of experts - experts of $($plan.ncmoe) layers on the host, every layer on the card"
+    $fewer = Find-Placement $mm $one $plan.ctx ($plan.ncmoe - 1)
+    Assert-That (-not $fewer.allOnCards) 'planner: as few experts on the host as possible'
+    $reads = Get-PlacementReads $mm $plan.order $plan.counts $plan.ncmoe $plan.estimate
+    $expectedHost = $plan.ncmoe * 498.0 * (8 / 256.0)
+    Assert-That ([math]::Abs($reads['Host'] - $expectedHost) -lt 1) "planner: from the host only the active experts are read per token ($([int]$reads['Host']) MiB)"
+
+    # options for the server
+    $a = ConvertTo-PlanArgs $plan
+    Assert-That ($a['fit'] -eq 'off' -and $a['gpu-layers'] -eq 42 -and $a['device'] -eq 'SLOW' -and $a['n-cpu-moe'] -eq $plan.ncmoe -and $a.Contains('mmproj-offload')) 'planner: options for llama-server (fit off, layers, device, n-cpu-moe)'
+
+    # calibration: known times per MiB come back out of made-up measurements
+    $cpuRun = @{ reads = @{ Host = 15000.0 }; tps = 1e6 / (15000 * 20.0) }
+    $runA = @{ reads = @{ FAST = 10000.0; SLOW = 5000.0; Host = 0.0 }; tps = 1e6 / (10000 * 1.4 + 5000 * 3.5) }
+    $runB = @{ reads = @{ FAST = 6000.0; SLOW = 9000.0; Host = 300.0 }; tps = 1e6 / (6000 * 1.4 + 9000 * 3.5 + 300 * 20.0) }
+    $solved = ConvertFrom-CalibrationRuns $cpuRun @($runA, $runB) @('FAST', 'SLOW')
+    Assert-That ([math]::Abs($solved.speed['Host'] - 20) -lt 0.01 -and [math]::Abs($solved.speed['FAST'] - 1.4) -lt 0.01 -and [math]::Abs($solved.speed['SLOW'] - 3.5) -lt 0.01 -and $solved.uncertain.Count -eq 0) 'calibration: times per MiB are solved from the measured runs'
+    $bad = @{ reads = @{ FAST = 100.0; Host = 14000.0 }; tps = 1e6 / (14000 * 20.0 - 100) }
+    $solved = ConvertFrom-CalibrationRuns $cpuRun @($bad) @('FAST')
+    Assert-That ($solved.uncertain -contains 'FAST' -and [math]::Abs($solved.speed['FAST'] - 20 / 12.0) -lt 0.01) 'calibration: a card hidden behind the host part gets a fallback value and is marked'
+    $script:FitEstimator = $null; $script:FitCache = @{}
 } finally {
     $env:CLAUDE_LOCAL_MACHINE_FILE = $savedMachineFile
     Remove-Item -Recurse -Force -Path $scratch -ErrorAction SilentlyContinue

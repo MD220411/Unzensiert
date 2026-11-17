@@ -1,0 +1,30 @@
+{
+  "_comment": "Settings of the planner, which computes how each model is best spread over the graphics cards and main memory of this machine (scripts\\Plan-Models.ps1, scripts\\lib\\Planner.ps1, docs\\planer.md). The result goes into config\\machine.json.",
+
+  "reserveMiB": 1024,
+  "_reserveMiB": "Kept free on every graphics card, against the free memory llama.cpp reports. Measured on the development machine (2026-11-17): the estimate of llama.cpp (llama-fit-params) leaves out the CUDA context of the server (650 MiB per card, of which about 540 MiB are already missing from the reported free memory); and after every start the router briefly runs measuring processes for the other models (--models-memory-margin), each with a CUDA context of its own of about 550 MiB. With 512 MiB kept free a model crashed in that moment. A card that is too full in steady state does not fail on Windows: the driver silently moves memory to main memory and the model gets slow.",
+
+  "mtpReserveMiB": 1408,
+  "_mtpReserveMiB": "Extra on the card with the last layers, for models that guess ahead with their MTP layer (spec-type draft-mtp): the draft has a context and compute buffers of its own, which the estimate leaves out. Measured 1375 MiB at 128k context (development machine, 2026-11-17).",
+
+  "ramReserveGiB": 6,
+  "_ramReserveGiB": "Main memory kept free for Windows and other programs.",
+
+  "mmprojExtraMiB": 256,
+  "_mmprojExtraMiB": "Memory of the image encoder: its file size plus this (compute buffer). If it fits on no card next to the model, it runs on the processor; images then take longer, everything else stays fast.",
+
+  "ctxCandidates": [131072, 98304, 65536, 32768],
+  "minCtx": 65536,
+  "_minCtx": "Claude Code starts every session with about 26,000 tokens; below 64k the conversation is compacted all the time. Smaller only if nothing else fits.",
+
+  "speedTolerance": 0.15,
+  "_speedTolerance": "A larger context may make the model at most this much slower than the fastest variant (0.15 = 15 %). Context is worth some speed: in the benchmark the task longcontext only passed with 128k (docs\\modellwahl.md); on the development machine 128k costs 10.6 % against 64k.",
+
+  "bench": {
+    "_comment": "Calibration with llama-bench: tokens generated per run and repetitions. cpuTokens for the run on the processor alone, which is slow.",
+    "tokens": 32,
+    "repetitions": 2,
+    "cpuTokens": 12,
+    "timeoutSeconds": 300
+  }
+}
