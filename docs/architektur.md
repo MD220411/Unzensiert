@@ -51,10 +51,11 @@ config\              alle Einstellungen
   continue.config.yaml Konfiguration der VS-Code-Erweiterung Continue
   benchmark.json       welche Profile und Aufgaben der Benchmark misst
   guard.json           Schutzregeln: was das lokale Modell nicht oder nur nach Rückfrage darf (sicherheit.md)
-  style.json           Erscheinungsbild: Farben, Zeichen, Texte (stil.md)
+  style.json           welches Erscheinungsbild gilt (stil.md)
+  styles\              je Stil Farben, Zeichen, Texte, Schrift für Bilder aus Zeichen: ausbruch.json, nachtschicht.json
 scripts\             ein Skript je Aufgabe (Einrichten, Starten, Testen, Messen)
   style\               Shell.ps1 (Eingabezeile, Begrüßung), Statusline.ps1 (Statuszeile von Claude Code)
-  lib\                 gemeinsame Bausteine: Config.ps1, Server.ps1, Measure.ps1, Session.ps1, Safety.ps1, Quality.ps1, Review.ps1, Tasks.ps1, Projects.ps1
+  lib\                 gemeinsame Bausteine: Config.ps1, Server.ps1, Measure.ps1, Session.ps1, Safety.ps1, Quality.ps1, Review.ps1, Tasks.ps1, Projects.ps1, Style.ps1, CharArt.ps1
   hooks\               Guard-Tool.ps1: Wächter, den Claude Code vor jedem Werkzeug-Aufruf startet;
                        Check-Stop.ps1: Abschlussprüfung, bevor das Modell eine Antwort beendet
   _common.ps1          bindet lib\ ein; jedes Skript beginnt damit

@@ -1,45 +1,96 @@
-# Building blocks of the look "Nachtschicht": reads config\style.json, turns colours into
-# terminal escape sequences, tints the terminal per mode and takes the readings that the
-# prompt, the greeting and the status line show (graphics cards, git, llama-server).
+# Building blocks of the look (docs\stil.md): reads the active style, turns colours into
+# terminal escape sequences, mixes the colour wheel of colourful styles, tints the terminal
+# per mode and takes the readings that the prompt, the greeting and the status line show
+# (graphics cards, git, llama-server). Pictures made of characters: lib\CharArt.ps1.
+#
+# Which style is active says config\style.json ("active"); the styles themselves live in
+# config\styles\<name>.json (nachtschicht, ausbruch, ...).
 #
 # Self-contained on purpose: the interactive shell and the status line of Claude Code load
-# only this file. They must start fast, and $ErrorActionPreference = 'Stop' from
-# _common.ps1 must not leak into an interactive shell.
+# only this file (and CharArt.ps1). They must start fast, and $ErrorActionPreference =
+# 'Stop' from _common.ps1 must not leak into an interactive shell.
 # Keep this file ASCII-only: Windows PowerShell 5.1 reads BOM-less files as ANSI. All
-# non-ASCII characters (glyphs, German texts) therefore live in config\style.json.
+# non-ASCII characters (glyphs, German texts) therefore live in the style files.
 
 $script:StyleProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$script:StyleSelectionCache = $null
 $script:StyleConfigCache = $null
+$script:StyleRainbowCache = $null
+$script:StyleRandom = New-Object System.Random
 $script:StyleEsc = [string][char]27
 $script:StyleReset = $script:StyleEsc + '[0m'
 $script:StyleCulture = [System.Globalization.CultureInfo]::GetCultureInfo('de-DE')
 
+. "$PSScriptRoot\CharArt.ps1"
+
 # --- configuration ------------------------------------------------------------------
 
+function Read-StyleJson([string]$Path) {
+    # ReadAllText decodes UTF-8 reliably (Get-Content of PS 5.1 would guess ANSI).
+    return ([System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json)
+}
+
+function Get-StyleSelection {
+    # config\style.json: the active style and what all styles share (profile GUID,
+    # mode variable, backup suffix). Read once per process.
+    if (-not $script:StyleSelectionCache) {
+        $script:StyleSelectionCache = Read-StyleJson (Join-Path $script:StyleProjectRoot 'config\style.json')
+    }
+    return $script:StyleSelectionCache
+}
+
+function Get-StyleFile([string]$Name) {
+    return (Join-Path $script:StyleProjectRoot ("config\styles\{0}.json" -f $Name))
+}
+
 function Get-StyleConfig {
-    # config\style.json, read once per process. ReadAllText decodes UTF-8 reliably.
+    # The active style, config\styles\<active>.json, read once per process.
     if (-not $script:StyleConfigCache) {
-        $path = Join-Path $script:StyleProjectRoot 'config\style.json'
-        $script:StyleConfigCache = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+        $name = [string](Get-StyleSelection).active
+        $path = Get-StyleFile $name
+        if (-not (Test-Path $path)) { throw "Style '$name' (config\style.json) has no file $path." }
+        $script:StyleConfigCache = Read-StyleJson $path
     }
     return $script:StyleConfigCache
 }
 
+function Get-KnownStyles {
+    # Every style in config\styles\, parsed: Install-Style.ps1 removes the entries of all
+    # of them before it writes the active one, so a switch leaves nothing behind.
+    $dir = Join-Path $script:StyleProjectRoot 'config\styles'
+    return @(Get-ChildItem -Path $dir -Filter '*.json' | Sort-Object Name | ForEach-Object { Read-StyleJson $_.FullName })
+}
+
+function Get-ShellModeName {
+    # The mode of the plain shell ("shell.mode"); older style files had no key for it.
+    $mode = [string](Get-StyleConfig).shell.mode
+    if (-not $mode) { $mode = 'werkbank' }
+    return $mode
+}
+
 function Get-StyleMode([string]$Name) {
-    # One entry of "modes" (werkbank, glut, fernlicht); unknown names fall back to werkbank.
+    # One entry of "modes"; unknown names fall back to the mode of the shell.
     $modes = (Get-StyleConfig).modes
     $entry = $modes.PSObject.Properties[$Name]
     if ($entry -and $entry.Value -isnot [string]) { return $entry.Value }
-    return $modes.werkbank
+    return $modes.PSObject.Properties[(Get-ShellModeName)].Value
 }
 
-function Get-ClaudeThemeSlug([string]$ModeName) {
+function Get-StyleGlyph([string]$Name) {
+    # A glyph from "glyphs". A list means: a different one each time.
+    $value = (Get-StyleConfig).glyphs.$Name
+    if ($value -is [array]) { return [string]$value[$script:StyleRandom.Next($value.Count)] }
+    return [string]$value
+}
+
+function Get-ClaudeThemeSlug([string]$ModeName, $Style = $null) {
     # Name of the Claude Code theme file (without .json) that belongs to a mode.
-    return ([string](Get-StyleConfig).claude.themePrefix) + $ModeName
+    if (-not $Style) { $Style = Get-StyleConfig }
+    return ([string]$Style.claude.themePrefix) + $ModeName
 }
 
-function Get-ClaudeThemeFile([string]$ModeName) {
-    return (Join-Path $env:USERPROFILE (".claude\themes\{0}.json" -f (Get-ClaudeThemeSlug $ModeName)))
+function Get-ClaudeThemeFile([string]$ModeName, $Style = $null) {
+    return (Join-Path $env:USERPROFILE (".claude\themes\{0}.json" -f (Get-ClaudeThemeSlug $ModeName $Style)))
 }
 
 function Test-FontInstalled([string]$Face) {
@@ -60,6 +111,60 @@ function ConvertTo-RgbParts([string]$Hex) {
     )
 }
 
+function Get-RgbCode([int[]]$Rgb, [switch]$Bold) {
+    # Escape sequence for a colour given as three numbers (faster than parsing hex).
+    $code = $script:StyleEsc + '[38;2;' + $Rgb[0] + ';' + $Rgb[1] + ';' + $Rgb[2] + 'm'
+    if ($Bold) { $code += $script:StyleEsc + '[1m' }
+    return $code
+}
+
+function Get-MixedRgb([int[]]$A, [int[]]$B, [double]$T) {
+    # $A blended towards $B; $T = 0 gives $A, 1 gives $B.
+    if ($T -lt 0) { $T = 0 }
+    if ($T -gt 1) { $T = 1 }
+    return [int[]]@(
+        [int]($A[0] + ($B[0] - $A[0]) * $T),
+        [int]($A[1] + ($B[1] - $A[1]) * $T),
+        [int]($A[2] + ($B[2] - $A[2]) * $T)
+    )
+}
+
+function Test-Rainbow {
+    # True if the active style has a colour wheel ("rainbow.colors").
+    $r = (Get-StyleConfig).PSObject.Properties['rainbow']
+    return [bool]($r -and @($r.Value.colors).Count -ge 2)
+}
+
+function Get-RainbowRgb([double]$Position) {
+    # Colour on the wheel at $Position (0..1, wraps around), blended smoothly between
+    # neighbouring colours of "rainbow.colors".
+    if (-not $script:StyleRainbowCache) {
+        $script:StyleRainbowCache = @(@((Get-StyleConfig).rainbow.colors) | ForEach-Object { , [int[]](ConvertTo-RgbParts ([string]$_)) })
+    }
+    $wheel = $script:StyleRainbowCache
+    $p = $Position - [Math]::Floor($Position)
+    $f = $p * $wheel.Count
+    $i = [int][Math]::Floor($f)
+    if ($i -ge $wheel.Count) { $i = 0 }
+    return (Get-MixedRgb $wheel[$i] $wheel[($i + 1) % $wheel.Count] ($f - $i))
+}
+
+function Format-Rainbow([string]$Text, [double]$Offset = 0, [double]$Span = 1, [switch]$Bold) {
+    # $Text letter by letter in the colours of the wheel, from $Offset over $Span of it.
+    # Without a colour wheel: plain text.
+    if (-not $Text) { return '' }
+    if (-not (Test-Rainbow)) { return $Text }
+    $sb = New-Object System.Text.StringBuilder
+    $n = [Math]::Max(1, $Text.Length - 1)
+    for ($i = 0; $i -lt $Text.Length; $i++) {
+        $ch = $Text[$i]
+        if ($ch -eq ' ') { $null = $sb.Append(' '); continue }
+        $null = $sb.Append((Get-RgbCode (Get-RainbowRgb ($Offset + $Span * $i / $n)) -Bold:$Bold)).Append($ch)
+    }
+    $null = $sb.Append($script:StyleReset)
+    return $sb.ToString()
+}
+
 function Get-InkCode([string]$Hex, [switch]$Bold, [switch]$Italic) {
     # Escape sequence that switches the text colour to $Hex (24 bit).
     $c = ConvertTo-RgbParts $Hex
@@ -76,13 +181,50 @@ function Format-Ink([string]$Text, [string]$Hex, [switch]$Bold, [switch]$Italic)
 }
 
 function Format-Gauge([double]$Fraction, [int]$Width, [string]$OnHex, [string]$OffHex) {
-    # A thin instrument line: the filled part in $OnHex, the rest in $OffHex.
+    # An instrument line: the filled part in $OnHex, the rest in $OffHex. $OnHex 'rainbow'
+    # paints the filled part along the colour wheel, so a full line shows all of it. With
+    # "glyphs.gaugeSpray" the filled part is sprayed from random characters instead of
+    # drawn with one.
     if ($Fraction -lt 0) { $Fraction = 0 }
     if ($Fraction -gt 1) { $Fraction = 1 }
-    $glyph = [string](Get-StyleConfig).glyphs.gauge
+    $glyphs = (Get-StyleConfig).glyphs
+    $glyph = [string]$glyphs.gauge
+    $spray = ''
+    if ($glyphs.PSObject.Properties['gaugeSpray']) { $spray = [string]$glyphs.gaugeSpray }
     $on = [int][Math]::Round($Fraction * $Width)
     if ($on -eq 0 -and $Fraction -ge 0.02) { $on = 1 }
-    return (Format-Ink ($glyph * $on) $OnHex) + (Format-Ink ($glyph * ($Width - $on)) $OffHex)
+    $rainbow = ($OnHex -eq 'rainbow') -and (Test-Rainbow)
+    if ($OnHex -eq 'rainbow' -and -not $rainbow) { $OnHex = (Get-StyleMode (Get-ShellModeName)).accent }
+    if (-not $spray -and -not $rainbow) {
+        return (Format-Ink ($glyph * $on) $OnHex) + (Format-Ink ($glyph * ($Width - $on)) $OffHex)
+    }
+    $sb = New-Object System.Text.StringBuilder
+    $fixed = ''
+    if (-not $rainbow) { $fixed = Get-InkCode $OnHex }
+    for ($i = 0; $i -lt $on; $i++) {
+        if ($rainbow) { $null = $sb.Append((Get-RgbCode (Get-RainbowRgb ($i / [Math]::Max(1, $Width - 1))))) }
+        else { $null = $sb.Append($fixed) }
+        if ($spray) { $null = $sb.Append($spray[$script:StyleRandom.Next($spray.Length)]) }
+        else { $null = $sb.Append($glyph) }
+    }
+    if ($on -gt 0) { $null = $sb.Append($script:StyleReset) }
+    return $sb.ToString() + (Format-Ink ($glyph * ($Width - $on)) $OffHex)
+}
+
+function Get-GaugeInk($Mode, [string]$Default) {
+    # Colour of the filled part of a gauge in a mode: "gaugeInk" (may be 'rainbow') or
+    # $Default.
+    if ($Mode.PSObject.Properties['gaugeInk']) { return [string]$Mode.gaugeInk }
+    return $Default
+}
+
+function Format-ModeLabel($Mode) {
+    # Mark and name of a mode: in its accent, or along the colour wheel ("labelInk").
+    $mark = Format-Ink ([string]$Mode.mark) $Mode.accent
+    if ($Mode.PSObject.Properties['labelInk'] -and [string]$Mode.labelInk -eq 'rainbow' -and (Test-Rainbow)) {
+        return $mark + ' ' + (Format-Rainbow ([string]$Mode.label) $script:StyleRandom.NextDouble() 0.6 -Bold)
+    }
+    return $mark + ' ' + (Format-Ink ([string]$Mode.label) $Mode.accent -Bold)
 }
 
 function Format-Number([double]$Value, [int]$Decimals = 0) {
@@ -95,7 +237,7 @@ function Format-Number([double]$Value, [int]$Decimals = 0) {
 function Set-TerminalPalette([string]$ModeName) {
     # Tints the running terminal (background, text, cursor) in the colours of a mode, so
     # the light in the room changes with where the thinking happens. Only in Windows
-    # Terminal, whose colour scheme is the mode "werkbank" (scripts\Install-Style.ps1);
+    # Terminal, whose colour scheme is the mode of the shell (scripts\Install-Style.ps1);
     # elsewhere, and when the output is redirected, nothing happens.
     if (-not $env:WT_SESSION) { return }
     if (-not (Test-StyleInstalled)) { return }
@@ -160,7 +302,14 @@ function Get-LocalLookBanner([string]$Model, [string]$BaseUrl, [int]$ContextUsab
     $mode = Get-StyleMode ([string]$cfg.claude.localMode)
     $sep = '  ' + (Format-Ink ([string]$cfg.glyphs.sep) $mode.faint) + '  '
     $lines += ''
-    $lines += ' ' + (Format-Ink ([string]$mode.mark) $mode.accent) + ' ' + (Format-Ink ([string]$mode.label) $mode.accent -Bold) + '  ' +
+    # colourful styles start every local session with a picture made of characters
+    if ($cfg.PSObject.Properties['art'] -and $cfg.art.bannerText) {
+        $width = 80
+        try { $width = $Host.UI.RawUI.WindowSize.Width } catch { }
+        $lines += @(Get-CharArt ([string]$cfg.art.bannerText) ([int]$cfg.art.bannerScale) $width $mode.background)
+        $lines += ''
+    }
+    $lines += ' ' + (Format-ModeLabel $mode) + '  ' +
         (Format-Ink $Model $mode.foreground) + $sep +
         (Format-Ink ([string]$cfg.texts.contextOf -f (Format-Number $ContextUsable), (Format-Number $ContextTotal)) $mode.dim) + $sep +
         (Format-Ink $BaseUrl $mode.dim)
@@ -172,12 +321,12 @@ function Enter-LocalLook {
     # Marks the process as a local session (the status line reads the variable) and
     # warms the terminal up. Undo with Exit-LocalLook.
     $claude = (Get-StyleConfig).claude
-    Set-Item -Path ("Env:" + [string]$claude.modeVariable) -Value ([string]$claude.localMode)
+    Set-Item -Path ("Env:" + [string](Get-StyleSelection).modeVariable) -Value ([string]$claude.localMode)
     Set-TerminalPalette ([string]$claude.localMode)
 }
 
 function Exit-LocalLook {
-    Set-TerminalPalette 'werkbank'
+    Set-TerminalPalette (Get-ShellModeName)
 }
 
 # --- readings -------------------------------------------------------------------------

@@ -1,11 +1,11 @@
-# Status line of Claude Code in the look "Nachtschicht". Claude Code passes the state of
-# the session as JSON on stdin and shows the line this script prints.
+# Status line of Claude Code in the active look (config\style.json). Claude Code passes
+# the state of the session as JSON on stdin and shows the line this script prints.
 #
 #   local session (claude-local):  mark, model, context, memory of both graphics cards
 #   cloud session (claude):        mark, model, context, 5-hour usage limit
 #
 # Registered by scripts\Install-Style.ps1 ("statusLine" in ~\.claude\settings.json). The
-# mode comes from the variable that claude-local sets ("claude.modeVariable" in
+# mode comes from the variable that claude-local sets ("modeVariable" in
 # config\style.json). Try it by hand:
 #   '{"model":{"display_name":"Test"}}' | powershell -NoProfile -File scripts\style\Statusline.ps1
 
@@ -16,7 +16,8 @@ function Read-StdinUtf8 {
     $stream = [Console]::OpenStandardInput()
     $buffer = New-Object System.IO.MemoryStream
     $stream.CopyTo($buffer)
-    return [System.Text.Encoding]::UTF8.GetString($buffer.ToArray())
+    # A caller may send a byte order mark first (PowerShell pipes do); JSON must not start with it.
+    return [System.Text.Encoding]::UTF8.GetString($buffer.ToArray()).TrimStart([char]0xFEFF)
 }
 
 function Write-StdoutUtf8([string]$Text) {
@@ -51,7 +52,7 @@ $cfg = Get-StyleConfig
 $session = $null
 try { $session = (Read-StdinUtf8) | ConvertFrom-Json } catch { }
 
-$modeName = [Environment]::GetEnvironmentVariable([string]$cfg.claude.modeVariable)
+$modeName = [Environment]::GetEnvironmentVariable([string](Get-StyleSelection).modeVariable)
 if (-not $modeName) { $modeName = [string]$cfg.claude.cloudMode }
 $isLocal = ($modeName -eq [string]$cfg.claude.localMode)
 $mode = Get-StyleMode $modeName
@@ -63,7 +64,7 @@ $parts = @()
 # who is thinking: mark and name of the mode, then the model
 $model = [string](Get-JsonValue $session 'model.display_name')
 if (-not $model) { $model = [string](Get-JsonValue $session 'model.id') }
-$head = (Format-Ink ([string]$mode.mark) $mode.accent) + ' ' + (Format-Ink ([string]$mode.label) $mode.accent -Bold)
+$head = Format-ModeLabel $mode
 if ($model) { $head += '  ' + (Format-Ink $model $mode.foreground) }
 $parts += $head
 
@@ -71,7 +72,7 @@ $parts += $head
 $used = Get-JsonValue $session 'context_window.used_percentage'
 if ($null -ne $used) {
     $used = [double]$used
-    $ink = $mode.accent
+    $ink = Get-GaugeInk $mode $mode.accent
     if ($used -ge [double]$cfg.claude.statusLine.contextWarnPercent) { $ink = $cfg.ink.warn }
     if ($used -ge [double]$cfg.claude.statusLine.contextFullPercent) { $ink = $cfg.ink.error }
     $parts += (Format-Ink ([string]$cfg.texts.context) $mode.dim) + ' ' + (Format-Gauge ($used / 100) $width $ink $mode.faint) + ' ' +
@@ -83,7 +84,7 @@ if ($isLocal) {
     foreach ($gpu in @(Get-GpuReadings)) {
         $fraction = 0
         if ($gpu.totalMiB -gt 0) { $fraction = $gpu.usedMiB / $gpu.totalMiB }
-        $parts += (Format-Ink ($gpu.name -replace '^RTX\s+', '') $mode.dim) + ' ' + (Format-Gauge $fraction $width $mode.accent $mode.faint) + ' ' +
+        $parts += (Format-Ink ($gpu.name -replace '^RTX\s+', '') $mode.dim) + ' ' + (Format-Gauge $fraction $width (Get-GaugeInk $mode $mode.accent) $mode.faint) + ' ' +
             (Format-Ink ((Format-Number ($gpu.usedMiB / 1024) 1) + ' GB') $mode.foreground)
     }
 } else {
@@ -91,7 +92,7 @@ if ($isLocal) {
     $limit = Get-JsonValue $session 'rate_limits.five_hour.used_percentage'
     if ($null -ne $limit) {
         $limit = [double]$limit
-        $ink = $mode.accent
+        $ink = Get-GaugeInk $mode $mode.accent
         if ($limit -ge 70) { $ink = $cfg.ink.warn }
         if ($limit -ge 90) { $ink = $cfg.ink.error }
         $text = (Format-Ink ([string]$cfg.texts.limit5h) $mode.dim) + ' ' + (Format-Gauge ($limit / 100) $width $ink $mode.faint) + ' ' +

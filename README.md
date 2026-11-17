@@ -110,7 +110,7 @@ Programme, Modelldateien und das Server-Protokoll liegen außerhalb des Reposito
 | [docs/modelle.md](docs/modelle.md) | Modellprofile, MTP, Chat-Vorlage, neues Modell aufnehmen |
 | [docs/agent.md](docs/agent.md) | `claude-local`, Modellauswahl, Arbeitsregeln, Abschlussprüfung, zweiter Blick, Befehle für feste Abläufe |
 | [docs/projekte.md](docs/projekte.md) | neues Projekt aus der Vorlage, Prüfbefehl, Fakten mit Quelle und Abgleich gegen Doku und Code, Arbeitsweise in einem Projekt |
-| [docs/stil.md](docs/stil.md) | Erscheinungsbild „Nachtschicht“: Shell, Statuszeile, Farbthemen für `claude` und `claude-local` |
+| [docs/stil.md](docs/stil.md) | Erscheinungsbild: „Ausbruch“ (bunt, Bilder aus Zeichen) oder „Nachtschicht“ (ruhig); Shell, Statuszeile, Farbthemen für `claude` und `claude-local`, Stil wechseln |
 | [docs/erweitern.md](docs/erweitern.md) | Wegweiser für Änderungen, Benchmark, neue Skripte |
 | [docs/modellwahl.md](docs/modellwahl.md) | Bewertung der Messwerte und Empfehlung |
 | [docs/benchmark.md](docs/benchmark.md) | Messwerte aller getesteten Modelle (automatisch erzeugt) |
@@ -142,7 +142,7 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 | `Install-Path.ps1` | `bin\` in den PATH aufnehmen |
 | `Install-Continue.ps1` | Continue installieren und Konfiguration kopieren |
 | `Install-Font.ps1` | Schrift des Erscheinungsbilds (IBM Plex Mono) für den Benutzer installieren |
-| `Install-Style.ps1` | Erscheinungsbild „Nachtschicht“ aus `config\style.json` auf Windows Terminal und Claude Code anwenden (`-Remove` nimmt es zurück) |
+| `Install-Style.ps1` | den in `config\style.json` gewählten Stil (`config\styles\`) auf Windows Terminal und Claude Code anwenden, auch nach einem Wechsel (`-Remove` nimmt es zurück) |
 | `claude-local.ps1` | Starter hinter dem Befehl `claude-local` |
 
 ## Lizenz

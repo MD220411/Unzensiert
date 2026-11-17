@@ -1,4 +1,4 @@
-# Installs the font of the look "Nachtschicht" ("font" in config\style.json) for the
+# Installs the font of the active look ("font" in config\styles\<name>.json) for the
 # current user. No administrator rights needed, nothing is installed system-wide.
 # Idempotent: files that are already installed are skipped. Afterwards run
 # scripts\Install-Style.ps1 so that Windows Terminal uses the font.
@@ -10,7 +10,7 @@
 $font = (Get-StyleConfig).font
 $fontDir = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
 $regKey = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
-$workDir = Join-Path $env:TEMP 'nachtschicht-font'
+$workDir = Join-Path $env:TEMP 'style-font'
 
 if (Test-FontInstalled ([string]$font.face)) {
     "already installed: $($font.face)"
@@ -36,7 +36,7 @@ if ($files.Count -eq 0) { throw "No file matching '$($font.source.pattern)' in t
 # Same places Windows itself uses for "Install" (per user): the file goes to
 # %LOCALAPPDATA%\Microsoft\Windows\Fonts and is listed under HKCU. AddFontResource makes
 # it usable right away, without signing out.
-Add-Type -Namespace Nachtschicht -Name Gdi -MemberDefinition @'
+Add-Type -Namespace StyleFont -Name Gdi -MemberDefinition @'
 [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
 public static extern int AddFontResourceW(string path);
 [DllImport("user32.dll", CharSet = CharSet.Unicode)]
@@ -49,11 +49,11 @@ foreach ($file in $files) {
     $target = Join-Path $fontDir $file.Name
     if (-not (Test-Path $target)) { Copy-Item -Path $file.FullName -Destination $target }
     Set-ItemProperty -Path $regKey -Name "$($file.BaseName) (TrueType)" -Value $target
-    $null = [Nachtschicht.Gdi]::AddFontResourceW($target)
+    $null = [StyleFont.Gdi]::AddFontResourceW($target)
 }
 # WM_FONTCHANGE to all windows, so running programs notice the new fonts
 $result = [IntPtr]::Zero
-$null = [Nachtschicht.Gdi]::SendMessageTimeoutW([IntPtr]0xFFFF, 0x001D, [IntPtr]::Zero, [IntPtr]::Zero, 2, 1000, [ref]$result)
+$null = [StyleFont.Gdi]::SendMessageTimeoutW([IntPtr]0xFFFF, 0x001D, [IntPtr]::Zero, [IntPtr]::Zero, 2, 1000, [ref]$result)
 
 Remove-Item -Recurse -Force $workDir
 "installed $($files.Count) files of '$($font.face)' ($($font.source.license)) to $fontDir"
