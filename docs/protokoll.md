@@ -108,6 +108,38 @@ Start per Einzeiler und per ZIP mit Doppelklick. Gebaut in einem eigenen Arbeits
 - Die Qualität der Stufen ist nur über `Test-Model.ps1` geprüft, nicht im Benchmark:
   Läuft `local-coder` mit 64k statt 128k Kontext genauso zuverlässig?
 
+## 2026-11-17: Neues Erscheinungsbild „Ausbruch“
+
+### Durchgeführt
+
+1. **Zweiter Stil „Ausbruch“** (`config\styles\ausbruch.json`): bunt, frei, rebellisch.
+   Bilder aus farbigen Buchstaben und Zeichen statt aus Pixeln: über der Shell das Wort
+   UNZENSIERT, vor jeder Sitzung von `claude-local` das Wort FREI, gesetzt in einer
+   Blockschrift, gefüllt mit zufälligen Zeichen, durch einen Farbkreis aus sieben Farben
+   gefärbt; Sprühnebel um die Buchstaben, rechts brechen Zeichen aus und fliegen davon.
+   Stimmungen: Straße (Shell), Frei (lokal, ganzer Farbkreis), Wolke (Cloud, nur Cyan).
+   Gesprühte Messlinien, bunter Ordnername, wechselndes Eingabezeichen, eigene Themen für
+   Claude Code, rebellische Wartetexte, Farbrad als Tab-Symbol ([stil.md](stil.md)).
+2. **Stile umschaltbar:** `config\style.json` wählt nur noch den Stil (`active`) und hält,
+   was alle teilen (Profil-GUID, Variable `CLAUDE_LOCAL_LOOK` statt `NACHTSCHICHT_MODE`,
+   Endung der Sicherungen). Der bisherige Inhalt liegt als
+   `config\styles\nachtschicht.json` daneben, mit `shell.mode`.
+   `Install-Style.ps1` nimmt die Einträge aller Stile heraus, bevor es den aktiven
+   schreibt.
+3. **Neu `scripts\lib\CharArt.ps1`** (Bilder aus Zeichen); `lib\Style.ps1` mit Farbkreis,
+   gesprühten Messlinien und `Get-ShellModeName` statt fest `werkbank`.
+4. **Statuszeile:** liest stdin auch mit vorangestelltem BOM (vorher leere Zeile ohne
+   Modell und Kontext, wenn ein Aufrufer eines mitschickte).
+5. **`Test-Setup.ps1`** prüft Stil-Dateien, Blockschrift, Bildbreite, Messlinien und die
+   Statuszeile.
+6. „Ausbruch“ ist installiert und aktiv; ein zweiter Lauf von `Install-Style.ps1` ändert
+   nichts.
+
+### Gemessen
+
+Bild UNZENSIERT beim ersten Zeichnen etwa 145 ms, danach etwa 50 ms; Bild FREI etwa
+23 ms; Statuszeile lokal etwa 480 ms. Nicht geprüft: das Aussehen im echten Fenster.
+
 ## 2026-11-17: Zweiter Blick im Benchmark, erster Teil (Lauf `h3-qwen38`)
 
 ### Durchgeführt

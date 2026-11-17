@@ -16,7 +16,8 @@ function Assert-That([bool]$Condition, [string]$What) {
 }
 
 # --- 1. JSON files -------------------------------------------------------------------
-$jsonFiles = @(Get-ChildItem -Path $script:ConfigDir -Filter '*.json') + @(Get-ChildItem -Path (Join-Path $script:ProjectRoot 'tests') -Filter '*.json' -ErrorAction SilentlyContinue)
+$jsonFiles = @(Get-ChildItem -Path $script:ConfigDir -Filter '*.json') + @(Get-ChildItem -Path (Join-Path $script:ConfigDir 'styles') -Filter '*.json' -ErrorAction SilentlyContinue) +
+    @(Get-ChildItem -Path (Join-Path $script:ProjectRoot 'tests') -Filter '*.json' -ErrorAction SilentlyContinue)
 $jsonBroken = $false
 foreach ($file in $jsonFiles) {
     $valid = $true
@@ -210,6 +211,45 @@ if ($agent.pluginDir) {
         Assert-That ((Get-Content -Raw -Path $file.FullName -Encoding UTF8) -match '(?s)^---.*?description:.*?---') "command /$($file.BaseName) has a description"
     }
 }
+
+# --- 8. look ---------------------------------------------------------------------------
+# config\style.json picks one of config\styles\ (docs\stil.md).
+$selection = Get-StyleSelection
+Assert-That (Test-Path (Get-StyleFile ([string]$selection.active))) "style.json: active style '$($selection.active)' has a file in config\styles"
+$known = @(Get-KnownStyles)
+Assert-That (@($known | ForEach-Object { $_.name } | Select-Object -Unique).Count -eq $known.Count) 'styles: names are unique'
+Assert-That (@($known | ForEach-Object { $_.claude.themePrefix } | Select-Object -Unique).Count -eq $known.Count) 'styles: theme prefixes are unique'
+foreach ($s in $known) {
+    $modeNames = @($s.modes.PSObject.Properties | Where-Object { $_.Name -notlike '_*' } | ForEach-Object { $_.Name })
+    $shellMode = [string]$s.shell.mode
+    if (-not $shellMode) { $shellMode = 'werkbank' }
+    $needed = @($shellMode, [string]$s.claude.localMode, [string]$s.claude.cloudMode)
+    Assert-That (@($needed | Where-Object { $modeNames -notcontains $_ }).Count -eq 0) "style $($s.name): modes for shell, local and cloud ($($needed -join ', '))"
+    Assert-That ($s.claude.themes.PSObject.Properties[[string]$s.claude.localMode] -and $s.claude.themes.PSObject.Properties[[string]$s.claude.cloudMode]) "style $($s.name): Claude Code themes for local and cloud"
+    if ($s.PSObject.Properties['art']) {
+        $font = $s.art.font
+        $bad = @($font.PSObject.Properties | Where-Object {
+            $rows = @($_.Value)
+            $rows.Count -ne 5 -or @($rows | ForEach-Object { ([string]$_).Length } | Select-Object -Unique).Count -ne 1
+        } | ForEach-Object { $_.Name })
+        Assert-That ($bad.Count -eq 0) "style $($s.name): every letter of the art font has 5 rows of one width $($bad -join ' ')"
+        $missing = @(([string]$s.art.text + [string]$s.art.bannerText).ToUpperInvariant().ToCharArray() | Where-Object { -not $font.PSObject.Properties[[string]$_] } | Select-Object -Unique)
+        Assert-That ($missing.Count -eq 0) "style $($s.name): the art font has all letters of text and bannerText $($missing -join ' ')"
+    }
+}
+$style = Get-StyleConfig
+if ($style.PSObject.Properties['art']) {
+    $bg = (Get-StyleMode (Get-ShellModeName)).background
+    $wide = @(Get-CharArt ([string]$style.art.text) ([int]$style.art.scale) 160 $bg 7)
+    $over = @($wide | Where-Object { (Get-VisibleLength $_) -gt 159 })
+    Assert-That ($wide.Count -eq 7 -and $over.Count -eq 0) "art: picture of '$($style.art.text)' has 7 lines within 160 columns"
+    Assert-That (@(Get-CharArt ([string]$style.art.text) ([int]$style.art.scale) 10 $bg 7).Count -eq 0) 'art: no picture when the window is too narrow'
+}
+Assert-That ((Get-VisibleLength (Format-Gauge 0.4 12 'rainbow' '#333333')) -eq 12) 'gauge: a gauge of width 12 is 12 characters wide'
+# the status line reads JSON from stdin; a PowerShell pipe may send a byte order mark first
+$sample = '{"model":{"display_name":"probe-model"},"context_window":{"used_percentage":42}}'
+$line = $sample | & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $script:ProjectRoot 'scripts\style\Statusline.ps1')
+Assert-That (($line -join '') -match 'probe-model' -and ($line -join '') -match '42 %') 'status line: shows model and context from the JSON on stdin'
 
 if ($script:Failures -gt 0) { "setup: $script:Failures check(s) failed."; exit 1 }
 'setup: all checks passed. (Full guard cases: scripts\Test-Guard.ps1, a model: scripts\Test-Model.ps1)'

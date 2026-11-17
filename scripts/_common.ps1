@@ -13,8 +13,9 @@
 #   lib\Review.ps1   second look: a second local model checks the uncommitted change
 #   lib\Tasks.ps1    benchmark tasks: work copies and the hidden check
 #   lib\Projects.ps1 new projects from the templates in templates\projekt\
-#   lib\Style.ps1   look "Nachtschicht": colours, terminal tint, readings for prompt and
-#                    status line (reads config\style.json itself, see the file header)
+#   lib\Style.ps1    the look (config\style.json, config\styles\): colours, terminal tint,
+#                    readings for prompt and status line; pictures made of characters in
+#                    lib\CharArt.ps1 (both read their config themselves, see the header)
 # Keep these files ASCII-only: Windows PowerShell 5.1 reads BOM-less files as ANSI.
 
 $ErrorActionPreference = 'Stop'

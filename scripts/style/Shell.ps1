@@ -1,25 +1,27 @@
-# Sets up an interactive PowerShell in the look "Nachtschicht": two-line prompt, colours
-# of the input line, a greeting with the state of both graphics cards, and a `claude`
-# function that tints the terminal while a cloud session runs.
+# Sets up an interactive PowerShell in the active look (config\style.json): two-line
+# prompt, colours of the input line, a greeting with the state of both graphics cards
+# (in colourful styles under a picture made of characters), and a `claude` function that
+# tints the terminal while a cloud session runs.
 #
 # Started by the Windows Terminal profile that scripts\Install-Style.ps1 creates:
 #   powershell -NoLogo -NoExit -ExecutionPolicy RemoteSigned -File scripts\style\Shell.ps1
 # It can also be dot-sourced from a PowerShell profile. Colours, glyphs and texts come
-# from config\style.json (docs\stil.md).
+# from the active style in config\styles\ (docs\stil.md).
 
 . "$PSScriptRoot\..\lib\Style.ps1"
 
 # Native programs (git, claude) write UTF-8; decode their output as such.
 try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
 
-$global:NachtschichtState = @{
+$global:StyleState = @{
     lastHistoryId = -1
+    promptCount   = 0
     isAdmin       = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 # --- input line -----------------------------------------------------------------------
 
-function Set-NachtschichtInputColors {
+function Set-StyleInputColors {
     # Colours of the text being typed (PSReadLine), from "shell.syntax".
     $syntax = (Get-StyleConfig).shell.syntax
     $colors = @{}
@@ -50,7 +52,7 @@ function global:prompt {
     $ok = $?
     $exitCode = $global:LASTEXITCODE
     $cfg = Get-StyleConfig
-    $mode = Get-StyleMode 'werkbank'
+    $mode = Get-StyleMode (Get-ShellModeName)
     $g = $cfg.glyphs
 
     # the own fire: lit while llama-server runs
@@ -71,16 +73,23 @@ function global:prompt {
         $leaf = $path
         $parent = ''
     }
-    $left = ' ' + $ember + ' ' + (Format-Ink $leaf $mode.foreground -Bold)
+    # colourful styles: the folder letter by letter, a little further round the wheel
+    # after every command
+    $rainbow = [bool]$cfg.shell.rainbow -and (Test-Rainbow)
+    $turn = $global:StyleState.promptCount / 7.0
+    $global:StyleState.promptCount++
+    if ($rainbow) { $title = Format-Rainbow $leaf $turn 0.35 -Bold }
+    else { $title = Format-Ink $leaf $mode.foreground -Bold }
+    $left = ' ' + $ember + ' ' + $title
     if ($parent) { $left += '  ' + (Format-Ink $parent $mode.dim) }
     if ($git) { $left += '  ' + (Format-Ink ([string]$g.sep) $mode.faint) + '  ' + (Format-GitSummary $git $mode.dim) }
-    if ($global:NachtschichtState.isAdmin) { $left += '  ' + (Format-Ink ([string]$cfg.texts.admin) $cfg.ink.error -Bold) }
+    if ($global:StyleState.isAdmin) { $left += '  ' + (Format-Ink ([string]$cfg.texts.admin) $cfg.ink.error -Bold) }
 
     # measured, not claimed: how long the last command took
     $right = ''
     $last = Get-History -Count 1
-    if ($last -and $last.Id -ne $global:NachtschichtState.lastHistoryId) {
-        $global:NachtschichtState.lastHistoryId = $last.Id
+    if ($last -and $last.Id -ne $global:StyleState.lastHistoryId) {
+        $global:StyleState.lastHistoryId = $last.Id
         $seconds = ($last.EndExecutionTime - $last.StartExecutionTime).TotalSeconds
         if (-not $ok -and $exitCode) { $right += (Format-Ink ([string]$cfg.texts.exitCode -f $exitCode) $cfg.ink.error) + '  ' }
         if ($seconds -ge [double]$cfg.shell.slowCommandSeconds) {
@@ -95,8 +104,10 @@ function global:prompt {
     $gap = $width - (Get-VisibleLength $left) - (Get-VisibleLength $right) - 1
     if ($gap -ge 2) { $line1 = $left + (' ' * $gap) + $right } else { $line1 = $left }
 
-    if ($ok) { $mark = Format-Ink ([string]$g.prompt) $mode.accent -Bold }
-    else { $mark = Format-Ink ([string]$g.prompt) $cfg.ink.error -Bold }
+    $glyph = Get-StyleGlyph 'prompt'
+    if (-not $ok) { $mark = Format-Ink $glyph $cfg.ink.error -Bold }
+    elseif ($rainbow) { $mark = (Get-RgbCode (Get-RainbowRgb $turn) -Bold) + $glyph + $script:StyleReset }
+    else { $mark = Format-Ink $glyph $mode.accent -Bold }
 
     try { $Host.UI.RawUI.WindowTitle = $leaf } catch { }
     $global:LASTEXITCODE = $exitCode
@@ -105,18 +116,30 @@ function global:prompt {
 
 # --- greeting -------------------------------------------------------------------------
 
-function Show-NachtschichtGreeting {
-    # Name of the look, date, one gauge per graphics card and whether the fire is lit.
+function Show-StyleGreeting {
+    # Name of the look (or its picture made of characters), date, one gauge per graphics
+    # card and whether the server runs.
     $cfg = Get-StyleConfig
-    $mode = Get-StyleMode 'werkbank'
+    $mode = Get-StyleMode (Get-ShellModeName)
     $sep = Format-Ink ([string]$cfg.glyphs.sep) $mode.faint
+    $width = $Host.UI.RawUI.WindowSize.Width
 
-    $title = (([string]$cfg.name).ToUpper().ToCharArray() -join ' ')
+    $art = @()
+    if ($cfg.PSObject.Properties['art'] -and $cfg.art.text) {
+        $art = @(Get-CharArt ([string]$cfg.art.text) ([int]$cfg.art.scale) $width $mode.background)
+    }
     $now = Get-Date
     $date = $now.ToString('dddd, d. MMMM', [System.Globalization.CultureInfo]::GetCultureInfo('de-DE'))
-    $left = '  ' + (Format-Ink $title $mode.accent)
+    if ($art.Count -gt 0) {
+        ''
+        $art
+        $left = '  ' + (Format-Rainbow ([string]$cfg.texts.tagline) $script:StyleRandom.NextDouble() 0.8)
+    } else {
+        $title = (([string]$cfg.name).ToUpper().ToCharArray() -join ' ')
+        $left = '  ' + (Format-Ink $title $mode.accent)
+    }
     $right = (Format-Ink $date $mode.dim) + ' ' + $sep + ' ' + (Format-Ink ($now.ToString('HH:mm')) $mode.dim)
-    $gap = $Host.UI.RawUI.WindowSize.Width - (Get-VisibleLength $left) - (Get-VisibleLength $right) - 1
+    $gap = $width - (Get-VisibleLength $left) - (Get-VisibleLength $right) - 1
     if ($gap -lt 2) { $gap = 2 }
     ''
     $left + (' ' * $gap) + $right
@@ -130,7 +153,7 @@ function Show-NachtschichtGreeting {
             if ($gpu.totalMiB -gt 0) { $fraction = $gpu.usedMiB / $gpu.totalMiB }
             $memory = '{0,5} / {1} GB' -f (Format-Number ($gpu.usedMiB / 1024) 1), (Format-Number ($gpu.totalMiB / 1024) 1)
             '  ' + (Format-Ink ($gpu.name.PadRight($nameWidth)) $mode.foreground) + '   ' +
-                (Format-Gauge $fraction ([int]$cfg.shell.gaugeWidth) $cfg.ink.ember $mode.faint) + '   ' +
+                (Format-Gauge $fraction ([int]$cfg.shell.gaugeWidth) (Get-GaugeInk $mode $cfg.ink.ember) $mode.faint) + '   ' +
                 (Format-Ink $memory $mode.dim) + '   ' + (Format-Ink ('{0} {1}C' -f $gpu.temperature, [char]0xB0) $mode.dim)
         }
         ''
@@ -148,7 +171,7 @@ function Show-NachtschichtGreeting {
 # --- cloud sessions -------------------------------------------------------------------
 
 function global:claude {
-    # Runs the real claude.exe (Anthropic cloud) and tints the terminal in the cool mode
+    # Runs the real claude.exe (Anthropic cloud) and tints the terminal in the cloud mode
     # for as long as the session lasts. Arguments and piped input pass through unchanged.
     $exe = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $exe) { Write-Error 'claude.exe not found on PATH.'; return }
@@ -157,12 +180,12 @@ function global:claude {
         if ($MyInvocation.ExpectingInput) { $input | & $exe.Source @args }
         else { & $exe.Source @args }
     } finally {
-        Set-TerminalPalette 'werkbank'
+        Set-TerminalPalette (Get-ShellModeName)
     }
 }
 
 # --- start ----------------------------------------------------------------------------
 
-Set-NachtschichtInputColors
-Set-TerminalPalette 'werkbank'
-if ((Get-StyleConfig).shell.greeting) { Show-NachtschichtGreeting }
+Set-StyleInputColors
+Set-TerminalPalette (Get-ShellModeName)
+if ((Get-StyleConfig).shell.greeting) { Show-StyleGreeting }

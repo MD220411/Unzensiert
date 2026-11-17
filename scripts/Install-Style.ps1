@@ -1,17 +1,19 @@
-# Applies the look "Nachtschicht" from config\style.json to
+# Applies the active look (config\style.json -> config\styles\<name>.json) to
 #   - Windows Terminal: colour scheme, window theme, font, and a profile that starts
 #     PowerShell with scripts\style\Shell.ps1 (becomes the default profile)
 #   - Claude Code: two colour themes in ~\.claude\themes\, and in ~\.claude\settings.json
 #     the theme for cloud sessions, the status line and the spinner words
-# Idempotent: run it again after every change to config\style.json. Before the first
-# change each settings file is copied once to <name>.vor-nachtschicht.
+# Entries of the other styles in config\styles\ are taken out first, so switching the
+# style replaces them. Idempotent: run it again after every change to a style or to the
+# choice. Before the first change each settings file is copied once to
+# <name><backupSuffix> (config\style.json).
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\Install-Style.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\Install-Style.ps1 -PreviewDir C:\Temp\vorschau
 #   powershell -ExecutionPolicy Bypass -File scripts\Install-Style.ps1 -Remove
 #
 #   -PreviewDir  write the resulting files into this folder instead of the real places
-#   -Remove      take our entries out again (the rest of the settings stays as it is)
+#   -Remove      take the entries of all styles out again (the rest stays as it is)
 
 param(
     [string]$PreviewDir,
@@ -22,7 +24,11 @@ param(
 
 $style = Get-StyleConfig
 $styleName = [string]$style.name
-$backupSuffix = '.vor-' + $styleName.ToLower()
+$selection = Get-StyleSelection
+$backupSuffix = [string]$selection.backupSuffix
+$profileGuid = [string]$selection.profileGuid
+$knownStyles = Get-KnownStyles
+$knownNames = @($knownStyles | ForEach-Object { [string]$_.name })
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 
 # keys this script owns in the settings files (written on install, removed on -Remove)
@@ -104,11 +110,13 @@ function Get-TerminalSettingsPaths {
 }
 
 function New-TabIcon {
-    # Draws the ember that marks the tab: a small glowing dot. Returns the file path.
+    # Draws the mark of the tab: a small glowing dot, or in colourful styles a wheel of
+    # all their colours. Returns the file path.
     Add-Type -AssemblyName System.Drawing
+    $name = ([string]$style.claude.localMode) + '.png'
     $dir = Join-Path $env:LOCALAPPDATA $styleName
-    $file = Join-Path $dir 'glut.png'
-    if ($PreviewDir) { $file = Join-Path $PreviewDir 'glut.png'; $dir = $PreviewDir }
+    $file = Join-Path $dir $name
+    if ($PreviewDir) { $file = Join-Path $PreviewDir $name; $dir = $PreviewDir }
     $null = New-Item -ItemType Directory -Force -Path $dir
 
     $size = 64
@@ -117,6 +125,25 @@ function New-TabIcon {
     $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $graphics.Clear([System.Drawing.Color]::Transparent)
     $ember = [System.Drawing.ColorTranslator]::FromHtml([string]$style.ink.ember)
+
+    if (Test-Rainbow) {
+        # 36 slices round the wheel, a dark hole in the middle
+        $steps = 36
+        for ($i = 0; $i -lt $steps; $i++) {
+            $rgb = Get-RainbowRgb ($i / $steps)
+            $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, $rgb[0], $rgb[1], $rgb[2]))
+            $graphics.FillPie($brush, 4, 4, $size - 8, $size - 8, [single](-90 + $i * 360 / $steps), [single](360 / $steps + 1))
+            $brush.Dispose()
+        }
+        $hole = [System.Drawing.ColorTranslator]::FromHtml([string](Get-StyleMode (Get-ShellModeName)).background)
+        $holeBrush = New-Object System.Drawing.SolidBrush($hole)
+        $graphics.FillEllipse($holeBrush, 22, 22, $size - 44, $size - 44)
+        $holeBrush.Dispose()
+        $bitmap.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        return $file
+    }
 
     # glow: from the ember colour in the middle to nothing at the edge
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
@@ -141,8 +168,8 @@ function New-TabIcon {
 }
 
 function Get-TerminalScheme {
-    # The colour scheme: 16 ANSI colours from "palette", the rest from the mode werkbank.
-    $base = Get-StyleMode 'werkbank'
+    # The colour scheme: 16 ANSI colours from "palette", the rest from the mode of the shell.
+    $base = Get-StyleMode (Get-ShellModeName)
     $scheme = [ordered]@{
         name                = $styleName
         background          = [string]$base.background
@@ -157,7 +184,7 @@ function Get-TerminalScheme {
 
 function Get-TerminalTheme {
     # Window chrome: the active tab melts into the terminal, the row behind it is darker,
-    # and the window gets a hairline frame in dark brass.
+    # and the window gets a hairline frame in the colour of the style.
     $t = $style.terminal
     return [ordered]@{
         name   = $styleName
@@ -170,7 +197,7 @@ function Get-TerminalTheme {
 function Get-TerminalProfile([string]$IconPath) {
     $shell = Join-Path $PSScriptRoot 'style\Shell.ps1'
     return [ordered]@{
-        guid        = [string]$style.terminal.profileGuid
+        guid        = $profileGuid
         name        = $styleName
         commandline = '%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoExit -ExecutionPolicy RemoteSigned -File "{0}"' -f $shell
         icon        = $IconPath
@@ -181,19 +208,20 @@ function Get-TerminalProfile([string]$IconPath) {
 function Update-TerminalSettings([string]$Path) {
     $wt = Read-SettingsFile $Path
     if (-not $wt) { return }
-    $guid = [string]$style.terminal.profileGuid
+    $guid = $profileGuid
     if (-not $wt.PSObject.Properties['profiles']) { Set-Prop $wt 'profiles' ([pscustomobject]@{}) }
     if (-not $wt.profiles.PSObject.Properties['defaults']) { Set-Prop $wt.profiles 'defaults' ([pscustomobject]@{}) }
     if (-not $wt.profiles.PSObject.Properties['list']) { Set-Prop $wt.profiles 'list' @() }
 
-    $schemes = @(@($wt.schemes) | Where-Object { $_ -and $_.name -ne $styleName })
-    $themes = @(@($wt.themes) | Where-Object { $_ -and $_.name -ne $styleName })
+    # entries of every known style go first; the active one is added back below
+    $schemes = @(@($wt.schemes) | Where-Object { $_ -and $knownNames -notcontains $_.name })
+    $themes = @(@($wt.themes) | Where-Object { $_ -and $knownNames -notcontains $_.name })
     $profiles = @(@($wt.profiles.list) | Where-Object { $_ -and $_.guid -ne $guid })
     $defaults = $wt.profiles.defaults
 
     if ($Remove) {
         foreach ($key in $terminalDefaultKeys) { Remove-Prop $defaults $key }
-        if ($wt.theme -eq $styleName) { Remove-Prop $wt 'theme' }
+        if ($knownNames -contains $wt.theme) { Remove-Prop $wt 'theme' }
         if ($wt.defaultProfile -eq $guid) {
             # back to the default profile from before, if the backup still knows it
             $previous = $null
@@ -236,13 +264,21 @@ function Update-TerminalSettings([string]$Path) {
 # --- Claude Code ------------------------------------------------------------------------
 
 function Update-ClaudeThemes {
-    # One theme file per entry of "claude.themes": ~\.claude\themes\nachtschicht-<mode>.json
+    # One theme file per entry of "claude.themes": ~\.claude\themes\<prefix><mode>.json.
+    # Theme files of the other styles are removed (all of them with -Remove).
+    $keep = @()
+    if (-not $Remove) { $keep = @($style.claude.themes.PSObject.Properties | ForEach-Object { Get-ClaudeThemeFile $_.Name }) }
+    if (-not $PreviewDir) {
+        foreach ($known in $knownStyles) {
+            foreach ($entry in $known.claude.themes.PSObject.Properties) {
+                $file = Get-ClaudeThemeFile $entry.Name $known
+                if ((Test-Path $file) -and $keep -notcontains $file) { Remove-Item $file; "removed: $file" }
+            }
+        }
+    }
+    if ($Remove) { return }
     foreach ($entry in $style.claude.themes.PSObject.Properties) {
         $file = Get-ClaudeThemeFile $entry.Name
-        if ($Remove) {
-            if ((Test-Path $file) -and -not $PreviewDir) { Remove-Item $file; "removed: $file" }
-            continue
-        }
         $text = ConvertTo-PrettyJson $entry.Value
         if ($PreviewDir) {
             $null = New-Item -ItemType Directory -Force -Path $PreviewDir
@@ -265,7 +301,8 @@ function Update-ClaudeSettings {
 
     if ($Remove) {
         foreach ($key in $claudeKeys) { Remove-Prop $settings $key }
-        if ($settings.theme -eq $themeName) {
+        $ours = @($knownStyles | ForEach-Object { $k = $_; $k.claude.themes.PSObject.Properties | ForEach-Object { 'custom:' + (Get-ClaudeThemeSlug $_.Name $k) } })
+        if ($ours -contains $settings.theme) {
             $previous = $null
             $backup = $path + $backupSuffix
             if (Test-Path $backup) { $old = Read-SettingsFile $backup; if ($old) { $previous = $old.theme } }
@@ -287,5 +324,5 @@ foreach ($file in $terminalFiles) { Update-TerminalSettings $file }
 Update-ClaudeThemes
 Update-ClaudeSettings
 
-if ($Remove) { "$styleName removed. Open a new terminal tab." }
+if ($Remove) { "Look removed ($($knownNames -join ', ')). Open a new terminal tab." }
 elseif (-not $PreviewDir) { "$styleName applied. Open a new terminal tab; running Claude Code sessions pick the theme up at the next start." }

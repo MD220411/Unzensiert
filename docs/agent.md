@@ -272,7 +272,7 @@ Nur für den eigenen Prozess, das normale `claude` bleibt unverändert:
 | `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_OPUS/SONNET/HAIKU_MODEL` | Alle eingebauten Modellnamen zeigen auf das Startmodell, auch das kleine Modell für Hintergrundanfragen. |
 | `CLAUDE_CODE_SUBAGENT_MODEL` (entfernt) | Subagenten bekommen kein festes Modell und folgen so dem Hauptmodell nach einem Wechsel mit `/model`. |
 | `--settings <Datei>` mit `modelPicker` | Die Auswahl von `/model` zeigt die Einträge aus `picker` statt der Anthropic-Modelle. Die Datei (`%TEMP%\claude-local-settings.json`) gilt nur für diesen Start. |
-| dieselbe Datei mit `theme` und `statusLine`, dazu `NACHTSCHICHT_MODE=glut` | Aussehen der lokalen Sitzung: warmes Farbthema „Glut“ und Statuszeile mit dem Speicher beider Grafikkarten. Nur wenn das Erscheinungsbild installiert ist ([stil.md](stil.md)). |
+| dieselbe Datei mit `theme` und `statusLine`, dazu `CLAUDE_LOCAL_LOOK=<Stimmung>` | Aussehen der lokalen Sitzung: Farbthema der lokalen Stimmung des aktiven Stils („Frei“ bei Ausbruch, „Glut“ bei Nachtschicht) und Statuszeile mit dem Speicher beider Grafikkarten. Nur wenn das Erscheinungsbild installiert ist ([stil.md](stil.md)). |
 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | Echtes Kontextfenster. Ohne den Wert nimmt Claude Code ein viel größeres Fenster an und komprimiert nie rechtzeitig. Der Wert gilt für die ganze Sitzung; bei mehreren Modellen in der Auswahl zählt das kleinste Fenster. |
 | `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Antwortlänge begrenzen |
 | `--append-system-prompt-file <Datei>` | Arbeitsregeln, siehe oben |
