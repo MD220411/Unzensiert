@@ -9,7 +9,7 @@
   },
 
   "modes": {
-    "_comment": "Drei Stimmungen. Die Menge der Farbe zeigt, wo gerechnet wird: auf den eigenen Karten ist alles bunt (frei), in der Cloud bleibt es bei einer Farbe (wolke), die Shell liegt dazwischen (strasse). labelInk/gaugeInk 'rainbow' = Name und Messlinien im ganzen Farbkreis.",
+    "_comment": "Drei Stimmungen. Die Menge der Farbe zeigt, wo gerechnet wird: auf den eigenen Karten ist alles bunt (frei), in der Cloud bleibt es bei einer Farbe (wolke), die Shell liegt dazwischen (strasse). labelInk/gaugeInk 'rainbow' = Name und Messlinien im ganzen Farbkreis. trail = gesprühte Trennzeichen und davonfliegende Zeichen am Ende von Eingabe- und Statuszeile.",
     "strasse": {
       "label": "Straße",
       "mark": "✦",
@@ -20,7 +20,8 @@
       "accentSoft": "#A8336E",
       "dim": "#8E86A3",
       "faint": "#3A3349",
-      "gaugeInk": "rainbow"
+      "gaugeInk": "rainbow",
+      "trail": true
     },
     "frei": {
       "label": "Unzensiert",
@@ -33,7 +34,8 @@
       "dim": "#A08A9C",
       "faint": "#46304A",
       "labelInk": "rainbow",
-      "gaugeInk": "rainbow"
+      "gaugeInk": "rainbow",
+      "trail": true
     },
     "wolke": {
       "label": "Wolke",
@@ -79,20 +81,38 @@
   },
 
   "glyphs": {
-    "_comment": "prompt darf eine Liste sein: dann steht bei jeder Eingabe ein anderes Zeichen da. gaugeSpray = Zeichen, aus denen der gefuellte Teil einer Messlinie gesprueht wird; gauge = der leere Rest.",
+    "_comment": "prompt darf eine Liste sein: dann steht bei jeder Eingabe ein anderes Zeichen da. gaugeSpray = Zeichen, aus denen der gefuellte Teil einer Messlinie gesprueht wird; gauge = der leere Rest. sepSpray = Trennzeichen in Stimmungen mit trail.",
     "prompt": ["»", "›", "!", "?", "#", "*", "&", "%", "~", "@", "^", "$"],
     "emberOff": "✧",
     "gauge": "·",
     "gaugeSpray": "#%&@$*+=WMX",
     "sep": "·",
+    "sepSpray": "·*+~:%",
     "dirty": "±",
     "ahead": "↑",
     "behind": "↓"
   },
 
   "texts": {
-    "_comment": "{0}, {1} ... sind Platzhalter.",
+    "_comment": "{0}, {1} ... sind Platzhalter. Eine Liste (sprueche) heisst: jedes Mal ein anderer Text.",
     "tagline": "frei · lokal · unzensiert · bunt",
+    "sprueche": [
+      "Deine Karten, deine Regeln.",
+      "Kein Filter. Keine Leine.",
+      "Denk selbst. Bau selbst.",
+      "Bunt ist kein Fehler.",
+      "Freiheit läuft lokal.",
+      "Hier zensiert keiner.",
+      "Mal über den Rand.",
+      "Code ist auch nur Farbe.",
+      "Laut denken erlaubt.",
+      "Jedes Zeichen zählt.",
+      "Ausbrechen ist auch eine Richtung.",
+      "Wer fragt, lernt.",
+      "Die Wand gehört dir.",
+      "Erst sprühen, dann denken. Oder umgekehrt."
+    ],
+    "farewell": "Sitzung vorbei nach {0}. Die Zeichen fliegen weiter.",
     "emberOn": "Frei seit {0} Uhr. Das Modell rechnet auf deinen eigenen Karten.",
     "emberOff": "Noch still. claude-local lässt es los.",
     "admin": "ADMIN",
@@ -110,10 +130,21 @@
     "bannerText": "FREI",
     "scale": 2,
     "bannerScale": 2,
+    "_details": "shadow = Zeichen des Schattens (rechts unten hinter den Buchstaben), light = wie stark die Buchstaben oben aufgehellt und unten abgedunkelt sind, dripBody/dripEnd/dripChance/dripLength = Farbnasen, die von den Unterkanten herunterlaufen, sparkle/sparkleChance = Funken im freien Raum, line = Zeichen der Sprühlinie unter dem Bild, cloudText = einfarbiges Bild vor einer Cloud-Sitzung (claude).",
     "fill": "UNZESIRT#@%&$WMXKB08",
     "spray": ".,:;'`~*+^",
     "flightMid": "+*=~^%<>/\\",
     "flightFar": ".,'`:°",
+    "shadow": ":;.",
+    "light": 0.38,
+    "dripBody": "|!:",
+    "dripEnd": "'.°",
+    "dripChance": 0.11,
+    "dripLength": 3,
+    "sparkle": "✦✧*+",
+    "sparkleChance": 0.006,
+    "line": "~=-_.,:'`^~-",
+    "cloudText": "WOLKE",
     "sprayChance": 0.14,
     "flightDensity": 0.32,
     "flightReach": 0.85,
@@ -184,14 +215,24 @@
     "cursorHeight": 22,
     "tabRow": "#07050B",
     "frame": "#FF3D9A",
-    "frameUnfocused": "#2A2236"
+    "frameUnfocused": "#2A2236",
+    "wall": {
+      "_comment": "Hintergrundbild des Profils: eine Wand aus Zeichen, rechts unten das Bild von text, zur Mitte hin immer duenner gespruehte Zeichen. Wird von Install-Style.ps1 gezeichnet. opacity klein halten, damit die Schrift davor lesbar bleibt.",
+      "text": "FREI",
+      "cols": 72,
+      "rows": 28,
+      "fontPixels": 18,
+      "opacity": 0.2,
+      "alignment": "bottomRight"
+    }
   },
 
   "shell": {
-    "_comment": "mode = Stimmung der Shell. rainbow: Ordnername Buchstabe fuer Buchstabe bunt, das Eingabezeichen wechselt bei jeder Eingabe die Farbe.",
+    "_comment": "mode = Stimmung der Shell. rainbow: Ordnername Buchstabe fuer Buchstabe bunt, das Eingabezeichen wechselt bei jeder Eingabe die Farbe. trail = so viele Spalten davonfliegender Zeichen am Ende der Eingabezeile.",
     "mode": "strasse",
     "greeting": true,
     "rainbow": true,
+    "trail": 7,
     "gaugeWidth": 16,
     "slowCommandSeconds": 2,
     "emberProcess": "llama-server",
@@ -242,7 +283,15 @@
       "Würfelt Zeichen",
       "Schreibt in Neon",
       "Färbt um",
-      "Denkt laut"
+      "Denkt laut",
+      "Lässt Farbe tropfen",
+      "Zeichnet Schatten",
+      "Sprüht Funken",
+      "Bricht die Buchstaben auf",
+      "Malt die Wand voll",
+      "Mischt Neon an",
+      "Klebt Sticker",
+      "Kritzelt an den Rand"
     ],
     "themes": {
       "frei": {

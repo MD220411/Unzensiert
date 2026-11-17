@@ -121,6 +121,31 @@ Start per Einzeiler und per ZIP mit Doppelklick. Gebaut in einem eigenen Arbeits
 - Die Qualität der Stufen ist nur über `Test-Model.ps1` geprüft, nicht im Benchmark:
   Läuft `local-coder` mit 64k statt 128k Kontext genauso zuverlässig?
 
+## 2026-11-17: „Ausbruch“ detaillierter und an mehr Stellen
+
+### Durchgeführt
+
+1. **Bild aus Zeichen mit Einzelheiten** (`lib\CharArt.ps1`): Licht von oben (oben
+   heller, unten dunkler), Schatten rechts unten aus `:;.`, Farbnasen von den
+   Unterkanten (`|!:` mit Tropfen), Funken `✦ ✧ * +`. Das Bild ist jetzt 10 statt 7 Zeilen
+   hoch. Aufgeteilt in `Get-CharArtCells` (Raster), `Format-ArtCells` (Terminal) und
+   `Save-ArtCellsImage` (PNG).
+2. **Wand aus Zeichen** hinter dem Terminal: `New-CharWall` zeichnet rechts unten FREI und
+   darum gesprühte Zeichen; `Install-Style.ps1` speichert sie als `wand.png` und trägt sie
+   als Hintergrundbild des Profils ein (20 % Deckkraft, `terminal.wall`).
+3. **Mehr Stellen im Stil:** Sprühlinie unter jedem Bild, ein Spruch bei jeder neuen Shell
+   (`texts.sprueche`), gesprühte Trennzeichen und davonfliegende Zeichen am Ende jeder
+   Eingabe- und Statuszeile (`trail`), Bild WOLKE in Cyan vor `claude`, Abschied mit
+   Sitzungsdauer nach `claude-local` (`Get-LocalLookFarewell`), acht weitere Wartetexte.
+4. **`Test-Setup.ps1`:** Wolke-Bild bleibt einfarbig (Gegenprobe: bunt → 190 Zellen
+   außerhalb), Sprühlinie und Spur in verlangter Breite, Größe der Wand.
+
+### Gemessen
+
+Bild UNZENSIERT beim ersten Zeichnen etwa 240 ms (vorher 145 ms), danach etwa 75 ms;
+FREI etwa 35 ms; Wand etwa 310 ms beim Installieren. Nicht geprüft: Wirkung im echten
+Fenster.
+
 ## 2026-11-17: Neues Erscheinungsbild „Ausbruch“
 
 ### Durchgeführt

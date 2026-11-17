@@ -52,11 +52,33 @@ Wiederkehrende Elemente:
 
 - **Das Bild aus Zeichen.** Ein Wort wird in einer Blockschrift gesetzt, jeder Block mit
   einem zufälligen Buchstaben oder Zeichen gefüllt (`UNZESIRT#@%&$WMXKB08`) und schräg
-  durch den Farbkreis gefärbt. Um die Buchstaben liegt Sprühnebel aus leichten Zeichen
-  (`.,:;'~*+^`), der letzte Buchstabe bröckelt, und rechts brechen Zeichen aus und
-  fliegen davon: erst dichte, dann `+*=~^%<>/\`, am Ende nur noch Punkte und Striche,
-  immer blasser. Jedes Bild ist anders; auch die Farben beginnen jedes Mal an einer
-  anderen Stelle des Kreises.
+  durch den Farbkreis gefärbt. Die Einzelheiten machen es zu Graffiti:
+  - **Licht von oben:** die obere Zeile jedes Buchstabens ist aufgehellt, die untere
+    abgedunkelt (`light`).
+  - **Schatten:** rechts unten hinter den Buchstaben ein dunkler Schatten aus `:;.`, als
+    stünden sie vor der Wand.
+  - **Farbnasen:** von Unterkanten läuft Farbe herunter, `|!:` mit einem Tropfen `'.°`
+    am Ende.
+  - **Sprühnebel** aus leichten Zeichen (`.,:;'~*+^`) um die Buchstaben, der letzte
+    Buchstabe bröckelt.
+  - **Ausbruch:** rechts brechen Zeichen aus und fliegen davon, erst dichte, dann
+    `+*=~^%<>/\`, am Ende nur noch Punkte und Striche, immer blasser.
+  - **Funken** `✦ ✧ * +` hier und da im freien Raum.
+
+  Jedes Bild ist anders; auch die Farben beginnen jedes Mal an einer anderen Stelle des
+  Kreises.
+- **Die Wand.** Hinter dem Terminal liegt ein Bild aus Zeichen: rechts unten FREI, darum
+  gesprühte Zeichen, dicht in der Ecke und zur Mitte hin immer dünner, mit 20 %
+  Deckkraft, damit die Schrift davor lesbar bleibt. `Install-Style.ps1` zeichnet sie bei
+  jedem Lauf neu.
+- **Überall Zeichen, die davonfliegen:** am Ende jeder Eingabezeile und jeder
+  Statuszeile, vor dem Spruch der Begrüßung und nach dem Abschied von `claude-local`. Die
+  Trennzeichen zwischen den Teilen einer Zeile sind gesprüht (`· * + ~ : %` in einer
+  zufälligen Farbe). In der Wolke bleibt es schlicht.
+- **Sprühlinie** unter jedem Bild: ein Strich aus `~=-_.,:'^`, an den Enden dünn, in der
+  Mitte dicht und hell.
+- **Ein Spruch** bei jeder neuen Shell, etwa „Kein Filter. Keine Leine.“, „Deine Karten,
+  deine Regeln.“ oder „Ausbrechen ist auch eine Richtung.“
 - **Gesprühte Messlinien** statt Balken: Der gefüllte Teil besteht aus zufälligen
   Zeichen (`#%&@$*+=WMX`) und läuft durch den Farbkreis, eine volle Linie zeigt alle
   Farben. Der leere Rest ist eine blasse Punktreihe `········`. Ab 70 % Kontext wird die
@@ -70,7 +92,8 @@ Wiederkehrende Elemente:
 
 ### Was wo zu sehen ist
 
-**Shell** (Profil „Ausbruch“ in Windows Terminal), hier ohne Farben:
+**Shell** (Profil „Ausbruch“ in Windows Terminal), hier ohne Farben und in der ersten
+Fassung ohne Schatten, Farbnasen, Sprühlinie und Spruch (das Bild ist jetzt 10 Zeilen hoch):
 
 ```
   '                        ,                                                 ~            `      .              ;
@@ -91,6 +114,10 @@ Wiederkehrende Elemente:
  ✦ Unzensiert  E:\Projekte  ·  main ±10                                                                     17:15
  &
 ```
+
+Darunter folgen in der aktuellen Fassung die Sprühlinie, nach der Zeile mit dem Server
+der Spruch in Regenbogenfarben, und jede Eingabezeile endet mit ein paar davonfliegenden
+Zeichen.
 
 Das große Bild braucht etwa 117 Spalten. In schmaleren Fenstern wird es in halber Breite
 gesetzt (mit weniger Sprühnebel), unter etwa 60 Spalten fällt es weg. Ist der Server aus,
@@ -120,6 +147,13 @@ die Wartetexte und die Statuszeile:
 ```
 
 Das Tab-Symbol ist ein Farbrad aus allen Farben des Kreises.
+
+**`claude`** (Cloud) beginnt eine interaktive Sitzung mit dem Bild **WOLKE**, ganz in
+Cyan: dieselbe Technik, aber nur eine Farbe. Mit `-p`/`--print` oder Eingabe über eine
+Pipe erscheint es nicht.
+
+**Nach einer `claude-local`-Sitzung** verabschiedet sich der Stil mit einer Sprühlinie und
+„✦ Sitzung vorbei nach 23 min. Die Zeichen fliegen weiter.“
 
 ## „Nachtschicht“
 
@@ -185,6 +219,7 @@ Administratorrechte.
 | `%USERPROFILE%\.claude\themes\` | zwei Themen je Stil: `ausbruch-frei.json`, `ausbruch-wolke.json` (oder `nachtschicht-glut.json`, `nachtschicht-fernlicht.json`) |
 | `%USERPROFILE%\.claude\settings.json` | `theme` (Cloud-Stimmung), `statusLine`, `spinnerVerbs` |
 | `%LOCALAPPDATA%\<Stil>\<Stimmung>.png` | das Tab-Symbol, vom Skript gezeichnet |
+| `%LOCALAPPDATA%\<Stil>\wand.png` | nur bei Stilen mit `terminal.wall`: die Wand aus Zeichen, als `backgroundImage` des Profils (rechts unten, nicht gestreckt, Deckkraft aus `opacity`) |
 
 Vor der ersten Änderung wird jede Einstellungsdatei einmal nach `<Name>.vor-nachtschicht`
 kopiert (`backupSuffix` in `config\style.json`; der Name blieb, weil die vorhandenen
@@ -211,19 +246,21 @@ Eine Stil-Datei in `config\styles\`, danach `scripts\Install-Style.ps1`:
 
 | Abschnitt | Inhalt |
 |---|---|
-| `modes` | je Stimmung: Hintergrund, Schrift, Cursor, Akzent, blasse Töne, Zeichen, Name; dazu wahlweise `labelInk` und `gaugeInk` = `"rainbow"` (Name und Messlinien im Farbkreis) |
+| `modes` | je Stimmung: Hintergrund, Schrift, Cursor, Akzent, blasse Töne, Zeichen, Name; dazu wahlweise `labelInk` und `gaugeInk` = `"rainbow"` (Name und Messlinien im Farbkreis) und `trail` (gesprühte Trennzeichen, davonfliegende Zeichen) |
 | `rainbow.colors` | der Farbkreis (nur bunte Stile) |
 | `ink` | Bedeutungsfarben: in Ordnung, Warnung, Fehler, Glut, Git-Zweig |
 | `palette` | die 16 ANSI-Farben des Terminals |
-| `glyphs` | Zeichen; `prompt` darf eine Liste sein (dann jedes Mal ein anderes), `gaugeSpray` = Zeichen für gesprühte Messlinien |
-| `texts` | deutsche Texte von Eingabezeile, Begrüßung, Statuszeile, `tagline` unter dem Bild |
-| `art` | Bild aus Zeichen: `text` (Shell), `bannerText` (`claude-local`), `scale`, Zeichenvorräte `fill`, `spray`, `flightMid`, `flightFar`, Dichte `sprayChance`, `flightDensity`, `flightReach`, `gradientSpan` und die Blockschrift `font` (A–Z, 0–9, `! ? - .`, je 5 Zeilen) |
+| `glyphs` | Zeichen; `prompt` darf eine Liste sein (dann jedes Mal ein anderes), `gaugeSpray` = Zeichen für gesprühte Messlinien, `sepSpray` = gesprühte Trennzeichen |
+| `texts` | deutsche Texte von Eingabezeile, Begrüßung, Statuszeile, `tagline` unter dem Bild, `sprueche` (Liste, jedes Mal einer), `farewell` (Abschied nach `claude-local`) |
+| `art` | Bild aus Zeichen: `text` (Shell), `bannerText` (`claude-local`), `cloudText` (`claude`, einfarbig), `scale`, Zeichenvorräte `fill`, `spray`, `flightMid`, `flightFar`, Dichte `sprayChance`, `flightDensity`, `flightReach`, `gradientSpan`; Einzelheiten `light`, `shadow`, `dripBody`, `dripEnd`, `dripChance`, `dripLength`, `sparkle`, `sparkleChance`, `line` (Sprühlinie); die Blockschrift `font` (A–Z, 0–9, `! ? - .`, je 5 Zeilen) |
 | `font` | Schrift, Größe, Zeilenhöhe, Quelle für `Install-Font.ps1` |
-| `terminal` | Abstand, Cursorform, Farbe der Tab-Leiste und des Fensterrahmens |
-| `shell` | `mode` (Stimmung der Shell), Begrüßung an/aus (`greeting`), `rainbow` (bunter Ordnername, wechselnde Farbe des Eingabezeichens), ab wann die Dauer erscheint, Farben der Eingabe |
+| `terminal` | Abstand, Cursorform, Farbe der Tab-Leiste und des Fensterrahmens; `wall` = Wand aus Zeichen hinter dem Terminal (`text`, Größe in `cols` × `rows`, `fontPixels`, `opacity`, `alignment`) |
+| `shell` | `mode` (Stimmung der Shell), Begrüßung an/aus (`greeting`), `rainbow` (bunter Ordnername, wechselnde Farbe des Eingabezeichens), `trail` (Spalten davonfliegender Zeichen am Ende der Eingabezeile), ab wann die Dauer erscheint, Farben der Eingabe |
 | `claude` | Themen für Claude Code (`themes`), Stimmungen für lokal und Cloud, Wartetexte (`spinnerVerbs`), Schwellen der Statuszeile |
 
-Beispiele: Ein anderes Wort im Bild ist `"text": "FREIHEIT"`. Ein festes Eingabezeichen
+Beispiele: Ein anderes Wort im Bild ist `"text": "FREIHEIT"`. Ohne Farbnasen:
+`"dripChance": 0`. Ohne Wand: den Abschnitt `terminal.wall` löschen und
+`Install-Style.ps1` laufen lassen. Mehr oder weniger Wand: `opacity` zwischen 0,1 und 0,3. Ein festes Eingabezeichen
 ist `"prompt": "»"`. Ein neuer Stil ist eine Kopie einer Stil-Datei mit anderem `name`
 und `claude.themePrefix`.
 
@@ -241,7 +278,7 @@ stillschweigend.
 config\style.json            welcher Stil gilt, was alle Stile teilen
 config\styles\*.json         je Stil: Farben, Zeichen, Texte, Blockschrift
 scripts\lib\Style.ps1        Bausteine: Stil lesen, Farben, Farbkreis, Messlinien, Tönen des Terminals, Messwerte
-scripts\lib\CharArt.ps1      Bilder aus Zeichen: Blockschrift, Füllung, Sprühnebel, ausbrechende Zeichen
+scripts\lib\CharArt.ps1      Bilder aus Zeichen: Blockschrift, Füllung, Licht, Schatten, Farbnasen, Sprühnebel, Funken, ausbrechende Zeichen; die Wand als PNG
 scripts\style\Shell.ps1      richtet die interaktive Shell ein (Eingabezeile, Begrüßung, Funktion claude)
 scripts\style\Statusline.ps1 Statuszeile von Claude Code
 scripts\Install-Style.ps1    wendet den aktiven Stil auf Windows Terminal und Claude Code an
@@ -263,34 +300,42 @@ So kommt die Stimmung zustande:
   um und übergibt für diesen Start das lokale Thema und die Statuszeile mit 5-Sekunden-Takt
   (`Get-LocalLookSettings`). Die Statuszeile erkennt an der Variable, ob sie Grafikkarten
   oder das Limit zeigt.
-- **Das Bild** setzt `Get-CharArt` (`lib\CharArt.ps1`): Wort → Raster aus Blöcken der
-  Blockschrift, so breit gezogen (`scale`), wie das Fenster erlaubt, dann Zelle für Zelle
-  Füllung, Sprühnebel oder ausbrechende Zeichen mit Farbe aus dem Farbkreis. Mit festem
-  Startwert (`-Seed`) entsteht immer dasselbe Bild; das nutzt `Test-Setup.ps1`.
+- **Das Bild** setzt `Get-CharArtCells` (`lib\CharArt.ps1`): Wort → Raster aus Blöcken
+  der Blockschrift, so breit gezogen (`scale`), wie das Fenster erlaubt, dann Zelle für
+  Zelle Buchstabe, Farbnase, Schatten, Sprühnebel, ausbrechendes Zeichen oder Funke, die
+  Farbe aus dem Farbkreis (oder einer Farbe), aufgehellt oder zum Hintergrund hin
+  verblasst. `Format-ArtCells` macht daraus Terminalzeilen, `Save-ArtCellsImage` ein PNG
+  (die Wand aus `New-CharWall`). Mit festem Startwert (`-Seed`) entsteht immer dasselbe
+  Bild; das nutzt `Test-Setup.ps1`.
 
 ## Gemessen und nicht gemessen
 
-Gemessen am 2026-11-17 (Windows PowerShell 5.1), „Ausbruch“:
+Gemessen am 2026-11-17 (Windows PowerShell 5.1), „Ausbruch“ mit Schatten, Farbnasen und
+Funken:
 
 | | Dauer |
 |---|---|
-| Bild UNZENSIERT, erstes Zeichnen im Prozess (Begrüßung) | etwa 145 ms |
-| dasselbe Bild, weitere Male | etwa 50 ms |
-| Bild FREI vor `claude-local` | etwa 23 ms |
-| `lib\Style.ps1` laden | etwa 60 ms |
+| Bild UNZENSIERT, erstes Zeichnen im Prozess (Begrüßung) | etwa 240 ms (vorher ohne Einzelheiten 145 ms) |
+| dasselbe Bild, weitere Male | etwa 75 ms |
+| Bild FREI vor `claude-local` | etwa 35 ms |
+| Wand zeichnen und als PNG speichern (`Install-Style.ps1`) | etwa 310 ms |
+| `lib\Style.ps1` laden | etwa 70 ms |
 | ein Lauf der Statuszeile (lokal, mit `nvidia-smi`) | etwa 480 ms |
 
 Für „Nachtschicht“ gemessen am 2026-11-14: Start der Shell mit Begrüßung etwa 440 ms, eine
 Eingabezeile im Git-Ordner etwa 30 ms, ein Lauf der Statuszeile etwa 380 ms.
 
 Geprüft: `Test-Setup.ps1` (Stil-Dateien vollständig, Blockschrift stimmig, Bild passt in
-die Breite und fällt in zu schmalen Fenstern weg, Messlinien genau so breit wie verlangt,
-Statuszeile liest Modell und Kontext von stdin). Begrüßung, Eingabezeile, Banner und beide
+die Breite und fällt in zu schmalen Fenstern weg, das Wolke-Bild bleibt in seiner Farbe,
+Messlinien, Sprühlinie und Zeichenspur genau so breit wie verlangt, die Wand hat die
+verlangte Größe, Statuszeile liest Modell und Kontext von stdin). Wolke-Bild, Abschied und
+Wand wurden ebenfalls gerendert und angesehen. Begrüßung, Eingabezeile, Banner und beide
 Statuszeilen wurden als Bild gerendert und angesehen (eigener Renderer, Schrift Cascadia
 Mono); „Nachtschicht“ sieht mit dem umgebauten Code aus wie vorher. `Install-Style.ps1`
 ersetzt beim Wechsel Schema, Thema, Profil und Themen-Dateien, ein zweiter Lauf ändert
 nichts mehr.
 
 **Nicht geprüft:** das Aussehen im echten Windows-Terminal-Fenster mit IBM Plex Mono,
+wie stark die Wand bei 20 % Deckkraft im Fenster wirkt,
 insbesondere ob `✦`, `✧` und `◇` dort genau eine Spalte breit sind, und ob Claude Code die
 Themen „Ausbruch · Frei“ und „Ausbruch · Wolke“ ohne Meldung annimmt.
