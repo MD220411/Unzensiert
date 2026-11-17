@@ -57,6 +57,21 @@ if ($Model) { $targets = @(Resolve-ModelName $Model) }
 else { $targets = @(Get-InstalledModelNames | Where-Object { (Get-ModelProfile $_).role -eq 'agent' }) }
 if ($targets.Count -eq 0) { throw 'No agent model is installed. Download one first: scripts\Get-Model.ps1' }
 
+# The models of the /model picker share one context window per session: claude-local takes
+# the smallest of them, so that switching cannot overflow a model. The default model is
+# therefore planned first, and the other picker models get at least its context if they
+# can (docs\planer.md).
+$defaultModel = Get-DefaultAgentModel
+$pickerModels = @(@((Get-AgentConfig).picker) | ForEach-Object { [string]$_.model })
+$targets = @(@($targets | Where-Object { $_ -eq $defaultModel }) + @($targets | Where-Object { $_ -ne $defaultModel }))
+
+function Get-SessionContext {
+    # Context of the default model's plan, 0 if there is none.
+    $plans = (Get-MachineConfig).PSObject.Properties['plans']
+    if ($defaultModel -and $plans -and $plans.Value.PSObject.Properties[$defaultModel]) { return [int]$plans.Value.$defaultModel.ctx }
+    return 0
+}
+
 if ($Show) {
     $plans = (Get-MachineConfig).PSObject.Properties['plans']
     foreach ($name in $targets) {
@@ -123,7 +138,15 @@ function Invoke-Planning([string]$Name, [double]$Reserve) {
     $speedText = @($speed.Keys | Sort-Object | ForEach-Object { '{0} {1:N2} us/MiB' -f $_, $speed[$_] }) -join ', '
     "  time per MiB read: $speedText"
     $cards = Get-Cards $speed $Reserve
-    $plan = New-ModelPlan $info $cards $speed $cfg $hostCap
+    $planCfg = $cfg
+    $session = Get-SessionContext
+    if ($Name -ne $defaultModel -and $pickerModels -contains $Name -and $session -gt [int]$cfg.minCtx) {
+        # at least the context of the default model, else every session would shrink to this one
+        $planCfg = $cfg | ConvertTo-Json -Depth 5 | ConvertFrom-Json
+        $planCfg.minCtx = $session
+        "  context at least $session like $defaultModel (one window per session for all models of /model)"
+    }
+    $plan = New-ModelPlan $info $cards $speed $planCfg $hostCap
     if (-not $plan) { Write-Warning "$Name`: no placement fits into the graphics and main memory of this machine."; return }
     Set-MachineModelArgs $Name (ConvertTo-PlanArgs $plan)
     Set-MachineValue 'plans' $Name ([pscustomobject][ordered]@{

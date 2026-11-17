@@ -147,7 +147,7 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
 | | |
 |---|---|
 | Modell | `local-coder` = Qwen 3.6 27B, unzensiert (Heretic v2), mit MTP, 128k Kontext |
-| Tempo | `local-coder` 66 bis 71 Tokens/s mit der berechneten Verteilung (vorher etwa 60 von Hand, 44 mit `--fit`), `local-fast` 83 bis 140; beide vollständig auf den Grafikkarten (RTX 5070 Ti + RTX 3060) ([planer.md](docs/planer.md)) |
+| Tempo | `local-coder` 66 bis 71 Tokens/s mit der berechneten Verteilung (vorher etwa 60 von Hand, 44 mit `--fit`), `local-fast` 171 (vorher 83 bis 140), `local-qwen38` 70; alle mit 128k Kontext (RTX 5070 Ti + RTX 3060) ([planer.md](docs/planer.md)) |
 | Benchmark | `local-coder`: alle 24 Läufe der vier älteren Aufgaben bestanden, 14 von 15 der fünf schwereren, 89 % der Arbeitsregeln eingehalten, mit Projektvorlage 91 % (gemessen mit 64k); die zwei Aufgaben zu Faktentreue und Konsistenz über Dateien 6 von 6. `local-fast` (Stand vor der Abschlussprüfung): 3 von 15, 52 % ([modellwahl.md](docs/modellwahl.md)) |
 | Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle im Installationsordner (`config\machine.json`) |
 | Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme, misst die Karten und berechnet die Verteilung auf Karten und Hauptspeicher ([einrichtung.md](docs/einrichtung.md), [planer.md](docs/planer.md)); erprobt nur auf diesem Rechner |

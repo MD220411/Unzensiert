@@ -62,6 +62,13 @@ Gewählt wird die größte Kontextgröße ab `minCtx` (64k), deren Zeit höchste
 `speedTolerance` (15 %) über der schnellsten liegt. Mehr Kontext ist etwas Tempo wert: Im
 Benchmark bestand die Aufgabe `longcontext` erst mit 128k ([modellwahl.md](modellwahl.md)).
 
+**Ein Kontext je Sitzung.** `claude-local` stellt das Fenster einer Sitzung auf das
+kleinste Modell der `/model`-Auswahl ein, damit ein Wechsel kein Modell überlaufen lässt.
+Der Planer rechnet deshalb zuerst das Standardmodell; die anderen Modelle der Auswahl
+bekommen mindestens dessen Kontext, wenn er bei ihnen passt. Sonst hätte auf dem
+Entwicklungsrechner `local-fast` 64k bekommen (200,8 statt 171,2 Tok./s) und jede
+Sitzung mit `local-coder` wäre auf 64k geschrumpft.
+
 **Ergebnis.** In `config\machine.json` unter `models.<profil>.args`: `ctx-size`,
 `gpu-layers`, `device` (langsamste Karte zuerst), `tensor-split` (Einheiten je Karte; die
 Ausgabeschicht zählt als eine Einheit), `n-cpu-moe`, `mmproj-device` oder
@@ -101,6 +108,12 @@ das Einlesen von 26.177 Tokens. Tool-Calls und Bild-Eingabe in allen Läufen OK.
 | RTX 5070 Ti allein | `local-fast`, 64k | 97,1 Tok./s, Prompt 775/s | | **105,7**, Prompt 844/s |
 | RTX 3060 allein | `local-fast`, 64k | 62,2 Tok./s, Prompt 244/s | | **65,0**, Prompt 260/s |
 
+Auf dem Entwicklungsrechner, beide Karten, freie Wahl (Stand jetzt in `machine.json`):
+`local-coder` 128k mit 66,9 Tok./s, `local-qwen38` 128k mit 70,5 Tok./s (vorher von Hand
+etwa 55 bis 58), `local-fast` 128k mit 171,2 Tok./s (vorher von Hand 83 bis 140; mit 64k
+wären es 200,8, siehe „Ein Kontext je Sitzung“). Die Handeinstellung liegt gesichert in
+`<installRoot>\run\machine.json.vor-planer`.
+
 Ohne Vorgabe wählte der Planer: auf der RTX 5070 Ti allein für `local-coder` 96k
 (18,7 Tok./s), auf der RTX 3060 allein für `local-fast` 128k (58,2 Tok./s), auf der
 RTX 3060 mit 4 GB frei gehalten (≈ 8-GB-Karte) 128k (53,6 Tok./s).
@@ -129,6 +142,11 @@ Verhältnisse zwischen den Varianten.
   aus der Kalibrierung eines dichten Modells auf denselben Karten, wenn es eine gibt.
   Unplausible Werte (≤ 0 oder langsamer als der Hauptspeicher) ersetzt er durch ein
   Zwölftel des Hauptspeicherwerts und meldet das.
+- **Vorhersage bei ausgelagerten Experten zu pessimistisch.** Für `local-fast` sagte der
+  Planer mit den Experten einer Schicht im Hauptspeicher 32 % weniger Tempo voraus als
+  ohne, gemessen waren es etwa 15 %. Der Hauptspeicherwert eines MoE-Modells stammt aus
+  einem Lauf nur auf dem Prozessor, wo es durch Rechnen begrenzt ist. Die Wahl kann
+  dadurch zu kleinem Kontext neigen.
 - **Die Formel kennt keine Kontext-Tiefe.** Bei langem Gespräch liest jedes Token auch den
   Kontext-Cache; die Vorhersage gilt für ein kurzes Gespräch.
 - **Ungeprüft:** echte Rechner mit anderen Karten, AMD und Intel über Vulkan (die Rechnung

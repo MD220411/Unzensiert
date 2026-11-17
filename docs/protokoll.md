@@ -67,6 +67,15 @@ verteilt. Gebaut im Arbeitsordner `Unzensiert-planer` (Zweig `planer`).
   Planer die Werte eines dichten Modells.
 - Ohne Modell: `Test-Setup`, `Test-Install`, `Test-Guard` (91), `Test-Templates`,
   `Test-Tasks` bestanden.
+- **Angewendet auf den Entwicklungsrechner** (`Plan-Models.ps1 -Verify`, alle drei
+  Agenten-Modelle, Handeinstellung gesichert in `<installRoot>\run\machine.json.vor-planer`):
+  `local-coder` 128k 66,9 Tok./s, `local-qwen38` 128k 70,5, `local-fast` erst 64k mit
+  200,8. Folgefehler bemerkt: `claude-local` nimmt das kleinste Fenster der `/model`-Auswahl,
+  jede Sitzung wäre auf 64k geschrumpft. Korrektur: Standardmodell zuerst planen, die
+  anderen Modelle der Auswahl bekommen mindestens dessen Kontext. Danach `local-fast` 128k
+  mit 171,2 Tok./s (vorher von Hand 83 bis 140), Experten einer Schicht im Hauptspeicher.
+  Vorhergesagt waren für 128k 32 % weniger als für 64k, gemessen etwa 15 %: Die Rechnung
+  ist bei ausgelagerten Experten zu pessimistisch.
 
 ### Offen
 
