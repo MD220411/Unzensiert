@@ -51,7 +51,7 @@ härten“ und für den zweiten Blick die lokale Variante (A).
 |---|---|---|
 | H1 | Eine Quelle der Wahrheit je Projekt (`facts\facts.json`) und Abgleich gegen Doku und Code im Prüfbefehl | erledigt 2026-11-17 ([projekte.md](projekte.md)) |
 | H2 | Regel „Fakten belegen statt raten“ in `entwicklungsregeln.md` und der `CLAUDE.md` der Vorlage | erledigt 2026-11-17; Wirkung nicht gemessen (H4) |
-| H3 | Zweiter Blick: nach größeren Änderungen prüft ein zweites lokales Modell (`local-qwen38`) den Diff in frischem Kontext | erledigt 2026-11-17 ([agent.md](agent.md)); an einem Fall gemessen, `local-coder` fand dort als Prüfer mehr. Wahl des Prüfers an den Aufgaben aus H4 messen |
+| H3 | Zweiter Blick: nach größeren Änderungen prüft ein zweites lokales Modell (`local-qwen38`) den Diff in frischem Kontext | erledigt 2026-11-17 ([agent.md](agent.md)); an einem Fall gemessen, `local-coder` fand dort als Prüfer mehr. Benchmark `h3-qwen38` nach 9 von 42 Läufen unterbrochen: 1 echter Befund, kein Fehlalarm, 53 % mehr Zeit. Offen: Rest der Aufgaben und `local-coder` als Prüfer (`h3-coder`) |
 | H4 | Benchmark-Aufgaben für Faktentreue und Konsistenz über Dateien | Aufgaben `datenblatt` und `pinwechsel` erledigt 2026-11-17 ([erweitern.md](erweitern.md)); `local-coder` besteht beide 3 von 3, `fakten` 6 von 6 ([Protokoll](protokoll.md)). Offen: Vergleich ohne Faktenablage; Wirkung des zweiten Blicks mit `Benchmark-Models.ps1 -Git` |
 
 ## Reihenfolge

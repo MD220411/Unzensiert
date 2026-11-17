@@ -3,6 +3,54 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-17: Zweiter Blick im Benchmark, erster Teil (Lauf `h3-qwen38`)
+
+### Durchgeführt
+
+1. **Benchmark für den zweiten Blick:** `-ReviewModel` wählt den Prüfer für einen Lauf,
+   `-ExtraSeconds` verlängert jedes Zeitlimit um die Prüfung, jeder Lauf vermerkt seine
+   Prüfungen aus `review.log`. Während des Laufs geht der Rechner nicht in den Ruhezustand.
+   Probelauf `h3-probe`: `datenblatt` bestanden, ein zweiter Blick, 67 s, kein Befund.
+2. **Geplant:** `local-coder` an sieben Aufgaben (`extend`, `refactor`, `psscript`,
+   `screenshot`, `longcontext`, `datenblatt`, `pinwechsel`), je dreimal, mit `-Git`
+   und `-ExtraSeconds 300`. Einmal prüft `local-qwen38` (`h3-qwen38`), einmal
+   `local-coder` (`h3-coder`).
+3. **Abgebrochen nach 9 von 42 Läufen:** Um 17:07 Uhr stellte eine parallele Sitzung das
+   Erscheinungsbild um (`config\style.json`, `scripts\lib\Style.ps1`). Danach brach
+   `claude-local` sofort ab (`Set-Item` in `Style.ps1:175`, `modeVariable` leer). Der
+   Benchmark prüfte trotzdem die unveränderten Aufgabendateien und trug 33 Läufe mit 0 s
+   als „nicht bestanden“ ein. Diese 33 Läufe habe ich aus `results.jsonl` entfernt; der
+   Datensatz `h3-qwen38` enthält nur die 9 echten Läufe und im Feld `error` den Grund.
+   `h3-coder` ist nicht gelaufen.
+4. **Absicherung:** Endet `claude-local` ohne Ergebniszeile, bricht `Benchmark-Models.ps1`
+   jetzt mit Exit-Code 1 ab. Die Läufe davor bleiben im Datensatz, der Grund steht im
+   Feld `error`.
+
+### Ergebnis der 9 gültigen Läufe (Prüfer `local-qwen38`)
+
+| Aufgabe | bestanden | Zeit mit zweitem Blick | `b12433` ohne | Prüfungen | Befunde |
+|---|---|---|---|---|---|
+| `extend` | 3 / 3 | 1102 s | 886 s | 3, je 50 bis 144 s | 1 FEHLER, 1 Hinweis |
+| `refactor` | 3 / 3 | 1290 s | 799 s | 3, je 98 bis 134 s | 5 Hinweise |
+| `psscript` | 2 / 3 | 2056 s | 1221 s | 3, je 142 bis 165 s | 1 Hinweis |
+| zusammen | 8 / 9 | 4448 s | 2906 s | 9, im Mittel 126 s | 1 FEHLER, 7 Hinweise |
+
+- **Der eine FEHLER war ein echter Treffer:** In `extend #2` hieß ein neuer Test
+  `add_to_default_warehouse` ohne `test_` und lief nie. Der Agent hat den Befund
+  nachgeprüft, bestätigt und behoben (37 statt 36 Tests). Die Prüfung der Aufgabe hätte
+  das nicht bemerkt; der Lauf bestand schon vorher.
+- **Kein Fehlalarm:** Keine FEHLER-Meldung, die nicht stimmte. Die 7 Hinweise gingen nur
+  an den Nutzer und hielten den Agenten nicht auf.
+- **Ein Fehler übersehen:** `psscript #3` fiel durch (ungültiges `-Since` mit `-Format json`
+  endet mit Exit-Code 1 statt 2). Der Prüfer meldete nichts.
+- **Kosten:** 53 % mehr Zeit für diese drei Aufgaben. Davon entfallen etwa 1130 s auf die
+  neun Prüfungen selbst (einschließlich Wechsel der Modelle). Die übrigen etwa 410 s sind
+  nicht zugeordnet: Streuung der Läufe oder die Git-Repositories (nicht getrennt gemessen).
+- **Grenzen:** 9 Läufe, ein Prüfer, nur Aufgaben ohne Bezug zu Fakten. Ob `local-coder`
+  als Prüfer mehr findet und ob der zweite Blick bei `datenblatt` und `pinwechsel` hilft,
+  ist offen. Die Wahl des Prüfers bleibt bis zur vollständigen Messung bei
+  `local-qwen38`.
+
 ## 2026-11-17: Erste öffentliche Version
 
 ### Durchgeführt
