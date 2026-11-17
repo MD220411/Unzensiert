@@ -8,8 +8,8 @@ Modelle immer über den Profilnamen an.
 
 | Profil | Rolle | Modell | Download | Zweck |
 |---|---|---|---|---|
-| `local-coder` | agent | Qwen 3.6 27B, unzensiert (Heretic v2), Q4_K_M mit MTP | 17,2 GB | Standardmodell des Agenten ab 22 GB Grafikspeicher |
-| `local-fast` | agent | Qwen 3.6 35B-A3B (Mixture of Experts), unzensiert (Heretic), Q4_K_M mit MTP | 22,7 GB | mehr Tokens pro Sekunde, bei schwereren Aufgaben weniger zuverlässig; Standardmodell auf kleineren Karten |
+| `local-coder` | agent | Qwen 3.6 27B, unzensiert (Heretic v2), Q4_K_M mit MTP | 17,2 GB | Standardmodell des Agenten ab 15 GB Grafikspeicher |
+| `local-fast` | agent | Qwen 3.6 35B-A3B (Mixture of Experts), unzensiert (Heretic), Q4_K_M mit MTP | 22,7 GB | mehr Tokens pro Sekunde, bei schwereren Aufgaben weniger zuverlässig; Standardmodell unter 15 GB Grafikspeicher, weil es dort viel schneller ist (gemessen, [einrichtung.md](einrichtung.md)) |
 | `local-qwen38` | agent | Qwen 3.8 27B, unzensiert (Heretic), Q4_K_M mit MTP | 17,6 GB | Standardmodell bis 2026-11-14, Prüfer des zweiten Blicks; braucht die eigene Chat-Vorlage |
 | `qwen2.5-coder-1.5b-base` | autocomplete | Qwen 2.5 Coder 1.5B Basismodell | 1,6 GB | Tab-Vervollständigung in Continue |
 | `local-coder-q5`, `-rb2048`, `-rb512`, `-rb0` | compare | Varianten von `local-coder` | | nur für den Benchmark |

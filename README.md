@@ -49,14 +49,19 @@ between the models you have installed. More models: `scripts\Get-Model.ps1 -List
 **Which model you get** depends on the graphics memory (all cards added up,
 `config\setups.json`):
 
-| Graphics memory | Model | Context | Tried on |
-|---|---|---|---|
-| 26 GB or more | `local-coder` (Qwen 3.6 27B) | 128k | RTX 5070 Ti + RTX 3060: about 60 tokens/s |
-| 22 GB or more | `local-coder` | 64k | not measured yet |
-| 15 GB or more | `local-fast` (Qwen 3.6 35B-A3B), partly in main memory | 64k | not measured yet |
-| 11 GB or more | `local-fast`, partly in main memory | 64k | not measured yet |
-| 7 GB or more | `local-fast`, mostly in main memory | 32k | not measured yet |
-| no usable card | `local-fast` on the processor | 32k | slow |
+| Graphics memory | Model | Context | Measured on | Answer speed | Session start |
+|---|---|---|---|---|---|
+| 26 GB or more | `local-coder` (Qwen 3.6 27B) | 128k | RTX 5070 Ti + RTX 3060 | 44 tokens/s (60 tuned) | 32 s |
+| 22 GB or more | `local-coder` | 64k | both cards limited to about 23 GB | 49 tokens/s | 30 s |
+| 15 GB or more | `local-coder`, partly in main memory | 64k | RTX 5070 Ti alone | 21 tokens/s | 46 s |
+| 11 GB or more | `local-fast` (Qwen 3.6 35B-A3B), partly in main memory | 64k | RTX 3060 alone | 62 tokens/s | 107 s |
+| 7 GB or more | `local-fast`, mostly in main memory | 64k | RTX 3060 with 4 GB kept free | 57 tokens/s | 126 s |
+| no usable card | `local-fast` on the processor | 32k | Core i9-14900K | 26 tokens/s | 354 s |
+
+"Session start" is how long the model needs to read the roughly 26,000 tokens Claude Code
+sends first. `local-fast` answers faster but solves hard tasks less reliably; on 16 GB it
+runs at 97 tokens/s (`-Model local-fast` when installing). The cards were measured alone by
+hiding the others from llama.cpp; a real card of that size can be faster or slower.
 
 **Update:** run the install line again. **Remove:** double-click **Uninstall.cmd**; it
 asks before deleting anything and leaves Claude Code and Git in place.
@@ -218,6 +223,7 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 | `New-Project.ps1` | neues Projekt aus der Vorlage anlegen (Python oder PowerShell), mit Prüfbefehl und erstem Commit |
 | `Invoke-Review.ps1` | zweiter Blick: ein zweites lokales Modell prüft die nicht committete Änderung eines Projekts (läuft auch in der Abschlussprüfung) |
 | `Benchmark-Models.ps1` | Profile vergleichen: Rohwerte, Agenten-Aufgaben und eingehaltene Arbeitsregeln |
+| `Measure-Setup.ps1` | eine Hardware-Stufe auf diesem Rechner nachstellen und messen (nur bestimmte Karten sichtbar, ohne Feinabstimmung), für `measured` in `config\setups.json` |
 | `Install-Path.ps1` | `bin\` in den PATH aufnehmen |
 | `Install-Continue.ps1` | Continue installieren und Konfiguration kopieren |
 | `Install-Font.ps1` | Schrift des Erscheinungsbilds (IBM Plex Mono) für den Benutzer installieren |

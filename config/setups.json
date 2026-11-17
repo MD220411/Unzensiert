@@ -1,5 +1,5 @@
 {
-  "_comment": "Which model and context size the installer suggests for how much graphics memory (scripts\\Install.ps1, lib\\Machine.ps1 Select-Setup). The list runs from the largest machine to the smallest; the first entry whose minVramMiB (sum over all usable cards) and minRamGiB (main memory) the machine meets is suggested. 'args' go into config\\machine.json for that profile. llama.cpp places what does not fit into the graphics memory into main memory by itself (--fit); that works, but is slower. 'measured' says on which hardware the entry was tried (docs\\einrichtung.md), empty = estimate. ignoreDevices: names of integrated graphics, which share the main memory and do not count.",
+  "_comment": "Which model and context size the installer suggests for how much graphics memory (scripts\\Install.ps1, lib\\Machine.ps1 Select-Setup). The list runs from the largest machine to the smallest; the first entry whose minVramMiB (sum over all usable cards) and minRamGiB (main memory) the machine meets is suggested. 'args' go into config\\machine.json for that profile. llama.cpp places what does not fit into the graphics memory into main memory by itself (--fit); that works, but is slower. 'measured' says on which hardware the entry was tried (scripts\\Measure-Setup.ps1, docs\\einrichtung.md), empty = estimate. 'alternative' is the other model the installer mentions for that size. ignoreDevices: names of integrated graphics, which share the main memory and do not count.",
 
   "ignoreDevices": "(?i)(UHD|Iris|HD Graphics|Radeon\\(TM\\) Graphics|Radeon Graphics$|Microsoft Basic)",
 
@@ -10,7 +10,7 @@
       "minRamGiB": 16,
       "model": "local-coder",
       "args": { "ctx-size": 131072 },
-      "measured": ""
+      "measured": "RTX 5070 Ti + RTX 3060 (28 GB): 44 tokens/s without tuning (about 60 with the tuned split of that machine), session start 32 s"
     },
     {
       "name": "22gb",
@@ -18,15 +18,16 @@
       "minRamGiB": 16,
       "model": "local-coder",
       "args": { "ctx-size": 65536 },
-      "measured": ""
+      "measured": "RTX 5070 Ti + RTX 3060 limited to about 23 GB: 49 tokens/s, session start 30 s (a single 24 GB card not tried)"
     },
     {
       "name": "15gb",
       "minVramMiB": 15000,
       "minRamGiB": 32,
-      "model": "local-fast",
+      "model": "local-coder",
       "args": { "ctx-size": 65536 },
-      "measured": ""
+      "alternative": "local-fast",
+      "measured": "RTX 5070 Ti alone (16 GB): 21 tokens/s, session start 46 s; local-fast 97 tokens/s, start 34 s, but less reliable"
     },
     {
       "name": "11gb",
@@ -34,15 +35,16 @@
       "minRamGiB": 32,
       "model": "local-fast",
       "args": { "ctx-size": 65536 },
-      "measured": ""
+      "alternative": "local-coder",
+      "measured": "RTX 3060 alone (12 GB): 62 tokens/s, session start 107 s; local-coder only 11 tokens/s, start 143 s"
     },
     {
       "name": "7gb",
       "minVramMiB": 7000,
       "minRamGiB": 32,
       "model": "local-fast",
-      "args": { "ctx-size": 32768 },
-      "measured": ""
+      "args": { "ctx-size": 65536 },
+      "measured": "RTX 3060 with 4 GB kept free (about 8 GB): 57 tokens/s, session start 126 s"
     },
     {
       "name": "cpu",
@@ -51,7 +53,7 @@
       "model": "local-fast",
       "args": { "ctx-size": 32768 },
       "slow": true,
-      "measured": ""
+      "measured": "Core i9-14900K, no graphics card: 26 tokens/s, session start 354 s"
     }
   ]
 }

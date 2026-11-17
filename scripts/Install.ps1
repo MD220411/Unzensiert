@@ -169,6 +169,9 @@ try {
         if ($setup.measured) { Write-Note "measured on: $($setup.measured)" }
         else { Write-Note 'not measured on such a machine yet (estimate)' }
         if ($setup.slow) { Write-Warn 'Most of the model runs on the processor: answers will be slow.' }
+        if ($setup.PSObject.Properties['alternative'] -and -not $Model) {
+            Write-Note "other choice: run the installer with -Model $($setup.alternative) (see the measurement above)"
+        }
     }
     $bytes = Get-MissingDownloadBytes $chosen
     $haveModel = $false

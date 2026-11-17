@@ -159,3 +159,120 @@ answer contains code: True
 tool calling: OK  (read_file {"path":"src/main.py"})
 image input: OK  (read the number 7083 from a test image)
 GPU memory used (MiB): RTX 5070 Ti 15596, RTX 3060 10417
+=== 2026-11-17 17:17:20  setup measurement: model local-coder, cards all, ctx-size 131072, fit-target default, no machine tuning
+=== 2026-11-17 17:17:25  model: local-coder  (llama.cpp b12433, Claude Code 2.1.326)
+load: 10.8 s
+speed: 43.3 tokens/s  (400 tokens, MTP on, 63 % of drafted tokens accepted)
+answer contains code: False
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4624 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14168, RTX 3060 9759
+main memory of the model process: 18.1 GB resident
+=== 2026-11-17 19:21:42  setup measurement: model local-fast, cards 0, ctx-size 65536, fit-target default, no machine tuning
+=== 2026-11-17 19:21:45  model: local-fast  (llama.cpp b12433, Claude Code 2.1.326)
+load: 49.5 s
+speed: 93.9 tokens/s  (400 tokens, MTP on, 58 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 1202 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14688, RTX 3060 0
+main memory of the model process: 17.4 GB private, 21.5 GB resident
+=== 2026-11-17 19:22:55  setup measurement: model local-coder, cards 0, ctx-size 65536, fit-target default, no machine tuning
+=== 2026-11-17 19:22:58  model: local-coder  (llama.cpp b12433, Claude Code 2.1.326)
+load: 8.6 s
+speed: 20.8 tokens/s  (400 tokens, MTP on, 66 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 7039 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14364, RTX 3060 0
+main memory of the model process: 19 GB private, 18.8 GB resident
+=== 2026-11-17 19:24:15  setup measurement: model local-coder, cards 0, ctx-size 65536, fit-target default, no machine tuning
+=== 2026-11-17 19:24:18  model: local-coder  (llama.cpp b12433, Claude Code 2.1.326)
+load: 7.9 s
+speed: 20.9 tokens/s  (400 tokens, MTP on, 64 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 5018 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14364, RTX 3060 0
+prompt: 571.8 tokens/s (26176 tokens read in 46 s)
+main memory of the model process: 19.5 GB private, 19.3 GB resident
+=== 2026-11-17 19:25:47  setup measurement: model local-fast, cards 0, ctx-size 65536, fit-target default, no machine tuning
+=== 2026-11-17 19:25:50  model: local-fast  (llama.cpp b12433, Claude Code 2.1.326)
+load: 10.9 s
+speed: 97.1 tokens/s  (400 tokens, MTP on, 59 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4462 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14688, RTX 3060 0
+prompt: 774.9 tokens/s (26175 tokens read in 34 s)
+main memory of the model process: 17.7 GB private, 21.9 GB resident
+=== 2026-11-17 19:26:57  setup measurement: model local-coder, cards 1, ctx-size 65536, fit-target default, no machine tuning
+=== 2026-11-17 19:27:01  model: local-coder  (llama.cpp b12433, Claude Code 2.1.326)
+load: 8.8 s
+speed: 10.8 tokens/s  (400 tokens, MTP on, 56 % of drafted tokens accepted)
+answer contains code: False
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 1958 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 7, RTX 3060 10135
+prompt: 183.5 tokens/s (26177 tokens read in 143 s)
+main memory of the model process: 16.2 GB private, 20 GB resident
+=== 2026-11-17 19:30:38  setup measurement: model local-fast, cards 1, ctx-size 65536, fit-target default, no machine tuning
+=== 2026-11-17 19:30:41  model: local-fast  (llama.cpp b12433, Claude Code 2.1.326)
+load: 10.3 s
+speed: 62.2 tokens/s  (400 tokens, MTP on, 62 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4567 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 7, RTX 3060 10523
+prompt: 244.1 tokens/s (26175 tokens read in 107 s)
+main memory of the model process: 13.6 GB private, 21.8 GB resident
+=== 2026-11-17 19:33:11  setup measurement: model local-fast, cards 1, ctx-size 32768, fit-target 4096 MiB, no machine tuning
+=== 2026-11-17 19:33:14  model: local-fast  (llama.cpp b12433, Claude Code 2.1.326)
+load: 10.1 s
+speed: 55.8 tokens/s  (400 tokens, MTP on, 61 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 3753 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 7, RTX 3060 7363
+prompt: 210.6 tokens/s (26177 tokens read in 124 s)
+main memory of the model process: 10.4 GB private, 21.8 GB resident
+=== 2026-11-17 19:36:03  setup measurement: model local-fast, cards 1, ctx-size 65536, fit-target 4096 MiB, no machine tuning
+=== 2026-11-17 19:36:06  model: local-fast  (llama.cpp b12433, Claude Code 2.1.326)
+load: 10.1 s
+speed: 56.8 tokens/s  (400 tokens, MTP on, 64 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4681 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 7, RTX 3060 7511
+prompt: 207.2 tokens/s (26178 tokens read in 126 s)
+main memory of the model process: 10.7 GB private, 21.8 GB resident
+=== 2026-11-17 19:38:53  setup measurement: model local-fast, cards none, ctx-size 32768, fit-target default, no machine tuning
+=== 2026-11-17 19:38:56  model: local-fast  (llama.cpp b12433, Claude Code 2.1.326)
+load: 11.5 s
+speed: 25.9 tokens/s  (400 tokens, MTP on, 60 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 7197 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 7, RTX 3060 0
+prompt: 73.9 tokens/s (26177 tokens read in 354 s)
+main memory of the model process: 19.3 GB private, 37.8 GB resident
+=== 2026-11-17 19:45:46  setup measurement: model local-coder, cards all, ctx-size 131072, fit-target default, no machine tuning
+=== 2026-11-17 19:45:49  model: local-coder  (llama.cpp b12433, Claude Code 2.1.326)
+load: 10.5 s
+speed: 44.4 tokens/s  (400 tokens, MTP on, 64 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 6614 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 14168, RTX 3060 9759
+prompt: 814.6 tokens/s (26179 tokens read in 32 s)
+main memory of the model process: 28.1 GB private, 18.5 GB resident
+=== 2026-11-17 19:46:50  setup measurement: model local-coder, cards all, ctx-size 65536, fit-target 2560 MiB, no machine tuning
+=== 2026-11-17 19:46:53  model: local-coder  (llama.cpp b12433, Claude Code 2.1.326)
+load: 10.2 s
+speed: 49.4 tokens/s  (400 tokens, MTP on, 58 % of drafted tokens accepted)
+answer contains code: True
+tool calling: OK  (read_file {"path":"src/main.py"})
+image input: OK  (read the number 4574 from a test image)
+GPU memory used (MiB): RTX 5070 Ti 12786, RTX 3060 8531
+prompt: 882.0 tokens/s (26179 tokens read in 30 s)
+main memory of the model process: 25.6 GB private, 18.4 GB resident

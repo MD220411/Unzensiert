@@ -74,18 +74,35 @@ erste Stufe, deren Bedarf der Rechner erfüllt, wird vorgeschlagen. Was nicht in
 Grafikspeicher passt, legt llama.cpp selbst in den Arbeitsspeicher (`--fit`, siehe
 [modelle.md](modelle.md)). Das funktioniert, ist aber langsamer.
 
-| Grafikspeicher | Hauptspeicher | Modell | Kontext | Gemessen |
-|---|---|---|---|---|
-| ab 26 GB | 16 GB | `local-coder` (Qwen 3.6 27B) | 128k | RTX 5070 Ti + RTX 3060, eigene Aufteilung: etwa 60 Tokens/s |
-| ab 22 GB | 16 GB | `local-coder` | 64k | Schätzung |
-| ab 15 GB | 32 GB | `local-fast` (Qwen 3.6 35B-A3B) | 64k | Schätzung |
-| ab 11 GB | 32 GB | `local-fast` | 64k | Schätzung |
-| ab 7 GB | 32 GB | `local-fast` | 32k | Schätzung |
-| darunter | 32 GB | `local-fast` auf dem Prozessor | 32k | Schätzung, langsam |
+| Grafikspeicher | Hauptspeicher | Modell | Kontext | Gemessen auf | Antwort | Sitzungsbeginn |
+|---|---|---|---|---|---|---|
+| ab 26 GB | 16 GB | `local-coder` (Qwen 3.6 27B) | 128k | RTX 5070 Ti + RTX 3060 | 44 Tokens/s (mit eigener Aufteilung etwa 60) | 32 s |
+| ab 22 GB | 16 GB | `local-coder` | 64k | beide Karten, auf etwa 23 GB begrenzt | 49 Tokens/s | 30 s |
+| ab 15 GB | 32 GB | `local-coder`, teils im Hauptspeicher | 64k | RTX 5070 Ti allein | 21 Tokens/s | 46 s |
+| ab 11 GB | 32 GB | `local-fast` (Qwen 3.6 35B-A3B), teils im Hauptspeicher | 64k | RTX 3060 allein | 62 Tokens/s | 107 s |
+| ab 7 GB | 32 GB | `local-fast`, großteils im Hauptspeicher | 64k | RTX 3060, 4 GB frei gehalten | 57 Tokens/s | 126 s |
+| darunter | 32 GB | `local-fast` auf dem Prozessor | 32k | Core i9-14900K | 26 Tokens/s | 354 s |
 
-Warum ab 15 GB `local-fast`: Ein Mixture-of-Experts-Modell rechnet je Token nur mit etwa
-3 Milliarden Parametern. Liegen Teile davon im Arbeitsspeicher, bremst das weniger als
-beim dichten 27B-Modell (Begründung, nicht gemessen; die Messung folgt).
+Gemessen am 2026-11-17 mit `scripts\Measure-Setup.ps1`: Das Skript zeigt llama.cpp nur
+die gewählten Karten (`CUDA_VISIBLE_DEVICES`), hält auf Wunsch Speicher frei
+(`--fit-target`) und nimmt die allgemeinen Einstellungen ohne die Feinabstimmung des
+Entwicklungsrechners. „Antwort“ ist das Tempo von `Test-Model.ps1`, „Sitzungsbeginn“ die
+Zeit, in der das Modell die rund 26.000 Tokens liest, die Claude Code zuerst schickt. Alle
+Läufe bestanden Tool-Calls und Bild-Eingabe. Rohwerte: `logs\model-tests.log`.
+
+- **16 GB: `local-coder` statt `local-fast`.** Auf der RTX 5070 Ti allein antwortet
+  `local-fast` mit 97 Tokens/s, `local-coder` nur mit 21. Im Benchmark löste `local-coder`
+  aber 14 von 15 der schweren Aufgaben, `local-fast` 3 von 15 (Stand vor der
+  Abschlussprüfung, [modellwahl.md](modellwahl.md)). Zuverlässigkeit geht vor. Der
+  Installer nennt `local-fast` als Alternative (`-Model local-fast`).
+- **12 GB: `local-fast`.** `local-coder` antwortet auf der RTX 3060 allein mit 11 Tokens/s
+  und braucht 143 s für den Sitzungsbeginn; das ist für die Arbeit zu zäh.
+- **Grenzen der Messung.** Eine Karte allein steht für einen Rechner mit dieser Karte; eine
+  echte Karte derselben Größe kann schneller oder langsamer sein (Speicherbandbreite,
+  PCIe). Die 22-GB- und 8-GB-Stufen sind nachgestellt, nicht auf solchen Karten gemessen.
+  Den Bedarf an Hauptspeicher zeigt dieser Rechner (128 GB) nicht verlässlich: Windows
+  zählt die eingeblendete Modelldatei mit. Die Mindestwerte (16 GB, mit Auslagerung 32 GB)
+  sind daher Schätzungen; der Modellprozess belegte bei Auslagerung 11 bis 20 GB privat.
 
 ## Werte dieses Rechners: `config\machine.json`
 

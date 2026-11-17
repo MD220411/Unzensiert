@@ -88,7 +88,10 @@ Assert-That (@('unload', 'stop', 'keep') -contains [string]$agent.onExit) "agent
 
 foreach ($setup in (Get-Setups)) {
     $ok = ($profiles -contains [string]$setup.model) -and ((Get-ModelProfile ([string]$setup.model)).role -eq 'agent') -and $setup.args.'ctx-size'
-    Assert-That $ok "setups.json: setup '$($setup.name)' uses an agent profile ('$($setup.model)') and sets ctx-size"
+    if ($setup.PSObject.Properties['alternative']) {
+        $ok = $ok -and ($profiles -contains [string]$setup.alternative) -and ((Get-ModelProfile ([string]$setup.alternative)).role -eq 'agent')
+    }
+    Assert-That $ok "setups.json: setup '$($setup.name)' uses agent profiles ('$($setup.model)') and sets ctx-size"
 }
 
 $bench = Get-BenchmarkConfig

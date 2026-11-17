@@ -76,14 +76,37 @@ Start per Einzeiler und per ZIP mit Doppelklick. Gebaut in einem eigenen Arbeits
   einem Stub-Server als `ANTHROPIC_BASE_URL` antwortet `claude -p` sofort, ohne
   Login-Abfrage (Claude Code 2.1.326). Die interaktive Ersteinrichtung (Farbthema,
   Vertrauen) ist so nicht prüfbar.
+- **Hardware-Stufen** mit dem neuen `scripts\Measure-Setup.ps1` (nur gewählte Karten
+  sichtbar, allgemeine Einstellungen ohne Feinabstimmung, `Test-Model.ps1` plus
+  Prompt-Tempo mit 26.177 Tokens). Alle Läufe: Tool-Calls OK, Bild-Eingabe OK.
+
+  | Nachgestellt | Profil, Kontext | Antwort | Prompt | Sitzungsbeginn |
+  |---|---|---|---|---|
+  | beide Karten (28 GB), ohne Feinabstimmung | `local-coder`, 128k | 44,4 Tok./s | 815 Tok./s | 32 s |
+  | beide Karten, je 2560 MiB frei (≈ 23 GB) | `local-coder`, 64k | 49,4 Tok./s | 882 Tok./s | 30 s |
+  | RTX 5070 Ti allein (16 GB) | `local-coder`, 64k | 20,9 Tok./s | 572 Tok./s | 46 s |
+  | RTX 5070 Ti allein (16 GB) | `local-fast`, 64k | 97,1 Tok./s | 775 Tok./s | 34 s |
+  | RTX 3060 allein (12 GB) | `local-coder`, 64k | 10,8 Tok./s | 184 Tok./s | 143 s |
+  | RTX 3060 allein (12 GB) | `local-fast`, 64k | 62,2 Tok./s | 244 Tok./s | 107 s |
+  | RTX 3060, 4096 MiB frei (≈ 8 GB) | `local-fast`, 32k / 64k | 55,8 / 56,8 Tok./s | 211 / 207 Tok./s | 124 / 126 s |
+  | keine Karte (Core i9-14900K) | `local-fast`, 32k | 25,9 Tok./s | 74 Tok./s | 354 s |
+
+  Folgen für `config\setups.json`: 16 GB bekommt `local-coder` (zuverlässiger, 21 Tok./s),
+  `local-fast` als genannte Alternative; 12 GB bekommt `local-fast`; 8 GB bekommt 64k
+  statt 32k Kontext, weil es gleich schnell läuft. Ohne Feinabstimmung ist `local-coder`
+  auf beiden Karten ein Viertel langsamer als mit der eigenen Aufteilung (44 statt etwa
+  60 Tok./s); die Feinabstimmung bleibt in `machine.json` dieses Rechners. Der private
+  Speicher des Modellprozesses lag bei Auslagerung zwischen 10,4 und 19,5 GB; bei voller
+  Karte zeigt Windows auf diesem Rechner keinen verlässlichen Wert.
 
 ### Offen
 
-- Hardware-Stufen unterhalb von 26 GB sind Schätzungen. Messung folgt mit jeweils einer
-  freigegebenen Karte (5070 Ti allein = 16 GB, 3060 allein = 12 GB).
 - Nicht prüfbar auf diesem Rechner: ein frischer Windows-Rechner (Erststart von Claude Code
   interaktiv, `winget` für Git, Paketwahl bei altem Treiber), AMD und Intel über Vulkan,
-  der Agent mit dem Werkzeug `PowerShell` statt `Bash`.
+  der Agent mit dem Werkzeug `PowerShell` statt `Bash`, eine echte 24-GB- oder 8-GB-Karte.
+  Ein zweiter Rechner (Bekannte, Rückmeldungen über GitHub-Issues) wäre der nächste Test.
+- Die Qualität der Stufen ist nur über `Test-Model.ps1` geprüft, nicht im Benchmark:
+  Läuft `local-coder` mit 64k statt 128k Kontext genauso zuverlässig?
 
 ## 2026-11-17: Zweiter Blick im Benchmark, erster Teil (Lauf `h3-qwen38`)
 
