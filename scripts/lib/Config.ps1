@@ -239,6 +239,22 @@ function Get-ModelContextSize([string]$Name) {
     return 0
 }
 
+function Resolve-StartModel([string]$Requested) {
+    # The model a session starts with: the requested short name or profile, else the default
+    # of config\agent.json. Returns @{ model; problem }; problem says why it cannot start.
+    if ($Requested) {
+        $name = Resolve-ModelName $Requested
+        try { $null = Get-ModelProfile $name } catch { return @{ model = ''; problem = $_.Exception.Message } }
+        if (-not (Test-ModelInstalled $name)) {
+            return @{ model = ''; problem = "the model '$name' is not installed. Download it with: powershell -ExecutionPolicy Bypass -File `"$(Join-Path $script:ProjectRoot 'scripts\Get-Model.ps1')`" -Model $name" }
+        }
+        return @{ model = $name; problem = '' }
+    }
+    $name = Get-DefaultAgentModel
+    if (-not $name) { return @{ model = ''; problem = "no model is installed yet. Run the installer: $(Join-Path $script:ProjectRoot 'Install.cmd')" } }
+    return @{ model = $name; problem = '' }
+}
+
 function Get-DefaultAgentModel {
     # The model claude-local starts with: "model" in config\agent.json if it is installed,
     # otherwise the first installed model of the picker, otherwise ''.

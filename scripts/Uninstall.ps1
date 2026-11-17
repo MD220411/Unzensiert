@@ -1,9 +1,10 @@
-# Removes claude-local from this machine, asking before each part:
+# Removes Unzensiert and claude-local from this machine, asking before each part:
 #   1. stops llama-server
-#   2. takes the command claude-local off the PATH
+#   2. takes the commands unzensiert and claude-local off the PATH
 #   3. removes the look "Nachtschicht", if it is installed (Install-Style.ps1 -Remove)
 #   4. deletes what the installer put into the install folder: llama.cpp, the model files
-#      named in config\models.json, run state, logs, downloads, benchmark work folder.
+#      named in config\models.json, run state, logs, downloads, benchmark work folder,
+#      the saved conversations of Unzensiert and its input history.
 #      Other files in that folder stay, and so does the folder if anything is left in it.
 #   5. deletes config\machine.json
 # Claude Code, Git for Windows and the settings of the VS Code extension Continue stay:
@@ -52,10 +53,13 @@ Write-Step "Install folder $root" $steps
 # files of the profiles, and the folders for state and logs. Never the whole folder blindly.
 $targets = @()
 foreach ($dir in @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^b\d+$' -and (Test-Path (Join-Path $_.FullName 'llama-server.exe')) })) { $targets += $dir.FullName }
-foreach ($name in 'run', 'logs', 'downloads', 'bench-work') {
+foreach ($name in 'run', 'logs', 'downloads', 'bench-work', 'sessions') {
     $dir = Join-Path $root $name
     if (Test-Path $dir) { $targets += $dir }
 }
+# the input history of Unzensiert ("historyFile" in config\unzensiert.json)
+$history = Join-Path $root ([string](Get-AgentSettings).historyFile)
+if ((Get-AgentSettings).historyFile -and (Test-Path $history)) { $targets += $history }
 $modelFiles = @()
 if (-not $KeepModels) {
     foreach ($profileName in (Get-ModelNames)) {
@@ -73,7 +77,7 @@ foreach ($f in $modelFiles) { $bytes += (Get-Item $f).Length }
 if ($targets.Count -eq 0 -and $modelFiles.Count -eq 0) {
     Write-Note 'nothing of claude-local is in it'
 } else {
-    foreach ($t in $targets) { Write-Note "folder $t" }
+    foreach ($t in $targets) { if (Test-Path -LiteralPath $t -PathType Leaf) { Write-Note "file $t" } else { Write-Note "folder $t" } }
     foreach ($f in $modelFiles) { Write-Note "file   $f" }
     if (Confirm-Step "Delete these ($([math]::Round($bytes / 1GB, 1)) GB)?") {
         foreach ($t in $targets) { Remove-Item -Recurse -Force -Path $t }

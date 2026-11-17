@@ -226,6 +226,16 @@ if ($agent.pluginDir) {
     }
 }
 
+# --- 7b. the agent Unzensiert -----------------------------------------------------------
+$uz = Get-AgentSettings
+Assert-That (Test-Path (Join-Path $script:ConfigDir ([string]$uz.promptFile))) "unzensiert.json: prompt file config\$($uz.promptFile) exists"
+Assert-That ([bool](ConvertTo-PermissionMode ([string]$uz.permissionMode))) "unzensiert.json: permissionMode '$($uz.permissionMode)' is ask, edits or all"
+Assert-That ([double]$uz.compactAt -gt 0.3 -and [double]$uz.compactAt -lt 1) 'unzensiert.json: compactAt between 0.3 and 1'
+Assert-That (Test-Path (Join-Path $script:ProjectRoot 'bin\unzensiert.cmd')) 'command unzensiert: bin\unzensiert.cmd exists'
+Assert-That ((Get-ProgramVersion) -match '^\d+\.\d+\.\d+$') "VERSION holds a version ($(Get-ProgramVersion))"
+$upd = Get-UpdateConfig
+Assert-That ([string]$upd.repository -match '^[\w.-]+/[\w.-]+$' -and [int]$upd.checkHours -ge 1) 'updates.json: repository owner/name and checkHours'
+
 # --- 8. look ---------------------------------------------------------------------------
 # config\style.json picks one of config\styles\ (docs\stil.md).
 $selection = Get-StyleSelection

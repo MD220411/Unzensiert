@@ -3,9 +3,10 @@
 # Per profile it measures:
 #   raw   - load time, answer speed, MTP acceptance, prompt reading speed, tool calling,
 #           GPU memory
-#   agent - the tasks in benchmark\tasks\ solved through claude-local, checked by a
-#           hidden check.py (pass/fail, seconds, turns, output tokens) that also reports
-#           which working rules the agent kept (line "RULES {json}", benchmark\lib\rulecheck.py)
+#   agent - the tasks in benchmark\tasks\ solved through an agent (Unzensiert or
+#           claude-local, -Agent), checked by a hidden check.py (pass/fail, seconds, turns,
+#           output tokens) that also reports which working rules the agent kept
+#           (line "RULES {json}", benchmark\lib\rulecheck.py)
 #
 # To compare settings (context size, GPU split, ...), add a second profile with the other
 # values to config\models.json and list it in config\benchmark.json, or change the profile
@@ -19,6 +20,8 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\Benchmark-Models.ps1
 #   ... -Only "local-*"       only profiles whose name matches
 #   ... -SkipAgent            raw measurements only
+#   ... -Agent claude-local   the agent that solves the tasks: unzensiert or claude-local
+#                             (default: "agent" in config\benchmark.json); a record per agent
 #   ... -Label split-70-30    name of the run
 #   ... -Repeat 3             run every agent task three times
 #   ... -Tasks planner        only these agent tasks (comma-separated), default: all in the config
@@ -35,7 +38,7 @@
 # While it runs the computer does not go to sleep on its own (SetThreadExecutionState; no
 # system setting is changed, the request ends with the script).
 #
-# If claude-local does not start at all (no result line), the run stops with exit code 1:
+# If the agent does not start at all (no result line), the run stops with exit code 1:
 # the runs measured before are kept in the record, the failure goes to its "error" field.
 
 param(
@@ -49,6 +52,8 @@ param(
     [string]$ReviewModel,
     [int]$ExtraSeconds = 0,
     [switch]$SkipAgent,
+    [ValidateSet('', 'unzensiert', 'claude-local')]
+    [string]$Agent = '',
     [switch]$Force,
     [switch]$ReportOnly
 )
@@ -62,7 +67,11 @@ $benchDir = Join-Path $script:ProjectRoot 'logs\benchmark'
 $workRoot = [string]$cfg.workDir
 $resultsFile = Join-Path $benchDir 'results.jsonl'
 $tasksRoot = Join-Path $script:ProjectRoot 'benchmark\tasks'
-$launcher = Join-Path $PSScriptRoot 'claude-local.ps1'
+# the agent: Unzensiert (scripts\unzensiert.ps1) or Claude Code through claude-local; both
+# take the same arguments (-Model, -OnExit, -p, --permission-mode, --allowedTools ...)
+if (-not $Agent) { $Agent = [string]$cfg.agent }
+if (-not $Agent) { $Agent = 'unzensiert' }
+$launcher = Join-Path $PSScriptRoot "$Agent.ps1"
 $backendName = 'llama.cpp'
 New-Item -ItemType Directory -Force -Path $benchDir, $workRoot | Out-Null
 
@@ -75,6 +84,12 @@ function Get-Backend($record) {
     # Records written before the move to llama.cpp have no "backend" field.
     if ($record.backend) { return [string]$record.backend }
     return 'Ollama'
+}
+
+function Get-Client($record) {
+    # The agent of a record; records from before Unzensiert came through claude-local.
+    if ($record.client) { return [string]$record.client }
+    return 'claude-local'
 }
 
 function Measure-Raw([string]$model) {
@@ -98,8 +113,8 @@ function Measure-Raw([string]$model) {
 }
 
 function Invoke-AgentTask([string]$model, [string]$task, [string]$workDir) {
-    # Copies the task files to a work folder, lets claude-local solve the task there and
-    # runs the task's check.py on the result.
+    # Copies the task files to a work folder, lets the agent solve the task there and runs
+    # the task's check.py on the result.
     $taskDir = Join-Path $tasksRoot $task
     New-TaskWorkCopy $taskDir $workDir -Overlay $Overlay -Git:$Git
     $promptFile = Join-Path $taskDir 'prompt.txt'
@@ -142,7 +157,7 @@ function Invoke-AgentTask([string]$model, [string]$task, [string]$workDir) {
         }
     }
 
-    # Ended without a result line: claude-local or Claude Code itself did not run (a broken
+    # Ended without a result line: the agent itself did not run (a broken
     # setting, a script in mid-edit by another session). Checking the untouched task files
     # would record a failed run that the model never had.
     if ($finished -and -not $answered) {
@@ -199,10 +214,10 @@ function Get-RuleQuote($runs) {
 
 function Write-Report {
     $all = Get-Results
-    # keep the newest record per backend + id + label
+    # keep the newest record per backend + agent + id + label
     $latest = @{}
-    foreach ($x in $all) { $latest["$(Get-Backend $x)|$($x.id)|$($x.label)"] = $x }
-    $rows = $latest.Values | Sort-Object @{e = { Get-Backend $_ } }, @{e = { $_.from } }, @{e = { $_.ctx } }, @{e = { $_.label } }
+    foreach ($x in $all) { $latest["$(Get-Backend $x)|$(Get-Client $x)|$($x.id)|$($x.label)"] = $x }
+    $rows = $latest.Values | Sort-Object @{e = { Get-Backend $_ } }, @{e = { $_.from } }, @{e = { $_.ctx } }, @{e = { $_.label } }, @{e = { Get-Client $_ } }
 
     $md = New-Object System.Collections.Generic.List[string]
     $md.Add('# Benchmark-Ergebnisse')
@@ -226,22 +241,31 @@ function Write-Report {
         $md.Add("| $(Get-Backend $x) | ``$($x.id)`` | ``$($x.from)`` | $([int]($x.ctx / 1024))k | $($x.label) | $memory | $($x.raw.loadSec) s | $($x.raw.genTps) Tok./s | $mtp | $($x.raw.promptTps) Tok./s | $tool |")
     }
     $md.Add('')
-    $md.Add('## Agenten-Aufgaben (ueber claude-local)')
+    $md.Add('## Agenten-Aufgaben')
     $md.Add('')
-    $md.Add('| Backend | Profil | Lauf | Bestanden | Summe Zeit | Regeln eingehalten |')
-    $md.Add('|---|---|---|---|---|---|')
+    $md.Add('Agent: `unzensiert` = das eigene Programm (`scripts\unzensiert.ps1`), `claude-local` = Claude Code am lokalen Server.')
+    $md.Add('Runden = Anfragen an das Modell, Tokens = vom Modell geschriebene Tokens, beides summiert ueber alle Laeufe.')
+    $md.Add('')
+    $md.Add('| Backend | Agent | Profil | Lauf | Bestanden | Summe Zeit | Runden | Tokens | Regeln eingehalten |')
+    $md.Add('|---|---|---|---|---|---|---|---|---|')
     foreach ($x in $rows) {
         if (-not $x.agent) { continue }
         $runs = @($x.agent)
         $passed = @($runs | Where-Object { $_.pass -and -not $_.timeout }).Count
         $sumSec = ($runs | Measure-Object -Property sec -Sum).Sum
-        $md.Add("| $(Get-Backend $x) | ``$($x.id)`` | $($x.label) | $passed / $($runs.Count) | $sumSec s | $(Get-RuleQuote $runs) |")
+        $turns = '-'
+        $withTurns = @($runs | Where-Object { $null -ne $_.turns })
+        if ($withTurns) { $turns = ($withTurns | Measure-Object -Property turns -Sum).Sum }
+        $tokens = '-'
+        $withTokens = @($runs | Where-Object { $null -ne $_.outTokens })
+        if ($withTokens) { $tokens = ($withTokens | Measure-Object -Property outTokens -Sum).Sum }
+        $md.Add("| $(Get-Backend $x) | $(Get-Client $x) | ``$($x.id)`` | $($x.label) | $passed / $($runs.Count) | $sumSec s | $turns | $tokens | $(Get-RuleQuote $runs) |")
     }
     $md.Add('')
     $md.Add('### Je Aufgabe')
     $md.Add('')
-    $md.Add('| Backend | Profil | Lauf | Aufgabe | Bestanden | Laeufe | Regeln eingehalten |')
-    $md.Add('|---|---|---|---|---|---|---|')
+    $md.Add('| Backend | Agent | Profil | Lauf | Aufgabe | Bestanden | Laeufe | Regeln eingehalten |')
+    $md.Add('|---|---|---|---|---|---|---|---|')
     $taskNames = @($cfg.tasks)
     foreach ($x in $rows) {
         if (-not $x.agent) { continue }
@@ -261,7 +285,7 @@ function Write-Report {
                 } elseif ($run.pass) { $passed++; $word = 'ja' }
                 $parts += "$word ($($run.sec) s)"
             }
-            $md.Add("| $(Get-Backend $x) | ``$($x.id)`` | $($x.label) | $t | $passed / $($runs.Count) | $($parts -join ', ') | $(Get-RuleQuote $runs) |")
+            $md.Add("| $(Get-Backend $x) | $(Get-Client $x) | ``$($x.id)`` | $($x.label) | $t | $passed / $($runs.Count) | $($parts -join ', ') | $(Get-RuleQuote $runs) |")
         }
     }
     $md.Add('')
@@ -274,8 +298,8 @@ function Write-Report {
     $md.Add('Gezaehlt ueber alle Laeufe der Aufgaben, die die Regel pruefen (auch ueber nicht bestandene). `-` = nicht geprueft.')
     $md.Add('')
     $ruleNames = @('readme', 'tests', 'config', 'docstrings', 'headers', 'nodeadcode', 'fakten')
-    $md.Add('| Backend | Profil | Lauf | ' + ($ruleNames -join ' | ') + ' |')
-    $md.Add('|---|---|---|' + (($ruleNames | ForEach-Object { '---' }) -join '|') + '|')
+    $md.Add('| Backend | Agent | Profil | Lauf | ' + ($ruleNames -join ' | ') + ' |')
+    $md.Add('|---|---|---|---|' + (($ruleNames | ForEach-Object { '---' }) -join '|') + '|')
     foreach ($x in $rows) {
         $runs = @($x.agent | Where-Object { $_.rules })
         if (-not $runs) { continue }
@@ -285,7 +309,7 @@ function Write-Report {
             if (-not $with) { $cells += '-'; continue }
             $cells += "$(@($with | Where-Object { $_.rules.$rule }).Count) / $($with.Count)"
         }
-        $md.Add("| $(Get-Backend $x) | ``$($x.id)`` | $($x.label) | " + ($cells -join ' | ') + ' |')
+        $md.Add("| $(Get-Backend $x) | $(Get-Client $x) | ``$($x.id)`` | $($x.label) | " + ($cells -join ' | ') + ' |')
     }
     $md.Add('')
     $md.Add('`readme` = README angepasst, `tests` = Test fuer das Neue geschrieben, `config` = neue Einstellung in der Konfigurationsdatei statt im Code,')
@@ -309,26 +333,27 @@ if ($Tasks) {
 }
 $startFailed = $false
 $done = @{}
-foreach ($x in (Get-Results)) { $done["$(Get-Backend $x)|$($x.id)|$($x.label)"] = $true }
+foreach ($x in (Get-Results)) { $done["$(Get-Backend $x)|$(Get-Client $x)|$($x.id)|$($x.label)"] = $true }
 
 foreach ($name in $cfg.models) {
     if ($name -notlike $Only) { continue }
-    if ($done["$backendName|$name|$Label"] -and -not $Force) { "skip $name (already measured, label $Label)"; continue }
+    if ($done["$backendName|$Agent|$name|$Label"] -and -not $Force) { "skip $name (already measured with $Agent, label $Label)"; continue }
     $modelProfile = Get-ModelProfile $name
     if (-not (Test-Path $modelProfile.path)) { "skip $name ($($modelProfile.path) is missing)"; continue }
 
-    "=== $name  ($(Split-Path -Leaf $modelProfile.path), label $Label)"
+    "=== $name  ($(Split-Path -Leaf $modelProfile.path), agent $Agent, label $Label)"
     $record = [ordered]@{
         id      = $name
         label   = $Label
         time    = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         backend = $backendName
+        client  = $Agent
         build   = (Get-ServerConfig).build
-        claudeCode = Get-ClaudeCodeVersion
         from    = (Split-Path -Leaf $modelProfile.path)
         ctx     = (Get-ModelContextSize $name)
         args    = $modelProfile.args
     }
+    if ($Agent -eq 'claude-local') { $record.claudeCode = Get-ClaudeCodeVersion } else { $record.version = Get-ProgramVersion }
     if ($Git) { $record.git = $true }
     if ($ReviewModel) { $record.reviewModel = $env:CLAUDE_LOCAL_REVIEW_MODEL }
     if ($ExtraSeconds) { $record.extraSeconds = $ExtraSeconds }
@@ -337,20 +362,21 @@ foreach ($name in $cfg.models) {
         "  raw: load $($record.raw.loadSec)s, gen $($record.raw.genTps) t/s, prompt $($record.raw.promptTps) t/s, tools $($record.raw.toolOk), gpu $($record.raw.gpuMemory)"
 
         if (-not $SkipAgent) {
-            $agent = @()
+            # not $agent: PowerShell names ignore case, that is the parameter -Agent
+            $agentRuns = @()
             try {
                 foreach ($task in $runTasks) {
                     for ($n = 1; $n -le $Repeat; $n++) {
                         $res = Invoke-AgentTask $name $task (Join-Path $workRoot "$name-$Label-$task-$n")
-                        if ($res.startError) { throw "claude-local did not start ($task #$n): $($res.startError)" }
+                        if ($res.startError) { throw "$Agent did not start ($task #$n): $($res.startError)" }
                         $res.task = $task
-                        $agent += $res
+                        $agentRuns += $res
                         "  agent $task #$n : pass=$($res.pass) sec=$($res.sec) timeout=$($res.timeout) turns=$($res.turns)"
                     }
                 }
             } finally {
                 # keeps the runs measured before a failure
-                $record.agent = $agent
+                $record.agent = $agentRuns
             }
         }
     } catch {
@@ -361,9 +387,9 @@ foreach ($name in $cfg.models) {
     Add-Content -Path $resultsFile -Value ($record | ConvertTo-Json -Depth 10 -Compress) -Encoding utf8
     # A start failure is a fault of the setup, not of the model: stop instead of filling
     # the next profiles with empty runs.
-    if ([string]$record.error -like 'claude-local did not start*') { $startFailed = $true; break }
+    if ([string]$record.error -like "$Agent did not start*") { $startFailed = $true; break }
 }
 
 Set-KeepAwake $false
 Write-Report
-if ($startFailed) { "STOPPED: claude-local did not start, see the error above. The runs before it are kept; fix the setup, then measure the missing tasks with -Tasks under a new -Label."; exit 1 }
+if ($startFailed) { "STOPPED: $Agent did not start, see the error above. The runs before it are kept; fix the setup, then measure the missing tasks with -Tasks under a new -Label."; exit 1 }

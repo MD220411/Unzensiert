@@ -45,10 +45,15 @@ dann `Install-Continue.ps1` (trägt den Schlüssel in die Konfiguration von Cont
 
 ## Wächter vor jedem Werkzeug-Aufruf
 
-Unter Windows führt Claude Code Befehle ohne Sandbox aus. `claude-local` übergibt deshalb
-einen Hook (`PreToolUse`), der vor jedem Aufruf von `Bash`, `Read`, `Edit`, `Write`, `Glob`
-und `Grep` läuft: `scripts\hooks\Guard-Tool.ps1`. Er entscheidet nach festen Regeln aus
-`config\guard.json` und lässt sich vom Modell nicht überreden.
+Unter Windows laufen die Befehle beider Agenten ohne Sandbox. Vor jedem Aufruf von `Bash`,
+`PowerShell`, `Read`, `Edit`, `Write`, `Glob` und `Grep` entscheidet deshalb ein Wächter
+nach festen Regeln aus `config\guard.json`, und das Modell kann ihn nicht überreden. Die
+Regeln stehen in `scripts\hooks\GuardRules.ps1`, gemeinsam für beide Agenten:
+
+- **Unzensiert** prüft im eigenen Prozess, bevor ein Werkzeug läuft, in jedem Rechte-Modus
+  zuerst ([unzensiert.md](unzensiert.md)).
+- **`claude-local`** übergibt Claude Code einen Hook (`PreToolUse`), der für jeden Aufruf
+  `scripts\hooks\Guard-Tool.ps1` als eigenen Prozess startet.
 
 | Entscheidung | Wirkung |
 |---|---|
@@ -120,17 +125,18 @@ müssen; er verhindert, dass eine neue Regel die Arbeit behindert.
   Befehle nur in WSL2 ([roadmap.md](roadmap.md), S6).
 - **Löschziele in Variablen** (`rm -rf "$DIR"`) kann der Wächter nicht auflösen; sie
   bleiben frei, sonst wäre normale Arbeit ständig unterbrochen.
-- **Kosten:** etwa 0,3 s je Werkzeug-Aufruf (Start von PowerShell).
+- **Kosten:** bei `claude-local` etwa 0,3 s je Werkzeug-Aufruf (Start von PowerShell,
+  gemessen 280 ms), bei Unzensiert 2,7 ms (im eigenen Prozess, gemessen).
 - **Schlägt der Wächter selbst fehl** (kaputte `guard.json`), wirst du bei jedem Aufruf
   gefragt, statt dass alles ungeprüft läuft. `scripts\Test-Setup.ps1` zeigt die Ursache.
 - **`.env`-Dateien im Projekt sind nicht geschützt.** Das Modell braucht sie oft für die
   Arbeit, und es läuft lokal. Wer das anders will, trägt `.env` unter `secretFileNames`
   ein.
-- Der Wächter gilt nur für `claude-local`. Das normale `claude` ist unberührt.
+- Der Wächter gilt für `unzensiert` und `claude-local`. Das normale `claude` ist unberührt.
 
 ## Git-Hinweis beim Start
 
-`claude-local` meldet beim Start in einem Terminal, wenn der Ordner kein Git-Repository
+`unzensiert` und `claude-local` melden beim Start in einem Terminal, wenn der Ordner kein Git-Repository
 ist oder nicht gesicherte Änderungen enthält (`gitCheck` in `config\agent.json`). Mit einem
 Commit vor der Sitzung lässt sich alles, was das Modell ändert, mit `git diff` ansehen und
 mit `git checkout` zurücknehmen. Bei umgeleiteter Ausgabe (`-p` in Skripten) erscheint der

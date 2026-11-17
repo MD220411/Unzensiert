@@ -1,8 +1,16 @@
 # Agent: Claude Code über `claude-local`
 
-`claude-local` startet das normale Claude Code, verbindet es aber mit dem lokalen Server
-statt mit der Anthropic-Cloud. Der Starter ist `scripts\claude-local.ps1`; `bin\claude-local.cmd`
-macht ihn in jedem Terminal verfügbar.
+Der Standard-Agent des Projekts ist seit 2026-11-17 **Unzensiert** (`unzensiert`, eigenes
+Programm, [unzensiert.md](unzensiert.md)). `claude-local` bleibt als Vergleich: Es startet
+das normale Claude Code, verbindet es aber mit dem lokalen Server statt mit der
+Anthropic-Cloud. Der Starter ist `scripts\claude-local.ps1`; `bin\claude-local.cmd` macht
+ihn in jedem Terminal verfügbar.
+
+Beide Agenten teilen sich `config\agent.json` (Modell, Kurznamen, Auswahl, Arbeitsregeln,
+Abschlussprüfung, zweiter Blick, Befehle, Werkzeuge, `onExit`), den Wächter und das
+Erscheinungsbild. Was in diesem Dokument zu diesen Teilen steht, gilt also auch für
+Unzensiert; nur das Starten, die Variablen von Claude Code und die Grenzen am Ende betreffen
+allein `claude-local`.
 
 ## Benutzen
 
@@ -27,7 +35,7 @@ Alle weiteren Argumente gehen unverändert an Claude Code.
 | `rulesFile` | `entwicklungsregeln.md` | Datei in `config\`, die an den Systemprompt angehängt wird. Leer lassen oder entfernen, um ohne Regeln zu starten. |
 | `stopCheck` | `enabled`, `commands`, `timeoutSeconds`, `maxBlocks`, `reminderFile` | Abschlussprüfung, siehe unten. `enabled: false` schaltet sie ab. |
 | `pluginDir` | `befehle` | Ordner in `config\` mit den Befehlen `/lokal:feature`, `/lokal:bugfix`, `/lokal:pruefen`. Leer lassen oder entfernen, um ohne sie zu starten. |
-| `tools` | `Bash,Read,Edit,Write,Glob,Grep` | Werkzeuge, die das Modell benutzen darf (`--tools`). Leer lassen oder entfernen für den vollen Satz von Claude Code. Ohne Git for Windows ersetzt `claude-local` `Bash` durch `PowerShell`, siehe „Schlanker Werkzeugsatz“. |
+| `tools` | `Bash,Read,Edit,Write,Glob,Grep` | Werkzeuge, die das Modell benutzen darf (bei Claude Code `--tools`). Leer lassen oder entfernen für den vollen Satz von Claude Code; Unzensiert kennt nur `Bash`, `PowerShell`, `Read`, `Edit`, `Write`, `Glob`, `Grep`. Ohne Git for Windows ersetzen beide `Bash` durch `PowerShell`, siehe „Schlanker Werkzeugsatz“. |
 | `env` | Auto-Memory und mitgelieferte Skills aus | Schalter von Claude Code, nur für diesen Prozess gesetzt |
 | `onExit` | `unload` | Was geschieht, wenn die letzte Sitzung endet: `unload` entlädt die Modelle des Agenten, `stop` beendet den Server, `keep` lässt alles geladen. Siehe unten. |
 | `gitCheck` | `true` | Hinweis beim Start, wenn der Ordner kein Git-Repository ist oder nicht gesicherte Änderungen hat ([sicherheit.md](sicherheit.md)) |

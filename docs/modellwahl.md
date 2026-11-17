@@ -4,6 +4,35 @@ Bewertung der Messwerte aus [benchmark.md](benchmark.md). Die jüngste Messung s
 Abschnitt, die Wahl der Modelle im Abschnitt „Aktuelle Wahl“. Die Abschnitte darunter sind älter und bleiben
 als Begründung stehen.
 
+## Agent: Unzensiert gegen Claude Code (2026-11-17)
+
+Derselbe Benchmark mit beiden Agenten, `local-coder`, gleicher Server, gleiche Werkzeuge
+(`tools` in `config\agent.json`), gleiche erlaubten Befehle, gleiche Arbeitsregeln und
+Abschlussprüfung, Lauf `vergleich1`, je ein Lauf, ohne zweiten Blick
+([unzensiert.md](unzensiert.md)):
+
+| Aufgabe | Unzensiert | claude-local (Claude Code) |
+|---|---|---|
+| `screenshot` | 80 s, 16 Runden | 98 s, 22 Runden |
+| `pinwechsel` | 80 s, 17 Runden | 123 s, 30 Runden |
+| `datenblatt` | 105 s, 15 Runden | 124 s, 25 Runden |
+| `extend` | 214 s, 21 Runden | 244 s, 34 Runden |
+| `refactor` | 180 s, 19 Runden | 240 s, 48 Runden |
+| **zusammen** | **5 / 5 bestanden, 659 s, 88 Runden, 42.640 Tokens, Regeln 22 / 23** | 5 / 5 bestanden, 829 s, 159 Runden, 48.858 Tokens, Regeln 21 / 23 |
+
+Unzensiert war bei allen fünf Aufgaben schneller (zusammen 20 % weniger Zeit), brauchte
+45 % weniger Runden und 13 % weniger geschriebene Tokens; beide bestanden alles. Die
+verfehlten Regeln: bei beiden `config` in `extend`, bei `claude-local` zusätzlich
+`docstrings` in `refactor`.
+
+Vorbehalte: **ein Lauf je Aufgabe.** Frühere Wiederholungen derselben Aufgabe mit
+`claude-local` streuten um bis zu 30 % (`extend` 241 bis 334 s im Lauf `stufe4`), der
+Abstand einer einzelnen Aufgabe liegt also in der Streuung; dass er bei allen fünf in
+dieselbe Richtung geht, spricht für einen echten Unterschied, belegt ihn aber nicht. Runden
+sind bei Unzensiert die Anfragen an das Modell, bei Claude Code dessen Angabe `num_turns`.
+Nicht gemessen: `longcontext` (Zusammenfassen bei vollem Kontext), `psscript`, die älteren
+Aufgaben, Wiederholungen (`-Repeat 3`) und der zweite Blick (`-Git`).
+
 ## Faktentreue und Konsistenz über Dateien (2026-11-17)
 
 Zwei neue Aufgaben nach den Fehlerklassen aus echter Firmware-Arbeit

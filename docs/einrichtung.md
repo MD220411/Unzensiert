@@ -14,9 +14,11 @@ Schnellstart für Nutzer steht oben in der [README](../README.md).
 - **Hauptspeicher:** 16 GB ab 26 GB Grafikspeicher, sonst 32 GB, weil dann Teile des
   Modells im Arbeitsspeicher liegen.
 - **Platz:** etwa 2 GB für llama.cpp und 17 bis 22 GB je Modell.
-- **Internet** für die Installation. Danach läuft alles ohne Netz.
-- Claude Code und Git for Windows bringt der Installer nach Rückfrage mit. Python braucht
-  nur der Benchmark, VS Code nur Continue.
+- **Internet** für die Installation. Danach läuft alles ohne Netz; nur die automatischen
+  Updates sehen höchstens einmal am Tag auf GitHub nach (abschaltbar).
+- Git for Windows bringt der Installer nach Rückfrage mit. Claude Code braucht nur der
+  Vergleichsbefehl `claude-local`; der Installer bietet es an, schlägt es aber nicht vor.
+  Python braucht nur der Benchmark, VS Code nur Continue.
 
 ## Installieren
 
@@ -27,7 +29,8 @@ Schnellstart für Nutzer steht oben in der [README](../README.md).
 | Git | `git clone https://github.com/MD220411/Unzensiert`, dann `Install.cmd` |
 
 Der Einzeiler (`install.ps1`) legt das Programm nach `%LOCALAPPDATA%\Programs\claude-local`.
-Ist Git da, klont er das Repository, sonst lädt er das ZIP. Danach startet er
+Er nimmt das neueste Release auf GitHub (solange es keins gibt, den Stand von `main`): Ist
+Git da, klont er dessen Tag, sonst lädt er dessen ZIP. Danach startet er
 `scripts\Install.ps1`. Er läuft in der PowerShell-Sitzung des Nutzers und beendet sie nie
 (`Test-Install.ps1` prüft, dass er kein `exit` enthält).
 
@@ -43,10 +46,10 @@ oder lädt. Enter nimmt jeweils den Vorschlag.
 |---|---|
 | 1. Rechner prüfen | Windows-Version, Grafikkarten (`nvidia-smi`, Grafikadapter von Windows), Hauptspeicher |
 | 2. Installationsordner | Vorschlag: `claude-local` auf dem Laufwerk mit dem meisten Platz, auf dem Systemlaufwerk `%LOCALAPPDATA%\claude-local`. Nie ein ganzes Laufwerk, nie im Programmordner. Ein früher gewählter Ordner bleibt. |
-| 3. Claude Code, Git | Claude Code mit dem offiziellen Befehl von Anthropic (`irm https://claude.ai/install.ps1 \| iex`, in eigenem Prozess), Git for Windows über `winget`. Ohne Git bekommt der Agent das Werkzeug PowerShell statt Bash ([agent.md](agent.md)). |
+| 3. Git, Claude Code | Git for Windows über `winget`. Ohne Git bekommt der Agent das Werkzeug PowerShell statt Bash ([agent.md](agent.md)). Claude Code nur für den Vergleichsbefehl `claude-local`, mit dem offiziellen Befehl von Anthropic (`irm https://claude.ai/install.ps1 \| iex`, in eigenem Prozess); die Frage steht auf Nein, auch `-Yes` installiert es nicht. |
 | 4. llama.cpp | `Install-LlamaCpp.ps1`: Paket nach Grafikkarte (`packages` in `config\server.json`). Danach prüft er mit `llama-server --list-devices`, ob llama.cpp die Karte sieht; wenn nicht, nimmt er das nächste Paket ([backend.md](backend.md)). |
 | 5. Modell | Stufe aus `config\setups.json` nach Grafikspeicher (Summe aller Karten ohne integrierte Grafik) und Hauptspeicher, siehe unten. Download mit `Get-Model.ps1`. Danach berechnet `Plan-Models.ps1 -Verify` die Verteilung auf Karten und Hauptspeicher und prüft sie ([planer.md](planer.md)); scheitert das, verteilt llama.cpp selbst (`--fit`). Ein vorhandener Plan bleibt. |
-| 6. Befehl | `bin\` in den PATH des Benutzers (`Install-Path.ps1`) |
+| 6. Befehle, Updates | `bin\` in den PATH des Benutzers (`Install-Path.ps1`): Befehle `unzensiert` und `claude-local`. Einmal die Frage, ob neue Releases automatisch kommen (Vorschlag: ja), gemerkt in `machine.json` unter `updates`; ein späterer Lauf fragt nicht erneut. |
 | 7. Test | `Test-Setup.ps1` (nur Fehler werden gezeigt), dann `Test-Model.ps1 -NoLog`, falls der Planer das Modell nicht schon getestet hat |
 
 | Schalter | Wirkung |
@@ -151,10 +154,18 @@ bevor das Modell die Datei ändert ([sicherheit.md](sicherheit.md)).
 
 ## Aktualisieren
 
-- **Einzeiler** erneut ausführen. Er holt die neue Version (`git pull` oder das ZIP über
-  den Ordner, `machine.json` bleibt) und startet den Installer, der nur Neues nachholt.
-  Wurden Dateien im Programmordner von Hand geändert, aktualisiert er nicht und sagt das.
-- **Git-Klon:** `git pull`, dann `Install.cmd`.
+- **Automatisch:** `unzensiert` sieht beim Start höchstens einmal am Tag nach, ob auf GitHub
+  ein neueres Release liegt, und spielt es ein (Programmdateien, dazu der llama.cpp-Build
+  der neuen Version; `machine.json` bleibt). Nur veröffentlichte Releases zählen, nie der
+  Arbeitsstand von `main`. Ausschalten: `unzensiert --updates off`, wieder ein:
+  `--updates on`; der Installer fragt einmal. Sofort nachsehen: `unzensiert --update`.
+  Einzelheiten: [unzensiert.md](unzensiert.md), Abschnitt „Automatische Updates“.
+- **Einzeiler** erneut ausführen. Er holt das neueste Release (mit git den Tag, sonst das
+  ZIP über den Ordner, `machine.json` bleibt; solange es kein Release gibt, den Stand von
+  `main`) und startet den Installer, der nur Neues nachholt. Wurden Dateien im
+  Programmordner von Hand geändert, aktualisiert er nicht und sagt das.
+- **Git-Klon zum Entwickeln:** `git pull`, dann `Install.cmd`. Ein vollständiger Klon, der
+  nicht auf einem Release steht, wird nie automatisch aktualisiert.
 - **Neue llama.cpp-Version:** `build` in `config\server.json`, dann `Install-LlamaCpp.ps1`
   ([backend.md](backend.md)).
 
@@ -167,7 +178,8 @@ bevor das Modell die Datei ändert ([sicherheit.md](sicherheit.md)).
 3. Das Erscheinungsbild „Nachtschicht“ zurücknehmen, falls es installiert ist.
 4. Im Installationsordner nur löschen, was der Installer angelegt hat: llama.cpp-Ordner
    (`b<Nummer>` mit `llama-server.exe`), die Dateien der Profile aus `models.json`, `run`,
-   `logs`, `downloads`, `bench-work`. Andere Dateien bleiben und mit ihnen der Ordner.
+   `logs`, `downloads`, `bench-work`, die gespeicherten Unterhaltungen von Unzensiert
+   (`sessions`) und seinen Eingabe-Verlauf. Andere Dateien bleiben und mit ihnen der Ordner.
    `-KeepModels` behält die Modelle.
 5. `config\machine.json` löschen.
 
@@ -183,7 +195,9 @@ entfernt, zeigt das Skript am Ende. Den Programmordner löscht man danach von Ha
 | `config\setups.json` | Hardware-Stufen: welches Modell für wie viel Grafikspeicher | oben |
 | `config\machine.json` | Werte dieses Rechners, vom Installer, nicht im Repository | oben |
 | `config\templates\*.jinja` | angepasste Chat-Vorlagen | [modelle.md](modelle.md) |
-| `config\agent.json` | Claude Code: Standardmodell, Kurznamen, Auswahl, Regeln | [agent.md](agent.md) |
+| `config\agent.json` | beide Agenten: Standardmodell, Kurznamen, Auswahl, Regeln, Abschlussprüfung, Werkzeuge | [agent.md](agent.md) |
+| `config\unzensiert.json` | Unzensiert: Rechte, Kontext, Zeitgrenzen | [unzensiert.md](unzensiert.md) |
+| `config\updates.json` | automatische Updates aus den Releases auf GitHub | oben |
 | `config\entwicklungsregeln.md` | Arbeitsregeln für das lokale Modell | [agent.md](agent.md) |
 | `config\continue.config.yaml` | Continue: Chat- und Autocomplete-Modelle | unten |
 | `config\benchmark.json` | Profile und Aufgaben des Benchmarks | [erweitern.md](erweitern.md) |
@@ -223,7 +237,7 @@ Die alten Skripte und Einstellungen stehen in der Git-Historie vor der ersten ö
 ## Autostart
 
 `llama-server` startet nicht mit Windows. Es gibt keinen Dienst, keinen Autostart-Eintrag
-und keine geplante Aufgabe. Der Server läuft erst, wenn `claude-local` oder
+und keine geplante Aufgabe. Der Server läuft erst, wenn `unzensiert`, `claude-local` oder
 `scripts\Start-Server.ps1` ihn startet, und bis `scripts\Stop-Server.ps1` oder zum
 Abmelden.
 
@@ -236,7 +250,7 @@ Backend: [backend.md](backend.md). Agent: [agent.md](agent.md). Darüber hinaus:
 | `Install stopped: ...` | Die Meldung nennt den Grund. Behoben? Installer neu starten, er macht dort weiter. |
 | `No llama.cpp package could use the graphics card` | Treiber zu alt oder Karte nicht unterstützt. Treiber aktualisieren, Installer neu starten. |
 | `Not enough disk space` | Anderen Installationsordner wählen (`-InstallRoot`) oder Platz schaffen. |
-| `claude-local` wird nicht gefunden | Neues Terminal öffnen (der PATH gilt erst dort). Sonst `scripts\Install-Path.ps1` ausführen. |
+| `unzensiert` oder `claude-local` wird nicht gefunden | Neues Terminal öffnen (der PATH gilt erst dort). Sonst `scripts\Install-Path.ps1` ausführen. |
 | `no model is installed yet` | Installer erneut starten oder `scripts\Get-Model.ps1 -Model <name>`. |
 | Agent bearbeitet keine Dateien, schreibt nur Text | Modell beherrscht keine Tool-Calls. `Test-Model.ps1 -Model <name>` muss `tool calling: OK` zeigen. |
 | Agent vergisst den Anfang der Sitzung | Kontext voll. Neue Sitzung oder `/clear`. |

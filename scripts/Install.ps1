@@ -1,12 +1,14 @@
-# Sets up claude-local on this machine, step by step:
+# Sets up Unzensiert on this machine, step by step:
 #   1. checks Windows, graphics cards and main memory
 #   2. chooses the install folder (llama.cpp, models, logs: about 20 to 25 GB)
-#   3. Claude Code (from Anthropic) and Git for Windows, if missing - after asking
+#   3. Git for Windows, if missing - after asking; Claude Code (from Anthropic) only for
+#      the comparison command claude-local, offered but not suggested
 #   4. llama.cpp in the package that fits the graphics card
 #   5. the model that fits the graphics memory (config\setups.json) - after asking; then
 #      the best distribution over cards and main memory is computed from measurements and
 #      tested (Plan-Models.ps1, docs\planer.md)
-#   6. the command claude-local on the PATH
+#   6. the commands unzensiert and claude-local on the PATH, and whether new releases are
+#      installed automatically (config\updates.json, asked once)
 #   7. a test: the settings (and the model once, if planning did not test it already)
 # What this machine needs to remember goes into config\machine.json. Values already there
 # are kept, so running the installer again repairs an install without undoing changes.
@@ -36,7 +38,7 @@ if ($Plan) {
     $env:CLAUDE_LOCAL_MACHINE_FILE = $copy
 }
 
-Write-Host 'claude-local installer' -ForegroundColor Cyan
+Write-Host "Unzensiert installer, version $(Get-ProgramVersion)" -ForegroundColor Cyan
 Write-Host "Program folder: $script:ProjectRoot"
 if ($Plan) { Write-Host 'PLAN ONLY: nothing is installed, downloaded or changed.' -ForegroundColor Yellow }
 
@@ -45,7 +47,7 @@ try {
     Write-Step 'Checking this machine' $steps
     $os = [Environment]::OSVersion.Version
     if (-not [Environment]::Is64BitOperatingSystem -or $os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 17763)) {
-        throw 'claude-local needs 64-bit Windows 10 (version 1809) or newer.'
+        throw 'Unzensiert needs 64-bit Windows 10 (version 1809) or newer.'
     }
     $ram = Get-SystemMemoryGiB
     Write-Note "Windows build $($os.Build), $ram GB main memory"
@@ -88,14 +90,15 @@ try {
     Set-MachineValue 'server' 'installRoot' $root
     Publish-ConfigEnvironment
 
-    # --- 3. Claude Code and Git ----------------------------------------------------------
-    Write-Step 'Claude Code and Git for Windows' $steps
+    # --- 3. Git and (for comparison) Claude Code ---------------------------------------------
+    Write-Step 'Git for Windows and Claude Code' $steps
     $claude = Find-ClaudeCode
     if ($claude) {
-        Write-Note "Claude Code: $claude"
+        Write-Note "Claude Code: $claude (for the comparison command claude-local)"
     } else {
-        Write-Note 'Claude Code (made by Anthropic) is the agent claude-local runs on. It is not installed.'
-        if (Confirm-Step 'Install it now with the official installer from https://claude.ai/install.ps1?') {
+        Write-Note 'Unzensiert needs no other agent. Claude Code (made by Anthropic) is only needed for the'
+        Write-Note 'comparison command claude-local, which runs Claude Code against the same local models.'
+        if (Confirm-Step 'Install Claude Code for the comparison with the official installer from https://claude.ai/install.ps1?' $false) {
             if ($Plan) {
                 Write-Note 'would install Claude Code'
             } else {
@@ -105,7 +108,7 @@ try {
                 else { Write-Warn 'Claude Code could not be installed. See https://code.claude.com/docs/en/setup' }
             }
         } else {
-            Write-Warn 'claude-local cannot start without Claude Code. Install it later and run this installer again.'
+            Write-Note 'not installed; claude-local works after installing Claude Code and running this installer again.'
         }
     }
     $bash = Find-GitBash
@@ -162,7 +165,7 @@ try {
     }
     if (-not $chosen) {
         $least = (Get-Setups | Measure-Object -Property minRamGiB -Minimum).Minimum
-        throw "This machine has too little memory for the models of claude-local (at least $least GB main memory). See docs\einrichtung.md."
+        throw "This machine has too little memory for the models of Unzensiert (at least $least GB main memory). See docs\einrichtung.md."
     }
     $prof = Get-ModelProfile $chosen
     Write-Note "model: $chosen - $($prof.description)"
@@ -218,10 +221,23 @@ try {
         }
     }
 
-    # --- 6. command ---------------------------------------------------------------------------
-    Write-Step 'The command claude-local' $steps
+    # --- 6. commands and updates ----------------------------------------------------------------
+    Write-Step 'The commands unzensiert and claude-local, updates' $steps
     if ($Plan) { Write-Note "would add $(Join-Path $script:ProjectRoot 'bin') to the user PATH" }
-    elseif ((Invoke-ProjectScript 'Install-Path.ps1') -ne 0) { throw 'claude-local could not be put on the PATH.' }
+    elseif ((Invoke-ProjectScript 'Install-Path.ps1') -ne 0) { throw 'The commands could not be put on the PATH.' }
+    # asked once; the answer stays in config\machine.json (unzensiert --updates on|off)
+    $machine = Get-MachineConfig
+    if ($machine.PSObject.Properties['updates'] -and $machine.updates.PSObject.Properties['enabled']) {
+        $state = 'off'
+        if ($machine.updates.enabled) { $state = 'on' }
+        Write-Note "automatic updates: $state (change with: unzensiert --updates on|off)"
+    } else {
+        Write-Note 'New versions are published as releases on GitHub. Unzensiert can install them by itself'
+        Write-Note '(it looks at most once a day when it starts; config\machine.json stays as it is).'
+        $on = Confirm-Step 'Install new releases automatically?'
+        Set-UpdatesEnabled $on
+        if (-not $on) { Write-Note 'switched off; switch on later with: unzensiert --updates on' }
+    }
 
     # --- 7. test ---------------------------------------------------------------------------------
     Write-Step 'Test' $steps
@@ -246,12 +262,13 @@ try {
 
 Write-Host ''
 if ($Plan) { Write-Host 'Plan finished. Run without -Plan to install.' -ForegroundColor Green; exit 0 }
-Write-Host 'claude-local is ready.' -ForegroundColor Green
+Write-Host 'Unzensiert is ready.' -ForegroundColor Green
 Write-Note 'Open a NEW terminal window (it needs the new PATH), go to a project folder and type:'
 Write-Host ''
-Write-Host '          claude-local' -ForegroundColor White
+Write-Host '          unzensiert' -ForegroundColor White
 Write-Host ''
-Write-Note 'The first start of Claude Code asks for a colour theme and whether you trust the folder.'
+Write-Note 'Inside: /help lists the commands, Esc stops the model, /exit ends.'
+if ($claude) { Write-Note 'For comparison the same models with Claude Code: claude-local' }
 Write-Note "More models:   $(Join-Path $PSScriptRoot 'Get-Model.ps1') -List"
 Write-Note "Remove again:  $(Join-Path $script:ProjectRoot 'Uninstall.cmd')"
 exit 0

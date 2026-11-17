@@ -102,6 +102,22 @@ function Find-GitBash {
     return ''
 }
 
+function Start-ChildProcess([System.Diagnostics.ProcessStartInfo]$Psi) {
+    # Process.Start with a redirected stdin writes the byte order mark of the console input
+    # encoding into that pipe at once; on a UTF-8 console the child reads three stray
+    # characters before its input (a hook then fails to read its JSON). The process is
+    # started with a UTF-8 encoding without that mark instead.
+    $saved = $null
+    try {
+        if ($Psi.RedirectStandardInput -and [Console]::InputEncoding.GetPreamble().Length -gt 0) {
+            $saved = [Console]::InputEncoding
+            [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
+        }
+    } catch { $saved = $null }
+    try { return [System.Diagnostics.Process]::Start($Psi) }
+    finally { if ($saved) { try { [Console]::InputEncoding = $saved } catch {} } }
+}
+
 function Find-ClaudeCode {
     # Path of the claude command, '' if Claude Code is not installed. The native installer
     # puts it into %USERPROFILE%\.local\bin, which a terminal opened before the install does

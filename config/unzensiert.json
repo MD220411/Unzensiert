@@ -1,0 +1,35 @@
+{
+  "_comment": "Settings of the agent Unzensiert (scripts\\unzensiert.ps1, scripts\\lib\\Agent*.ps1, docs\\unzensiert.md). Model, short names, /model picker, working rules, closing check and second look come from config\\agent.json, as for claude-local.",
+
+  "promptFile": "unzensiert-prompt.md",
+  "projectFiles": ["AGENTS.md", "CLAUDE.md"],
+  "_projectFiles": "Instructions of a project, read from the project folder and every folder above it (the nearest last).",
+
+  "permissionMode": "ask",
+  "_permissionMode": "ask = commands and file changes need a yes; edits = file changes run without asking; all = everything runs without asking. The guard (config\\guard.json) decides first in every mode. Shift+Tab switches in a session.",
+
+  "readOnlyCommands": ["cd", "ls", "dir", "pwd", "echo", "cat", "head", "tail", "wc", "grep", "rg", "find", "which", "where", "type", "file", "stat", "tree", "du", "df", "date", "whoami", "sort", "uniq", "cut", "diff", "cmp", "basename", "dirname", "realpath", "nl",
+                       "get-childitem", "gci", "get-content", "gc", "get-location", "gl", "get-item", "gi", "select-string", "sls", "test-path", "resolve-path", "split-path", "join-path", "measure-object", "select-object", "sort-object", "where-object", "format-table", "format-list", "out-string", "write-output", "get-command", "gcm", "get-date", "get-filehash"],
+  "readOnlyGit": ["status", "diff", "log", "show", "rev-parse", "ls-files", "blame", "describe", "shortlog", "grep"],
+  "_readOnlyCommands": "Commands that only read run in every mode without a question, also as parts of a longer command line (&&, |). Output into a file (>) or command substitution makes a command line ask again.",
+  "fileCommands": ["mkdir", "md", "touch", "rm", "del", "erase", "rmdir", "rd", "mv", "move", "cp", "copy", "ren", "rename",
+                   "new-item", "ni", "remove-item", "ri", "move-item", "mi", "copy-item", "cpi", "rename-item", "rni"],
+  "_fileCommands": "In mode edits these commands count as file changes and run without a question when every target lies inside the project folder (no variables, no redirection). The guard still decides first, for example about deleting the whole project or .git.",
+
+  "maxToolRounds": 200,
+  "maxRepeats": 3,
+  "_maxRepeats": "The same tool call with the same result this often, with no file changed in between: the model gets a note to change its approach; twice as often: the request is stopped.",
+
+  "compactAt": 0.80,
+  "keepRecentRounds": 6,
+  "oldToolResultChars": 1500,
+  "_compactAt": "When the conversation fills this share of the context window, older tool results are shortened to oldToolResultChars (the last keepRecentRounds rounds stay complete); if that is not enough, the model summarises the conversation.",
+
+  "toolResultChars": 30000,
+  "readLines": 2000,
+  "commandTimeoutSeconds": 120,
+  "commandMaxSeconds": 600,
+  "maxOutputTokens": 16384,
+  "showThinking": false,
+  "historyFile": "unzensiert-history.txt"
+}

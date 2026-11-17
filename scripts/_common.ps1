@@ -17,6 +17,15 @@
 #   lib\Style.ps1    the look (config\style.json, config\styles\): colours, terminal tint,
 #                    readings for prompt and status line; pictures made of characters in
 #                    lib\CharArt.ps1 (both read their config themselves, see the header)
+#   lib\Agent*.ps1   the agent Unzensiert (scripts\unzensiert.ps1, docs\unzensiert.md):
+#                    AgentApi     JSON and the streamed chat request to llama-server
+#                    AgentTools   the tools Bash, PowerShell, Read, Edit, Write, Glob, Grep
+#                    AgentPrompt  system prompt with the instructions of the project
+#                    AgentSession messages, saved conversations, size of the context
+#                    AgentUi      the terminal: answer, tools, questions, input, status line
+#                    AgentLoop    one request: model, guard, permissions, tools, closing check
+#                    AgentRepl    the conversation, commands with a slash, the -p run
+#   lib\Update.ps1   automatic updates from the releases on GitHub (config\updates.json)
 # Keep these files ASCII-only: Windows PowerShell 5.1 reads BOM-less files as ANSI.
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +44,14 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\Tasks.ps1"
 . "$PSScriptRoot\lib\Projects.ps1"
 . "$PSScriptRoot\lib\Style.ps1"
+. "$PSScriptRoot\lib\AgentApi.ps1"
+. "$PSScriptRoot\lib\AgentTools.ps1"
+. "$PSScriptRoot\lib\AgentPrompt.ps1"
+. "$PSScriptRoot\lib\AgentSession.ps1"
+. "$PSScriptRoot\lib\AgentUi.ps1"
+. "$PSScriptRoot\lib\AgentLoop.ps1"
+. "$PSScriptRoot\lib\AgentRepl.ps1"
+. "$PSScriptRoot\lib\Update.ps1"
 
 # install folder and projects folder for the hooks, which Claude Code starts as processes
 # of their own (lib\Config.ps1, Publish-ConfigEnvironment)

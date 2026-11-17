@@ -1,12 +1,16 @@
 # Lokaler Coding-Agent
 
-**claude-local** runs [Claude Code](https://code.claude.com) with an open, uncensored model
-on your own graphics card instead of the Anthropic cloud: no token limit, and your code
-never leaves your machine. [llama.cpp](https://github.com/ggml-org/llama.cpp) runs the
-model. Your normal `claude` keeps working as before.
+**Unzensiert** is a coding agent that runs an open, uncensored model on your own graphics
+card: no cloud, no token limit, and your code never leaves your machine.
+[llama.cpp](https://github.com/ggml-org/llama.cpp) runs the model. The agent is this
+project's own program; it works like Claude Code (same tools, keys and look) and needs
+nothing else to be installed. For comparison the same models also run in
+[Claude Code](https://code.claude.com) (`claude-local`). New releases install themselves,
+unless you switch that off.
 
-*Deutsch: Claude Code mit einem lokalen, unzensierten Modell auf der eigenen Grafikkarte.
-Die ausführliche Dokumentation ist deutsch und beginnt bei [Benutzen](#benutzen).*
+*Deutsch: ein eigener Coding-Agent mit einem lokalen, unzensierten Modell auf der eigenen
+Grafikkarte, zum Vergleich auch in Claude Code. Die ausführliche Dokumentation ist deutsch
+und beginnt bei [Benutzen](#benutzen).*
 
 ## Quick start
 
@@ -30,21 +34,28 @@ The installer looks at your machine and asks before it installs or downloads any
 |---|---|
 | 1 | checks Windows, graphics cards and main memory |
 | 2 | picks an install folder for llama.cpp, models and logs (the drive with the most free space) |
-| 3 | installs Claude Code (Anthropic's official installer) and Git for Windows, if they are missing |
+| 3 | installs Git for Windows, if it is missing; Claude Code only if you want the comparison command (the question defaults to no) |
 | 4 | installs llama.cpp in the build that fits your graphics card |
 | 5 | downloads the model that fits your graphics memory (17 to 22 GB from Hugging Face, checked by SHA-256), then measures your cards and computes how to spread the model over them and the main memory, and tests that (one to two minutes) |
-| 6 | sets up the command `claude-local` |
+| 6 | sets up the commands `unzensiert` and `claude-local` and asks whether new releases may install themselves |
 | 7 | runs a short test |
 
 **Use.** Open a new terminal window in your project folder and type:
 
 ```
-claude-local
+unzensiert
 ```
 
-The first start of Claude Code asks for a colour theme and whether you trust the folder.
-No Anthropic account is needed for the local model. Inside a session, `/model` switches
-between the models you have installed. More models: `scripts\Get-Model.ps1 -List`.
+Type what you want; Enter sends, Shift+Enter starts a new line, Esc stops the model.
+`/help` lists the commands, `/model` switches between the models you have installed,
+Shift+Tab switches how much the agent may do without asking (`ask`, `edits`, `all`).
+`unzensiert -p "question"` answers once without a session. No account is needed.
+More models: `scripts\Get-Model.ps1 -List`. The same models in Claude Code, for
+comparison: `claude-local` ([docs/agent.md](docs/agent.md)).
+
+**Updates.** `unzensiert` looks for a new release at most once a day and installs it (only
+published releases, never work in progress). Switch it off with `unzensiert --updates off`,
+look now with `unzensiert --update`.
 
 **Which model you get** depends on the graphics memory (all cards added up,
 `config\setups.json`). **How it is spread** over your cards and main memory is not taken
@@ -62,18 +73,20 @@ largest context that costs at most 15 % speed ([docs/planer.md](docs/planer.md))
 | no usable card | `local-fast` on the processor | Core i9-14900K | 26 tokens/s, 32k | |
 
 Speeds are answer speeds with the model guessing ahead (MTP); they vary by a few percent
-from run to run. Reading the roughly 26,000 tokens Claude Code sends first takes 30 s on
-the two cards and up to 2 min on small cards. `local-fast` answers faster but solves hard
+from run to run. Unzensiert sends about 2,800 tokens with the first request of a task;
+Claude Code sends about 26,000, which take 30 s to read on the two cards and up to 2 min on
+small cards. `local-fast` answers faster but solves hard
 tasks less reliably (`-Model local-fast` when installing). The single cards were measured by
 hiding the others from llama.cpp; a real card of that size can be faster or slower.
 
-**Update:** run the install line again. **Remove:** double-click **Uninstall.cmd**; it
-asks before deleting anything and leaves Claude Code and Git in place.
+**Update by hand:** run the install line again. **Remove:** double-click
+**Uninstall.cmd**; it asks before deleting anything and leaves Claude Code and Git in place.
 
 **Good to know**
 
-- Claude Code is Anthropic's program and comes from Anthropic's own installer;
-  claude-local only starts it with a local model.
+- Unzensiert is written in PowerShell, which every Windows has. Claude Code is
+  Anthropic's program, comes from Anthropic's own installer and is only needed for the
+  comparison command `claude-local`, which starts it with a local model.
 - The models are uncensored: they do not refuse requests. A guard protects your machine
   instead: it blocks commands that would destroy data (formatting a drive, deleting your
   user folder) and asks you before sensitive ones ([docs/sicherheit.md](docs/sicherheit.md)).
@@ -87,26 +100,36 @@ asks before deleting anything and leaves Claude Code and Git in place.
 In einem Terminal (auch im VS-Code-Terminal) im gewünschten Projektordner:
 
 ```
-claude-local
+unzensiert
 ```
 
-Das startet Claude Code mit dem Standardmodell dieses Rechners (vom Installer passend zum
-Grafikspeicher gewählt, auf großen Karten `local-coder`). Der Server wird bei Bedarf
-mitgestartet; das Modell lädt bei der ersten Anfrage (etwa 10 bis 60 Sekunden). Endet die
-letzte Sitzung, wird das Modell entladen und der GPU-Speicher ist wieder frei.
+Das startet den eigenen Agenten mit dem Standardmodell dieses Rechners (vom Installer
+passend zum Grafikspeicher gewählt, auf großen Karten `local-coder`). Der Server wird bei
+Bedarf mitgestartet; das Modell lädt bei der ersten Anfrage (etwa 10 bis 60 Sekunden). Endet
+die letzte Sitzung, wird das Modell entladen und der GPU-Speicher ist wieder frei.
+Alles zur Bedienung: [docs/unzensiert.md](docs/unzensiert.md).
 
 | Befehl | Wirkung |
 |---|---|
-| `claude-local` | Sitzung mit dem Standardmodell (`local-coder`, unzensiert) |
-| `claude-local -Model schnell` | `local-fast` (Qwen 3.6 35B-A3B, unzensiert): etwa doppelt so viele Tokens pro Sekunde, bei schwereren Aufgaben weniger zuverlässig |
-| `claude-local -Model qwen38` | `local-qwen38` (Qwen 3.8 27B, unzensiert): früheres Standardmodell, zum Vergleich |
-| `claude-local -Model unzensiert` | ausdrücklich `local-coder` |
+| `unzensiert` | Sitzung mit dem Standardmodell (`local-coder`, unzensiert) |
+| `unzensiert "Aufgabe"` | Sitzung, die gleich mit dieser Aufgabe beginnt |
+| `unzensiert -Model schnell` | `local-fast` (Qwen 3.6 35B-A3B, unzensiert): etwa doppelt so viele Tokens pro Sekunde, bei schwereren Aufgaben weniger zuverlässig |
+| `unzensiert -Model qwen38` | `local-qwen38` (Qwen 3.8 27B, unzensiert): früheres Standardmodell, zum Vergleich |
 | `/model` in einer Sitzung | zwischen „Unzensiert“, „Schnell“ und „Qwen 3.8“ wechseln, ohne die Sitzung zu beenden |
-| `claude-local -p "Frage"` | einmalige Antwort ohne Sitzung |
-| `claude-local -OnExit keep` | Modell nach der Sitzung geladen lassen |
+| `unzensiert -p "Frage"` | einmalige Antwort ohne Sitzung (`--output-format json` für Skripte) |
+| `unzensiert -c` | letzte Sitzung in diesem Ordner fortsetzen (`--resume` zum Auswählen) |
+| `unzensiert --updates off` | automatische Updates aus (`on` wieder an, `--update` sofort nachsehen) |
+| `claude-local` | dieselben Modelle in Claude Code, zum Vergleich ([agent.md](docs/agent.md)) |
 | `claude` | wie bisher: Anthropic-Cloud |
 
-Alle weiteren Argumente gehen unverändert an Claude Code.
+| In der Sitzung | Wirkung |
+|---|---|
+| Enter, Shift+Enter | senden, neue Zeile |
+| Esc | Modell anhalten, laufenden Befehl beenden |
+| Shift+Tab, `/mode` | Rechte: `ask` (Änderungen und Befehle fragen), `edits` (Dateien ohne Frage), `all` (alles ohne Frage); der Wächter entscheidet immer zuerst |
+| Alt+V | Bild aus der Zwischenablage einfügen |
+| `!befehl` | selbst einen Befehl ausführen, das Modell sieht ihn |
+| `/compact`, `/clear`, `/resume`, `/status`, `/think`, `/init`, `/help`, `/exit` | zusammenfassen, neu anfangen, fortsetzen, Stand, Denken zeigen, `AGENTS.md` schreiben lassen, Hilfe, beenden |
 
 Das lokale Modell bekommt in jeder Sitzung feste Arbeitsregeln für pflegbare Software
 (Struktur vor Code, Module, Dokumentation, Tests): `config\entwicklungsregeln.md`.
@@ -119,9 +142,12 @@ zurück ([docs/agent.md](docs/agent.md)).
 
 | Befehl in der Sitzung | Ablauf |
 |---|---|
-| `/lokal:feature <Beschreibung>` | neue Funktion: Abnahmekriterien, Plan, Tests, Code, Prüfung, Dokumentation |
-| `/lokal:bugfix <Fehler>` | erst ein Test, der den Fehler zeigt, dann die Korrektur |
-| `/lokal:pruefen` | die letzten Änderungen prüfen, ohne etwas zu ändern |
+| `/feature <Beschreibung>` | neue Funktion: Abnahmekriterien, Plan, Tests, Code, Prüfung, Dokumentation |
+| `/bugfix <Fehler>` | erst ein Test, der den Fehler zeigt, dann die Korrektur |
+| `/pruefen` | die letzten Änderungen prüfen, ohne etwas zu ändern |
+
+In `claude-local` heißen sie `/lokal:feature`, `/lokal:bugfix`, `/lokal:pruefen`; Unzensiert
+versteht beide Schreibweisen.
 
 Ein neues Projekt mit fester Struktur (README, `CLAUDE.md`, Tests, Konfiguration,
 Prüfbefehl, Git) legt `scripts\New-Project.ps1 -Name <name>` an
@@ -133,8 +159,8 @@ Ein Wächter prüft jeden Befehl des Modells, bevor er läuft: Was den Rechner o
 eigenen Daten zerstören würde, ist gesperrt, bei Heiklem wirst du gefragt, normale Arbeit
 im Projektordner bleibt frei ([docs/sicherheit.md](docs/sicherheit.md)).
 
-Bilder (Screenshots, Skizzen) liest das Modell ebenfalls: mit Alt+V einfügen, die Datei ins
-Terminal ziehen oder den Pfad nennen.
+Bilder (Screenshots, Skizzen) liest das Modell ebenfalls: mit Alt+V einfügen oder den Pfad
+nennen.
 
 ### Autocomplete und Chat im Editor
 
@@ -151,7 +177,8 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
 | Benchmark | `local-coder`: alle 24 Läufe der vier älteren Aufgaben bestanden, 14 von 15 der fünf schwereren, 89 % der Arbeitsregeln eingehalten, mit Projektvorlage 91 % (gemessen mit 64k); die zwei Aufgaben zu Faktentreue und Konsistenz über Dateien 6 von 6. `local-fast` (Stand vor der Abschlussprüfung): 3 von 15, 52 % ([modellwahl.md](docs/modellwahl.md)) |
 | Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle im Installationsordner (`config\machine.json`) |
 | Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme, misst die Karten und berechnet die Verteilung auf Karten und Hauptspeicher ([einrichtung.md](docs/einrichtung.md), [planer.md](docs/planer.md)); erprobt nur auf diesem Rechner |
-| Agent | Claude Code über die Anthropic-kompatible Schnittstelle von `llama-server` |
+| Agent | Unzensiert, eigenes Programm (PowerShell 5.1, OpenAI-kompatible Schnittstelle von `llama-server`), Version in `VERSION`, automatische Updates aus den Releases; zum Vergleich Claude Code über die Anthropic-kompatible Schnittstelle ([unzensiert.md](docs/unzensiert.md)) |
+| Vergleich | Unzensiert gegen Claude Code, fünf Aufgaben mit `local-coder`, je ein Lauf: beide 5 von 5 bestanden; Unzensiert 659 s statt 829 s, 88 statt 159 Runden, 42.640 statt 48.858 Tokens, Arbeitsregeln 22 statt 21 von 23. Wiederholungen und die übrigen Aufgaben stehen aus ([modellwahl.md](docs/modellwahl.md)) |
 
 ## Grenzen
 
@@ -159,18 +186,22 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
   Umbauten über einige Dateien, Fehlersuche und PowerShell-Skripte gehen gut. README und
   Tests entstehen zuverlässig erst durch die Abschlussprüfung; sie kostet etwa ein Viertel
   mehr Zeit je Aufgabe (gemessen, [modellwahl.md](docs/modellwahl.md)).
-- Auch 128k Kontext werden voll. Claude Code komprimiert dann die Unterhaltung. Für neue
-  Aufgaben besser eine neue Sitzung starten (`/clear`). Eine Aufgabe, die viele Dateien auf
-  einmal braucht, kann mit „Autocompact is thrashing“ abbrechen; dann in Teilen beauftragen.
+- Auch 128k Kontext werden voll. Unzensiert kürzt dann alte Werkzeugergebnisse und fasst
+  die Unterhaltung zusammen, Claude Code komprimiert sie. Für neue Aufgaben besser eine neue
+  Sitzung starten (`/clear`). Claude Code kann bei einer Aufgabe, die viele Dateien auf
+  einmal braucht, mit „Autocompact is thrashing“ abbrechen; dann in Teilen beauftragen.
+- Die Bedienung von Unzensiert im Terminal (Tasten, Fragen) prüfen die Testskripte nur bis
+  zur Ausgabe; gemessen sind Einmal-Läufe und der Benchmark.
 - Connectors von claude.ai und Cloud-Funktionen sind im lokalen Modus aus.
 
 ## Aufbau
 
 ```
 Install.cmd   Installieren oder reparieren (Doppelklick), Uninstall.cmd entfernt wieder
-install.ps1   Einzeiler-Installation: holt das Repository und startet scripts\Install.ps1
-bin\          Befehl claude-local für den PATH
-config\       alle Einstellungen: server.json, models.json, agent.json, setups.json, Regeln, Vorlagen;
+install.ps1   Einzeiler-Installation: holt das neueste Release und startet scripts\Install.ps1
+VERSION       Version des Programms (Releases auf GitHub: Tag vX.Y.Z)
+bin\          Befehle unzensiert und claude-local für den PATH
+config\       alle Einstellungen: server.json, models.json, agent.json, unzensiert.json, updates.json, setups.json, Regeln, Vorlagen;
               machine.json = Werte dieses Rechners (vom Installer, nicht im Repository)
 scripts\      ein Skript je Aufgabe; gemeinsame Bausteine in scripts\lib\
 benchmark\    Aufgaben für den Agenten-Benchmark
@@ -193,7 +224,8 @@ mit dem meisten Platz).
 | [docs/planer.md](docs/planer.md) | Planer: Speicher- und Tempo-Rechnung, Kalibrierung, Suche nach der schnellsten Verteilung, Messwerte, Grenzen |
 | [docs/backend.md](docs/backend.md) | llama-server: bedienen, einstellen, aktualisieren, Fehlersuche |
 | [docs/modelle.md](docs/modelle.md) | Modellprofile, MTP, Chat-Vorlage, neues Modell aufnehmen |
-| [docs/agent.md](docs/agent.md) | `claude-local`, Modellauswahl, Arbeitsregeln, Abschlussprüfung, zweiter Blick, Befehle für feste Abläufe |
+| [docs/unzensiert.md](docs/unzensiert.md) | der eigene Agent: Bedienung, Tasten, Befehle, Rechte, Werkzeuge, Kontext, gespeicherte Unterhaltungen, Einmal-Lauf, automatische Updates, Releases |
+| [docs/agent.md](docs/agent.md) | Einstellungen beider Agenten, Arbeitsregeln, Abschlussprüfung, zweiter Blick, Befehle für feste Abläufe; `claude-local` (Claude Code zum Vergleich) |
 | [docs/projekte.md](docs/projekte.md) | neues Projekt aus der Vorlage, Prüfbefehl, Fakten mit Quelle und Abgleich gegen Doku und Code, Arbeitsweise in einem Projekt |
 | [docs/stil.md](docs/stil.md) | Erscheinungsbild: „Ausbruch“ (bunt, Bilder und Wand aus Zeichen) oder „Nachtschicht“ (ruhig); Shell, Statuszeile, Farbthemen für `claude` und `claude-local`, Stil wechseln |
 | [docs/erweitern.md](docs/erweitern.md) | Wegweiser für Änderungen, Benchmark, neue Skripte |
@@ -211,7 +243,7 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 
 | Skript | Zweck |
 |---|---|
-| `Install.ps1` | Installer: Rechner prüfen, Claude Code, Git, llama.cpp, passendes Modell, PATH, Test; `-Plan` zeigt nur, was passieren würde (auch über `Install.cmd`) |
+| `Install.ps1` | Installer: Rechner prüfen, Git (Claude Code nur auf Wunsch), llama.cpp, passendes Modell, PATH, automatische Updates, Test; `-Plan` zeigt nur, was passieren würde (auch über `Install.cmd`) |
 | `Uninstall.ps1` | wieder entfernen, mit Rückfragen; löscht nur, was der Installer angelegt hat (auch über `Uninstall.cmd`) |
 | `Install-LlamaCpp.ps1` | llama.cpp in der Version aus `config\server.json` laden, prüfen, entpacken; Paket passend zur Grafikkarte |
 | `Get-Model.ps1` | Dateien eines Modellprofils von Hugging Face laden (fortsetzbar, mit SHA-256), `-List` zeigt alle Profile |
@@ -224,17 +256,20 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 | `Test-Setup.ps1` | Konfiguration und Skripte prüfen, ohne ein Modell zu laden (wenige Sekunden) |
 | `Test-Install.ps1` | Logik des Installers prüfen, ohne Download und ohne Grafikkarte: `machine.json`, Geräteliste, Wahl der Stufe, Download-Einträge, Probelauf `-Plan`, Planer mit einem nachgebildeten Speichermodell |
 | `Test-Guard.ps1` | Schutzregeln gegen die Fälle in `tests\guard-cases.json` prüfen |
+| `Test-Agent.ps1` | Agent Unzensiert prüfen, ohne Modell: JSON, Antwortstrom, Werkzeuge, Rechte, Wiederholungen, Sitzungen, Befehle, Abschlussprüfung, Updates, Ausgabe; `-WithModel` löst eine kleine Aufgabe |
 | `Test-Tasks.ps1` | Benchmark-Aufgaben prüfen, ohne ein Modell: Vorlage fällt durch, Musterlösung besteht |
 | `Test-Templates.ps1` | Projektvorlagen prüfen: neues Projekt besteht seinen Prüfbefehl, eingebaute Fehler (Widerspruch zu `facts\facts.json`, Fakt ohne Quelle, scheiternder Test) lassen ihn scheitern |
 | `New-Project.ps1` | neues Projekt aus der Vorlage anlegen (Python oder PowerShell), mit Prüfbefehl und erstem Commit |
 | `Invoke-Review.ps1` | zweiter Blick: ein zweites lokales Modell prüft die nicht committete Änderung eines Projekts (läuft auch in der Abschlussprüfung) |
-| `Benchmark-Models.ps1` | Profile vergleichen: Rohwerte, Agenten-Aufgaben und eingehaltene Arbeitsregeln |
+| `Benchmark-Models.ps1` | Profile vergleichen: Rohwerte, Agenten-Aufgaben und eingehaltene Arbeitsregeln; `-Agent unzensiert` oder `claude-local` |
 | `Measure-Setup.ps1` | eine Hardware-Stufe auf diesem Rechner nachstellen und messen (nur bestimmte Karten sichtbar, Verteilung durch llama.cpp oder mit `-Planned` durch den Planer), für `measured` in `config\setups.json` |
 | `Install-Path.ps1` | `bin\` in den PATH aufnehmen |
 | `Install-Continue.ps1` | Continue installieren und Konfiguration kopieren |
 | `Install-Font.ps1` | Schrift des Erscheinungsbilds (IBM Plex Mono) für den Benutzer installieren |
 | `Install-Style.ps1` | den in `config\style.json` gewählten Stil (`config\styles\`) auf Windows Terminal und Claude Code anwenden, auch nach einem Wechsel (`-Remove` nimmt es zurück) |
-| `claude-local.ps1` | Starter hinter dem Befehl `claude-local` |
+| `unzensiert.ps1` | Starter hinter dem Befehl `unzensiert` |
+| `claude-local.ps1` | Starter hinter dem Befehl `claude-local` (Claude Code zum Vergleich) |
+| `New-Release.ps1` | neue Version veröffentlichen: Prüfungen, `VERSION`, Tag, Release auf GitHub (nur für die Pflege des Repositorys) |
 
 ## Lizenz
 

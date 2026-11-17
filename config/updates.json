@@ -1,0 +1,8 @@
+{
+  "_comment": "Automatic updates of the program files (scripts\\lib\\Update.ps1, docs\\einrichtung.md). Only releases published on GitHub count, never the work in progress on main. A machine switches them off in config\\machine.json: \"updates\": { \"enabled\": false }, or with: unzensiert --updates off",
+
+  "enabled": true,
+  "repository": "MD220411/Unzensiert",
+  "checkHours": 24,
+  "timeoutSeconds": 4
+}

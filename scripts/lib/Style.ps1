@@ -362,13 +362,13 @@ function Get-LocalLookSettings {
     return $result
 }
 
-function Get-LocalLookBanner([string]$Model, [string]$BaseUrl, [int]$ContextUsable, [int]$ContextTotal, [string[]]$PickerModels) {
-    # The lines claude-local prints before Claude Code starts. Plain text when the output
-    # is redirected (benchmark, scripts) or the look is not installed.
+function Get-LocalLookBanner([string]$Model, [string]$BaseUrl, [int]$ContextUsable, [int]$ContextTotal, [string[]]$PickerModels, [string]$Name = 'claude-local') {
+    # The lines claude-local and unzensiert print before a session starts. Plain text when
+    # the output is redirected (benchmark, scripts) or the look is not installed.
     $lines = @()
     if (-not (Test-StyledOutput) -or -not (Test-StyleInstalled)) {
-        $lines += "claude-local: model '$Model' at $BaseUrl, context $ContextUsable of $ContextTotal tokens"
-        if ($PickerModels.Count -gt 1) { $lines += "claude-local: switch inside the session with /model ($($PickerModels -join ', '))" }
+        $lines += "${Name}: model '$Model' at $BaseUrl, context $ContextUsable of $ContextTotal tokens"
+        if ($PickerModels.Count -gt 1) { $lines += "${Name}: switch inside the session with /model ($($PickerModels -join ', '))" }
         return $lines
     }
     $cfg = Get-StyleConfig

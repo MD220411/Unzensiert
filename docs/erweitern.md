@@ -27,9 +27,15 @@ Skripte jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 ## Modelle und Einstellungen vergleichen
 
 `scripts\Benchmark-Models.ps1` misst jedes Profil aus `config\benchmark.json`: Ladezeit,
-Tempo, MTP-Trefferquote, Tool-Calls, GPU-Speicher und die Agenten-Aufgaben, die über
-`claude-local` gelöst und von einer versteckten Prüfung bewertet werden. Die Prüfung hält
-außerdem fest, welche Arbeitsregeln der Agent eingehalten hat.
+Tempo, MTP-Trefferquote, Tool-Calls, GPU-Speicher und die Agenten-Aufgaben, die ein Agent
+löst und eine versteckte Prüfung bewertet. Die Prüfung hält außerdem fest, welche
+Arbeitsregeln der Agent eingehalten hat.
+
+- **Welcher Agent:** `agent` in `config\benchmark.json` (`unzensiert`), für einen Lauf
+  `-Agent unzensiert` oder `-Agent claude-local`. Beide bekommen dieselben Argumente,
+  dieselben erlaubten Befehle (`allowedTools`) und denselben Werkzeugsatz; jeder Agent hat
+  seinen eigenen Datensatz (Feld `client`), Läufe unter demselben Label stehen im Bericht
+  nebeneinander. Datensätze von vor 2026-11-17 zählen als `claude-local`.
 Ergebnis: `docs\benchmark.md`, Rohdaten: `logs\benchmark\results.jsonl`.
 
 - **Neues Modell aufnehmen:** Profil anlegen ([modelle.md](modelle.md)), Namen unter
@@ -58,7 +64,7 @@ Ergebnis: `docs\benchmark.md`, Rohdaten: `logs\benchmark\results.jsonl`.
 - **Ruhezustand:** Während das Skript läuft, verhindert es den Ruhezustand des Rechners
   (`SetThreadExecutionState`, keine Systemeinstellung; die Anforderung endet mit dem
   Skript). Vorher ging der Rechner während langer Messungen schlafen.
-- **Wenn `claude-local` nicht startet** (keine Ergebniszeile, etwa weil eine andere
+- **Wenn der Agent nicht startet** (keine Ergebniszeile, etwa weil eine andere
   Sitzung gerade ein Skript oder `config\` umbaut), bricht das Skript mit Exit-Code 1 ab.
   Die Läufe davor bleiben im Datensatz, der Grund steht im Feld `error`. Die fehlenden
   Aufgaben dann mit `-Tasks` unter einem neuen `-Label` messen. Während einer Messung

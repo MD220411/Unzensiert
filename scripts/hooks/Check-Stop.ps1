@@ -29,6 +29,9 @@ $script:ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 # install folder of this machine as $env:CLAUDE_LOCAL_ROOT (state files live there)
 . "$PSScriptRoot\HookEnvironment.ps1"
 Initialize-HookEnvironment
+# the agent that asks: claude-local (Claude Code) or Unzensiert, which sets this variable
+$script:AgentName = 'claude-local'
+if ($env:CLAUDE_LOCAL_AGENT) { $script:AgentName = $env:CLAUDE_LOCAL_AGENT }
 
 function Read-Json([string]$Path) {
     return (Get-Content -Raw -Path $Path -Encoding UTF8 | ConvertFrom-Json)
@@ -209,7 +212,7 @@ try {
                     $state.blocks++
                     $parts += "Die Projektpruefung ($name) $why. Behebe die Ursache und pruefe erneut, bevor du die Aufgabe als erledigt meldest. Ende der Ausgabe:`n$($result.output)"
                 } else {
-                    $warning = "claude-local: Die Projektpruefung ($name) $why, auch nach $($settings.maxBlocks) Versuchen des Modells. Bitte selbst ansehen."
+                    $warning = "$($script:AgentName): Die Projektpruefung ($name) $why, auch nach $($settings.maxBlocks) Versuchen des Modells. Bitte selbst ansehen."
                 }
             } else {
                 $state.blocks = 0
@@ -237,15 +240,15 @@ try {
         $state.reviewDone = $true
         $found = Invoke-SecondLook $folder ([string]$call.transcript_path) $review
         if (-not $found) {
-            $warning = "claude-local: Der zweite Blick hat nicht in $($review.timeoutSeconds) s geantwortet."
+            $warning = "$($script:AgentName): Der zweite Blick hat nicht in $($review.timeoutSeconds) s geantwortet."
         } elseif ($found.status -eq 'error') {
-            $warning = "claude-local: Der zweite Blick lief nicht: $($found.reason)"
+            $warning = "$($script:AgentName): Der zweite Blick lief nicht: $($found.reason)"
         } elseif (@($found.errors).Count -gt 0) {
             $reviewBlock = $true
             $list = @(@($found.errors) | ForEach-Object { "- FEHLER | $_" }) + @(@($found.hints) | ForEach-Object { "- HINWEIS | $_" })
             $parts = @("Zweiter Blick: Ein zweites Modell ($($found.model)) hat die nicht committete Aenderung in frischem Kontext geprueft und meldet:`n" + ($list -join "`n") + "`n`nPruefe jeden Befund am Code nach; der Pruefer sieht nur den Diff und kann sich irren. Behebe, was zutrifft, und pruefe danach erneut. Was nicht zutrifft, nenne in deiner Antwort an den Nutzer mit kurzer Begruendung.")
         } elseif (@($found.hints).Count -gt 0) {
-            $warning = "claude-local, zweiter Blick ($($found.model)), Hinweise ohne Fehler:`n" + ((@($found.hints) | ForEach-Object { "- $_" }) -join "`n")
+            $warning = "$($script:AgentName), zweiter Blick ($($found.model)), Hinweise ohne Fehler:`n" + ((@($found.hints) | ForEach-Object { "- $_" }) -join "`n")
         }
     }
 
@@ -255,7 +258,7 @@ try {
         Remove-Item -Force -ErrorAction SilentlyContinue
 
     if ($checkFailed -or $remind -or $reviewBlock) {
-        Write-HookAnswer @{ decision = 'block'; reason = "Abschlusspruefung von claude-local. " + ($parts -join "`n`n") }
+        Write-HookAnswer @{ decision = 'block'; reason = "Abschlusspruefung von $($script:AgentName). " + ($parts -join "`n`n") }
     } elseif ($warning) {
         Write-HookAnswer @{ systemMessage = $warning }
     }

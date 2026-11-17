@@ -46,18 +46,43 @@ function Merge-Settings($Target, $Source) {
     }
 }
 
-function Invoke-StopHook([string]$SessionId, [string]$Transcript, [string]$Cwd, [bool]$Active) {
-    # Asks the closing check the way Claude Code does. Returns decision ('' or 'block')
-    # and reason. Used by Test-Setup.ps1.
+function Invoke-StopHook([string]$SessionId, [string]$Transcript, [string]$Cwd, [bool]$Active, [scriptblock]$ShouldStop) {
+    # Asks the closing check the way Claude Code does. Returns decision ('' or 'block'),
+    # reason, systemMessage and cancelled. Used by the agent Unzensiert (lib\AgentLoop.ps1)
+    # and Test-Setup.ps1. ShouldStop ($true = stop) lets a person at the terminal break off
+    # a long check; the hook and everything it started are ended then.
     $call = [ordered]@{ hook_event_name = 'Stop'; session_id = $SessionId; transcript_path = $Transcript; cwd = $Cwd; stop_hook_active = $Active }
-    $json = $call | ConvertTo-Json -Compress
-    $out = $json | & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Get-StopCheckScript)
-    $result = [ordered]@{ decision = ''; reason = '' }
-    $text = (@($out) -join '').Trim()
+    # characters beyond ASCII escaped: the pipe to the hook uses the console code page
+    $json = [regex]::Replace(($call | ConvertTo-Json -Compress), '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'powershell.exe'
+    $psi.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + (Get-StopCheckScript) + '"'
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    if ($Cwd -and (Test-Path -LiteralPath $Cwd)) { $psi.WorkingDirectory = $Cwd }
+    $result = [ordered]@{ decision = ''; reason = ''; systemMessage = ''; cancelled = $false }
+    $proc = Start-ChildProcess $psi
+    $proc.StandardInput.Write($json)
+    $proc.StandardInput.Close()
+    $outTask = $proc.StandardOutput.ReadToEndAsync()
+    $null = $proc.StandardError.ReadToEndAsync()
+    while (-not $proc.WaitForExit(100)) {
+        if ($ShouldStop -and (& $ShouldStop)) {
+            & cmd /c "taskkill /PID $($proc.Id) /T /F >nul 2>&1"
+            $result.cancelled = $true
+            return $result
+        }
+    }
+    $null = $outTask.Wait(5000)
+    $text = ([string]$outTask.Result).Trim()
     if ($text) {
         $answer = $text | ConvertFrom-Json
         $result.decision = [string]$answer.decision
         $result.reason = [string]$answer.reason
+        $result.systemMessage = [string]$answer.systemMessage
     }
     return $result
 }

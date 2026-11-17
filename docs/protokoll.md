@@ -3,6 +3,105 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-17 nachts: Unzensiert – eigener Agent statt Claude Code, automatische Updates
+
+Wunsch des Nutzers: Claude Code im lokalen Betrieb durch ein eigenes Programm ersetzen, um
+unabhängiger zu sein; effizienter und besser, mit denselben Funktionen und demselben
+Erscheinungsbild; dazu automatische Updates für Installationen von GitHub, die man
+ausschalten kann. Entscheidungen des Nutzers: Name „Unzensiert“ (Befehl `unzensiert`),
+Claude Code bleibt als Vergleich (`claude-local`), Updates nur aus veröffentlichten Releases.
+
+### Durchgeführt
+
+1. **Agent** in PowerShell 5.1 ohne weitere Abhängigkeiten (Beschreibung
+   [unzensiert.md](unzensiert.md)): `scripts\unzensiert.ps1`, `bin\unzensiert.cmd` und
+   `scripts\lib\AgentApi.ps1` (JSON über den JavaScriptSerializer, gestreamte Anfrage an
+   `/v1/chat/completions`), `AgentTools.ps1` (Bash, PowerShell, Read, Edit, Write, Glob,
+   Grep), `AgentPrompt.ps1`, `AgentSession.ps1`, `AgentUi.ps1`, `AgentLoop.ps1`,
+   `AgentRepl.ps1`. Einstellungen `config\unzensiert.json`, Systemprompt
+   `config\unzensiert-prompt.md`; Modell, Auswahl, Regeln, Abschlussprüfung, zweiter Blick,
+   Werkzeugsatz und Befehle teilt er mit `claude-local` über `config\agent.json`.
+2. **Wächter im eigenen Prozess** über `scripts\hooks\GuardRules.ps1` (Commit 0571e1d):
+   2,7 ms je Prüfung statt 280 ms für einen Hook-Prozess.
+3. **Abschlussprüfung** unverändert als Hook (`Check-Stop.ps1`); Unzensiert schreibt eine
+   Mitschrift im Format von Claude Code. `Invoke-StopHook` startet den Hook jetzt als Prozess
+   mit Abbruch per Esc und gibt auch `systemMessage` zurück; der Hook nennt den Agenten
+   (`CLAUDE_LOCAL_AGENT`).
+4. **Automatische Updates** (`scripts\lib\Update.ps1`, `config\updates.json`, `VERSION`):
+   höchstens einmal am Tag beim Start, nur Releases, mit git (Tag) oder ZIP, danach
+   `Install-LlamaCpp.ps1` und Neustart; nie in Ordnern mit Handänderungen oder in
+   Entwicklungsklonen. `unzensiert --updates on|off`, `--update`. Der Installer fragt einmal,
+   `install.ps1` holt das neueste Release. Veröffentlichen: `scripts\New-Release.ps1`.
+5. **Installer**: Unzensiert ist der Hauptbefehl; Claude Code nur noch auf Wunsch (Frage
+   steht auf Nein), `Uninstall.ps1` entfernt auch Unterhaltungen und Verlauf.
+6. **Benchmark**: `-Agent unzensiert|claude-local` (Standard `agent` in
+   `config\benchmark.json`), Feld `client` in den Ergebnissen, Spalten Agent, Runden, Tokens
+   im Bericht.
+7. **Prüfungen**: `scripts\Test-Agent.ps1` (ohne Modell etwa 5 s; `-WithModel` mit einer
+   kleinen Aufgabe und einer Zusammenfassung), neue Fälle in Test-Setup.
+
+### Gefunden und behoben unterwegs
+
+- **Wächter, seit der ersten öffentlichen Version:** Jeder Befehl aus einem Wort (`ls`,
+  `pytest`, `make`, auch als Teil von `cd tests && pytest`) endete mit `guard-error` und
+  damit einer Rückfrage, im Benchmark einer Ablehnung (Liste mit einem Element in
+  PowerShell). Behoben in Commit 324cfcf, vier neue Fälle, Test-Guard 95 von 95. Frühere
+  Benchmark-Läufe von `claude-local` können davon betroffen sein, wenn das Modell solche
+  Befehle benutzte.
+- **Byte-Order-Mark in der Eingabe von Kindprozessen:** Auf einer UTF-8-Konsole schreibt
+  .NET beim Start eines Prozesses mit umgeleiteter Eingabe sofort ein BOM hinein; der Hook
+  las dann kein JSON und ließ das Modell ungeprüft enden. Kindprozesse starten jetzt über
+  `Start-ChildProcess` (`lib\Machine.ps1`).
+- **Rechte im ersten Probelauf** (35 Runden, 57 s für eine Kleinigkeit): `python -c "a; b"`
+  wurde am `;` in den Anführungszeichen geteilt und abgelehnt, und im Modus `edits` durfte
+  das Modell keine Datei löschen, also suchte es zehn Runden lang Umwege. Jetzt: Teilung
+  nur außerhalb von Anführungszeichen, Dateibefehle im Projektordner zählen in `edits` als
+  Dateiänderung, nach drei Ablehnungen ein Hinweis, nach neun Schluss. Danach 8 Runden in
+  24 s.
+
+### Gemessen
+
+Benchmark mit beiden Agenten, Lauf `vergleich1` (Befehl:
+`Benchmark-Models.ps1 -Only local-coder -Tasks screenshot,pinwechsel,datenblatt,extend,refactor -Label vergleich1 -Agent unzensiert`,
+dann `-Agent claude-local`):
+
+| Aufgabe | Unzensiert | claude-local (Claude Code) |
+|---|---|---|
+| `screenshot` | 80 s, 16 Runden | 98 s, 22 Runden |
+| `pinwechsel` | 80 s, 17 Runden | 123 s, 30 Runden |
+| `datenblatt` | 105 s, 15 Runden | 124 s, 25 Runden |
+| `extend` | 214 s, 21 Runden | 244 s, 34 Runden |
+| `refactor` | 180 s, 19 Runden | 240 s, 48 Runden |
+| **zusammen** | **5 / 5 bestanden, 659 s, 88 Runden, 42.640 Tokens, Regeln 22 / 23** | 5 / 5 bestanden, 829 s, 159 Runden, 48.858 Tokens, Regeln 21 / 23 |
+
+Unzensiert war bei allen fünf Aufgaben schneller (zusammen 20 % weniger Zeit), brauchte
+45 % weniger Runden und 13 % weniger geschriebene Tokens; beide bestanden alles. Die
+verfehlten Regeln: bei beiden `config` in `extend`, bei `claude-local` zusätzlich
+`docstrings` in `refactor`.
+
+Vorbehalte: **ein Lauf je Aufgabe.** Frühere Wiederholungen derselben Aufgabe mit
+`claude-local` streuten um bis zu 30 % (`extend` 241 bis 334 s im Lauf `stufe4`), der
+Abstand einer einzelnen Aufgabe liegt also in der Streuung; dass er bei allen fünf in
+dieselbe Richtung geht, spricht für einen echten Unterschied, belegt ihn aber nicht. Runden
+sind bei Unzensiert die Anfragen an das Modell, bei Claude Code dessen Angabe `num_turns`.
+Nicht gemessen: `longcontext` (Zusammenfassen bei vollem Kontext), `psscript`, die älteren
+Aufgaben, Wiederholungen (`-Repeat 3`) und der zweite Blick (`-Git`).
+
+Weitere Messungen: Wächter 2,7 ms je Prüfung im eigenen Prozess gegen 280 ms als Hook;
+erste Anfrage einer Aufgabe 2.808 Tokens (Claude Code etwa 26.000); Cache des Servers in
+einem Testlauf 8.629 von 8.719 Tokens. Prüfungen: Test-Agent (auch `-WithModel`, mit
+Zusammenfassung), Test-Setup, Test-Guard 95 von 95, Test-Install bestanden.
+
+### Offen
+
+- Die Bedienung im Terminal (Tasten, Eingabezeile, Fragen, Alt+V, Shift+Tab) ist nur bis zur
+  Ausgabe automatisch geprüft; der Nutzer sollte eine Sitzung ausprobieren.
+- Erstes Release v1.0.0 veröffentlichen, wenn der Nutzer es will (`scripts\New-Release.ps1
+  -Version 1.0.0`); erst dann greifen die automatischen Updates und `install.ps1` holt ein
+  Release statt `main`.
+- Vergleich auf allen Aufgaben und mit Wiederholungen (`-Repeat 3`), auch `longcontext`
+  (Zusammenfassen bei vollem Kontext).
+
 ## 2026-11-17 abends: Planer – Verteilung auf Karten und Hauptspeicher berechnen
 
 Wunsch des Nutzers: Das Programm soll bei der Installation die Ausstattung des Rechners

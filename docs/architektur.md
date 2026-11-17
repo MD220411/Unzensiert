@@ -11,10 +11,10 @@ eine Aufgabe.
 
 ```
 Terminal / VS Code
-   │  claude-local                 bin\claude-local.cmd → scripts\claude-local.ps1
+   │  unzensiert                   bin\unzensiert.cmd → scripts\unzensiert.ps1
    ▼
-Claude Code (CLI)                  Agent: liest und schreibt Dateien, führt Befehle aus
-   │  Anthropic-kompatible API     http://127.0.0.1:8080/v1/messages
+Unzensiert (eigener Agent)         liest und schreibt Dateien, führt Befehle aus (scripts\lib\Agent*.ps1)
+   │  OpenAI-kompatible API        http://127.0.0.1:8080/v1/chat/completions
    ▼
 llama-server (Router)              Backend: nimmt Anfragen an, startet je Modell einen Prozess
    │  ein Kindprozess je Modell
@@ -22,6 +22,11 @@ llama-server (Router)              Backend: nimmt Anfragen an, startet je Modell
 Modellprofil, z. B. local-coder    Eintrag in config\models.json (+ config\machine.json)
    └─ GGUF-Datei                   <installRoot>\models\*.gguf
 ```
+
+Zum Vergleich gibt es den zweiten Weg zum selben Server: `claude-local`
+(`bin\claude-local.cmd` → `scripts\claude-local.ps1`) startet Claude Code, das über die
+Anthropic-kompatible Schnittstelle `/v1/messages` spricht. Wächter, Abschlussprüfung,
+Arbeitsregeln, Befehle und Modellauswahl teilen sich beide Agenten.
 
 Darunter liegt die Einrichtung: `Install.cmd` bzw. der Einzeiler `install.ps1` startet
 `scripts\Install.ps1`, der den Rechner erkennt (`lib\Machine.ps1`), llama.cpp und das
@@ -35,7 +40,7 @@ Jede Schicht ist einzeln austauschbar:
 
 | Schicht | Aktuell | Wo ändern | Beschreibung |
 |---|---|---|---|
-| Agent | Claude Code | `config\agent.json`, `scripts\claude-local.ps1` | [agent.md](agent.md) |
+| Agent | Unzensiert; zum Vergleich Claude Code über `claude-local` | `config\unzensiert.json`, `config\agent.json`, `scripts\unzensiert.ps1`, `scripts\claude-local.ps1` | [unzensiert.md](unzensiert.md), [agent.md](agent.md) |
 | Backend | llama.cpp (`llama-server`) | `config\server.json` | [backend.md](backend.md) |
 | Modelle | Qwen 3.6 27B und 35B-A3B unzensiert, Qwen 3.8 27B unzensiert | `config\models.json` | [modelle.md](modelle.md) |
 
@@ -44,15 +49,19 @@ Jede Schicht ist einzeln austauschbar:
 ```
 Install.cmd          Installieren oder reparieren per Doppelklick (startet scripts\Install.ps1)
 Uninstall.cmd        wieder entfernen (scripts\Uninstall.ps1)
-install.ps1          Einzeiler-Installation: holt das Repository, startet scripts\Install.ps1
-bin\                 Befehle für den PATH (claude-local.cmd)
+install.ps1          Einzeiler-Installation: holt das neueste Release (sonst main), startet scripts\Install.ps1
+VERSION              Version des Programms; Releases auf GitHub tragen den Tag vX.Y.Z
+bin\                 Befehle für den PATH (unzensiert.cmd, claude-local.cmd)
 config\              alle Einstellungen
   server.json          llama-server: Version, Pakete je Grafikkarte, Adresse, Grenzen
   models.json          Modellprofile: Datei, Download, Kontext, Sampling
   setups.json          Hardware-Stufen: welches Modell der Installer für wie viel Grafikspeicher vorschlägt
   planner.json         Planer: Reserven, Kontextgrößen, Toleranz (planer.md)
   machine.json         Werte dieses Rechners (Ordner, berechnete Verteilung, Standardmodell, Kalibrierung); vom Installer, nicht im Repository
-  agent.json           Claude Code: Standardmodell, Kurznamen, Modellauswahl, Regeln
+  agent.json           beide Agenten: Standardmodell, Kurznamen, Modellauswahl, Regeln, Abschlussprüfung, Werkzeuge
+  unzensiert.json      Unzensiert: Rechte, Kontext, Zeitgrenzen, Befehle ohne Rückfrage (unzensiert.md)
+  unzensiert-prompt.md Systemprompt von Unzensiert
+  updates.json         automatische Updates aus den Releases auf GitHub
   entwicklungsregeln.md  Arbeitsregeln, die das lokale Modell in jeder Sitzung bekommt
   abschluss.md         Erinnerung der Abschlussprüfung (Test, README, Einstellungen)
   zweiter-blick.md     Prüfauftrag für den zweiten Blick (zweites Modell prüft den Diff)
@@ -68,8 +77,10 @@ scripts\             ein Skript je Aufgabe (Einrichten, Starten, Testen, Messen)
   style\               Shell.ps1 (Eingabezeile, Begrüßung), Statusline.ps1 (Statuszeile von Claude Code)
   lib\                 gemeinsame Bausteine: Config.ps1, Machine.ps1, Download.ps1, Planner.ps1, Dialog.ps1, Server.ps1,
                        Measure.ps1, Session.ps1, Safety.ps1, Quality.ps1, Review.ps1, Tasks.ps1, Projects.ps1,
-                       Style.ps1, CharArt.ps1
-  hooks\               Guard-Tool.ps1: Wächter, den Claude Code vor jedem Werkzeug-Aufruf startet;
+                       Style.ps1, CharArt.ps1, Update.ps1; der Agent Unzensiert in AgentApi.ps1, AgentTools.ps1,
+                       AgentPrompt.ps1, AgentSession.ps1, AgentUi.ps1, AgentLoop.ps1, AgentRepl.ps1
+  hooks\               GuardRules.ps1: Regeln des Wächters, die Unzensiert im eigenen Prozess prüft;
+                       Guard-Tool.ps1: Wächter, den Claude Code vor jedem Werkzeug-Aufruf startet;
                        Check-Stop.ps1: Abschlussprüfung, bevor das Modell eine Antwort beendet;
                        HookEnvironment.ps1: Installations- und Projektordner für beide
   _common.ps1          bindet lib\ ein; jedes Skript beginnt damit
@@ -92,7 +103,10 @@ Installer schlägt `claude-local` auf dem Laufwerk mit dem meisten Platz vor und
   b12433\            Programme einer llama.cpp-Version (ein Ordner je Version, package.txt nennt das Paket)
   models\            GGUF-Dateien
   run\models.ini     aus config\models.json erzeugte Modellliste für den Server
-  run\sessions\      Markierungen der laufenden Sitzungen von claude-local
+  run\sessions\      Markierungen der laufenden Sitzungen (unzensiert und claude-local)
+  run\update-check.json  wann zuletzt nach einem Release gesehen wurde
+  sessions\          gespeicherte Unterhaltungen von Unzensiert, ein Ordner je Projektordner
+  unzensiert-history.txt  frühere Eingaben in Unzensiert
   run\stop\          Stand der Abschlussprüfung je Sitzung
   run\api-key.txt    Schlüssel des Servers (geheim, wird beim ersten Start erzeugt)
   logs\server.log    Protokoll des Servers
@@ -118,7 +132,7 @@ Installer schlägt `claude-local` auf dem Laufwerk mit dem meisten Platz vor und
 - **Ein Skript, eine Aufgabe.** Gemeinsame Logik steht in `scripts\lib\`, nie doppelt.
 - **Das normale Claude Code bleibt unberührt.** `claude-local` setzt seine Variablen nur
   für den eigenen Prozess. `claude` und die VS-Code-Extension nutzen weiter das
-  Anthropic-Konto.
+  Anthropic-Konto. Unzensiert braucht Claude Code gar nicht.
 - **Jede Änderung wird dokumentiert.** Was gemacht und gemessen wurde, steht in
   [protokoll.md](protokoll.md); die betroffene Beschreibung wird im selben Schritt angepasst.
 
@@ -139,8 +153,18 @@ und das kleine Autocomplete-Modell neben dem großen ohne eigenes Zutun.
 Modell. Der Agent reicht nur Text und Tool-Aufrufe durch. Deshalb genügt es, das Modell zu
 tauschen.
 
-**Warum Claude Code als Agent:** Die Bedienung ist identisch zu dem, was schon genutzt
-wird, und `llama-server` unterstützt die Anthropic-API direkt.
+**Warum ein eigener Agent (seit 2026-11-17):** Claude Code ist ein Programm von Anthropic,
+das für die Cloud gebaut ist: sein Systemprompt mit Werkzeugen hat am lokalen Server etwa
+26.000 Tokens, jeder Hook ist ein eigener Prozess, und jede neue Version kann das Verhalten
+mit lokalen Modellen ändern. Unzensiert ist auf lokale Modelle zugeschnitten (erste Anfrage
+2.808 Tokens, Wächter im eigenen Prozess, Hilfen gegen Schleifen) und gehört zum Projekt;
+Bedienung, Werkzeuge und Erscheinungsbild folgen Claude Code, damit sich nichts umlernen
+muss. Es ist in PowerShell 5.1 geschrieben, weil das auf jedem Windows vorhanden ist und das
+übrige Projekt schon darin steht. `claude-local` bleibt, damit der Benchmark beide
+vergleichen kann ([unzensiert.md](unzensiert.md)).
+
+**Warum zuerst Claude Code als Agent:** Die Bedienung war identisch zu dem, was schon
+genutzt wurde, und `llama-server` unterstützt die Anthropic-API direkt.
 
 **Warum `models.json` statt der INI-Datei des Servers:** `llama-server` liest seine
 Modellliste aus einer INI-Datei mit absoluten Pfaden. Die Skripte brauchen dieselben
