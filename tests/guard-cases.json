@@ -1,6 +1,7 @@
 {
-  "_comment": "Cases for scripts\\Test-Guard.ps1. Each case is one tool call as Claude Code hands it to scripts\\hooks\\Guard-Tool.ps1, with the decision the guard must return: none (call goes ahead), ask or deny. 'cwd' defaults to defaultCwd. The first block must stay free: the guard may not get in the way of normal work.",
+  "_comment": "Cases for scripts\\Test-Guard.ps1. Each case is one tool call as Claude Code hands it to scripts\\hooks\\Guard-Tool.ps1, with the decision the guard must return: none (call goes ahead), ask or deny. 'cwd' defaults to defaultCwd. The first block must stay free: the guard may not get in the way of normal work. 'machine' is the example machine the cases are written for (install folder and projects folder, set by Test-Guard.ps1 instead of the real ones); {repo} stands for this repository.",
 
+  "machine": { "installRoot": "E:\\LlamaCpp", "projectsRoot": "E:\\Projekte" },
   "defaultCwd": "E:\\Projekte\\Demo",
 
   "cases": [
@@ -93,7 +94,9 @@
     { "expect": "ask", "tool": "Read", "file_path": "~/.aws/credentials" },
     { "expect": "ask", "tool": "Read", "file_path": "C:\\Users\\Public\\tresor.kdbx" },
     { "expect": "ask", "tool": "Grep", "path": "%USERPROFILE%\\.ssh" },
-    { "expect": "ask", "tool": "Edit", "file_path": "E:\\Projekte\\Unzensiert\\config\\guard.json" },
+    { "expect": "ask", "tool": "Edit", "file_path": "{repo}\\config\\guard.json" },
+    { "expect": "ask", "tool": "Write", "file_path": "{repo}\\config\\machine.json" },
+    { "expect": "ask", "tool": "Read", "file_path": "E:\\LlamaCpp\\run\\api-key.txt" },
     { "expect": "ask", "tool": "Write", "file_path": "%USERPROFILE%\\.claude\\settings.json" }
   ]
 }

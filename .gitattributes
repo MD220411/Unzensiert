@@ -1,0 +1,2 @@
+# Batch files with Windows line endings, also in the ZIP that GitHub builds
+*.cmd text eol=crlf

@@ -19,9 +19,14 @@ Claude Code (CLI)                  Agent: liest und schreibt Dateien, führt Bef
 llama-server (Router)              Backend: nimmt Anfragen an, startet je Modell einen Prozess
    │  ein Kindprozess je Modell
    ▼
-Modellprofil, z. B. local-coder    Eintrag in config\models.json
-   └─ GGUF-Datei                   E:\LlamaCpp\models\*.gguf
+Modellprofil, z. B. local-coder    Eintrag in config\models.json (+ config\machine.json)
+   └─ GGUF-Datei                   <installRoot>\models\*.gguf
 ```
+
+Darunter liegt die Einrichtung: `Install.cmd` bzw. der Einzeiler `install.ps1` startet
+`scripts\Install.ps1`, der den Rechner erkennt (`lib\Machine.ps1`), llama.cpp und das
+passende Modell lädt (`lib\Download.ps1`) und die Werte des Rechners in
+`config\machine.json` schreibt ([einrichtung.md](einrichtung.md)).
 
 Continue (Chat und Autocomplete im Editor) spricht mit demselben Server über dessen
 OpenAI-kompatible Schnittstelle.
@@ -37,10 +42,15 @@ Jede Schicht ist einzeln austauschbar:
 ## Ordnerstruktur
 
 ```
+Install.cmd          Installieren oder reparieren per Doppelklick (startet scripts\Install.ps1)
+Uninstall.cmd        wieder entfernen (scripts\Uninstall.ps1)
+install.ps1          Einzeiler-Installation: holt das Repository, startet scripts\Install.ps1
 bin\                 Befehle für den PATH (claude-local.cmd)
 config\              alle Einstellungen
-  server.json          llama-server: Installationsort, Version, Adresse
-  models.json          Modellprofile: Datei, Kontext, GPU-Aufteilung, Sampling
+  server.json          llama-server: Version, Pakete je Grafikkarte, Adresse, Grenzen
+  models.json          Modellprofile: Datei, Download, Kontext, Sampling
+  setups.json          Hardware-Stufen: welches Modell der Installer für wie viel Grafikspeicher vorschlägt
+  machine.json         Werte dieses Rechners (Ordner, Kartenaufteilung, Standardmodell); vom Installer, nicht im Repository
   agent.json           Claude Code: Standardmodell, Kurznamen, Modellauswahl, Regeln
   entwicklungsregeln.md  Arbeitsregeln, die das lokale Modell in jeder Sitzung bekommt
   abschluss.md         Erinnerung der Abschlussprüfung (Test, README, Einstellungen)
@@ -54,9 +64,11 @@ config\              alle Einstellungen
   style.json           Erscheinungsbild: Farben, Zeichen, Texte (stil.md)
 scripts\             ein Skript je Aufgabe (Einrichten, Starten, Testen, Messen)
   style\               Shell.ps1 (Eingabezeile, Begrüßung), Statusline.ps1 (Statuszeile von Claude Code)
-  lib\                 gemeinsame Bausteine: Config.ps1, Server.ps1, Measure.ps1, Session.ps1, Safety.ps1, Quality.ps1, Review.ps1, Tasks.ps1, Projects.ps1
+  lib\                 gemeinsame Bausteine: Config.ps1, Machine.ps1, Download.ps1, Dialog.ps1, Server.ps1,
+                       Measure.ps1, Session.ps1, Safety.ps1, Quality.ps1, Review.ps1, Tasks.ps1, Projects.ps1, Style.ps1
   hooks\               Guard-Tool.ps1: Wächter, den Claude Code vor jedem Werkzeug-Aufruf startet;
-                       Check-Stop.ps1: Abschlussprüfung, bevor das Modell eine Antwort beendet
+                       Check-Stop.ps1: Abschlussprüfung, bevor das Modell eine Antwort beendet;
+                       HookEnvironment.ps1: Installations- und Projektordner für beide
   _common.ps1          bindet lib\ ein; jedes Skript beginnt damit
 benchmark\tasks\     Aufgaben für den Agenten-Benchmark (Vorlage, Auftrag, Prüfung, Musterlösung)
 benchmark\lib\       rulecheck.py: misst in den Prüfungen, ob die Arbeitsregeln eingehalten wurden
@@ -67,11 +79,14 @@ docs\                Dokumentation
 logs\                Messergebnisse (results.jsonl, model-tests.log)
 ```
 
-Außerhalb des Repositorys, weil groß oder erzeugt (Ort: `installRoot` in `config\server.json`):
+Außerhalb des Repositorys, weil groß oder erzeugt. Der Ort ist `installRoot`: Der
+Installer schlägt `claude-local` auf dem Laufwerk mit dem meisten Platz vor und merkt ihn in
+`config\machine.json`; ohne diese Datei gilt `%LOCALAPPDATA%\claude-local` aus
+`config\server.json`. Auf dem Entwicklungsrechner ist es `E:\LlamaCpp`.
 
 ```
-E:\LlamaCpp\
-  b12433\            Programme einer llama.cpp-Version (ein Ordner je Version)
+<installRoot>\
+  b12433\            Programme einer llama.cpp-Version (ein Ordner je Version, package.txt nennt das Paket)
   models\            GGUF-Dateien
   run\models.ini     aus config\models.json erzeugte Modellliste für den Server
   run\sessions\      Markierungen der laufenden Sitzungen von claude-local
@@ -87,6 +102,11 @@ E:\LlamaCpp\
 - **Konfiguration steht in `config\`, nicht in Skripten.** Skripte lesen alle Werte über
   `scripts\lib\Config.ps1`. Wer etwas ändern will, ändert eine Datei in `config\` und
   startet den Server neu.
+- **Projekt und Rechner getrennt.** Die Dateien in `config\` gelten auf jedem Rechner.
+  Was nur für einen Rechner stimmt (Ordner, Aufteilung auf bestimmte Karten,
+  Standardmodell), steht in `config\machine.json`, nicht im Repository. Keine festen
+  Laufwerke, Kartennamen oder Kartenaufteilungen in den gemeinsamen Dateien;
+  `Test-Install.ps1` prüft das für die Modellprofile.
 - **Eine Quelle je Angabe.** Adresse und Port stehen nur in `server.json`, Modelle nur in
   `models.json`. Ausnahme: `continue.config.yaml` wiederholt Adresse und Modellnamen, weil
   Continue die anderen Dateien nicht lesen kann; `Install-Continue.ps1` prüft die Namen.

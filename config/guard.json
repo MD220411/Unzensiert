@@ -1,5 +1,5 @@
 {
-  "_comment": "Rules of the safety guard for claude-local sessions (scripts\\hooks\\Guard-Tool.ps1, docs\\sicherheit.md). The guard protects THIS machine and the user's own data from destructive tool calls of the local model. It does not judge what the model works on. 'deny' stops a call, 'ask' hands the decision to the user (in runs without a user, -p, an 'ask' counts as 'no'). Patterns are .NET regular expressions, matched case-insensitively against the whole command; in JSON every backslash is written twice. Paths may use %VARIABLES%. After a change run scripts\\Test-Guard.ps1.",
+  "_comment": "Rules of the safety guard for claude-local sessions (scripts\\hooks\\Guard-Tool.ps1, docs\\sicherheit.md). The guard protects THIS machine and the user's own data from destructive tool calls of the local model. It does not judge what the model works on. 'deny' stops a call, 'ask' hands the decision to the user (in runs without a user, -p, an 'ask' counts as 'no'). Patterns are .NET regular expressions, matched case-insensitively against the whole command; in JSON every backslash is written twice. Paths may use %VARIABLES%; %CLAUDE_LOCAL_ROOT% is the install folder and %CLAUDE_LOCAL_PROJECTS% the projects folder of this machine (set by scripts\\_common.ps1), an entry with a variable this machine does not know is left out. After a change run scripts\\Test-Guard.ps1.",
 
   "enabled": true,
 
@@ -26,8 +26,8 @@
     "%APPDATA%",
     "%LOCALAPPDATA%",
     "%USERPROFILE%\\.claude",
-    "E:\\LlamaCpp",
-    "E:\\Projekte"
+    "%CLAUDE_LOCAL_ROOT%",
+    "%CLAUDE_LOCAL_PROJECTS%"
   ],
 
   "freeDeleteRoots": [
@@ -54,7 +54,7 @@
     "%APPDATA%\\Microsoft\\Credentials",
     "%LOCALAPPDATA%\\Microsoft\\Credentials",
     "%APPDATA%\\Microsoft\\Protect",
-    "E:\\LlamaCpp\\run\\api-key.txt"
+    "%CLAUDE_LOCAL_ROOT%\\run\\api-key.txt"
   ],
   "secretFileNames": [
     "*.kdbx",
@@ -73,6 +73,7 @@
 
   "guardFiles": [
     "config\\guard.json",
+    "config\\machine.json",
     "scripts\\hooks\\Guard-Tool.ps1",
     "%USERPROFILE%\\.claude\\settings.json"
   ],

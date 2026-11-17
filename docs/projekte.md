@@ -15,7 +15,7 @@ powershell -ExecutionPolicy Bypass -File scripts\New-Project.ps1 -Name mein-tool
 |---|---|
 | `-Name` | Name des Projekts und des Ordners |
 | `-Language` | `python` (Standard) oder `powershell` |
-| `-Path` | übergeordneter Ordner, Standard `projectsRoot` aus `config\projects.json` (`E:\Projekte`) |
+| `-Path` | übergeordneter Ordner, Standard `projectsRoot`: `%USERPROFILE%\Projects` aus `config\projects.json`, auf diesem Rechner ggf. aus `config\machine.json` (Entwicklungsrechner: `E:\Projekte`) |
 | `-Purpose` | ein bis zwei Sätze für README und Architektur |
 | `-NoGit` | kein Repository, kein erster Commit |
 

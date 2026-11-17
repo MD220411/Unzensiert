@@ -1,8 +1,6 @@
 {
-  "_comment": "Model profiles. One entry = one model name that Claude Code, Continue and the scripts can ask for. 'file' is a GGUF file in modelsDir (config\\server.json). 'mmproj' in args is the image encoder of a model, also a file in modelsDir. 'args' are llama-server options without the leading dashes (llama-server --help); 'defaults' apply to every profile. Paths in 'chat-template-file' are relative to config\\. After a change run scripts\\Restart-Server.ps1. Details: docs\\modelle.md.",
-
+  "_comment": "Model profiles. One entry = one model name that Claude Code, Continue and the scripts can ask for. 'role': agent (offered to the agent and by the installer), autocomplete (Continue), compare (benchmark only). 'file' is a GGUF file in the models folder; 'download' says where scripts\\Get-Model.ps1 gets it and the other files of the profile (Hugging Face repository, pinned revision, size, SHA-256), or names a profile with the same files. 'mmproj' in args is the image encoder of a model, also a file in the models folder. 'args' are llama-server options without the leading dashes (llama-server --help); 'defaults' apply to every profile. No GPU split and no device names here: llama.cpp fits each model to the cards it finds (--fit), values tuned for one machine belong in config\\machine.json. Paths in 'chat-template-file' are relative to config\\. After a change run scripts\\Restart-Server.ps1. Details: docs\\modelle.md.",
   "defaults": {
-    "gpu-layers": 999,
     "flash-attn": "on",
     "cache-type-k": "q8_0",
     "cache-type-v": "q8_0",
@@ -10,18 +8,33 @@
     "jinja": true,
     "sleep-idle-seconds": 1800
   },
-
   "models": {
     "local-coder": {
-      "description": "Qwen 3.6 27B, unzensiert (Heretic v2), mit MTP. Standardmodell fuer den Agenten.",
+      "description": "Qwen 3.6 27B, uncensored (Heretic v2), with MTP. Default model of the agent, the most reliable one.",
+      "role": "agent",
       "file": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
-      "source": "https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF (Q4_K_M)",
+      "download": {
+        "repo": "llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF",
+        "revision": "a6b6a6d9385fe7850644e56bfdc93a04a6cb2ee8",
+        "files": [
+          {
+            "name": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
+            "source": "Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q4_K_M.gguf",
+            "size": 17211797600,
+            "sha256": "c07c48d259126eb613df7618c4c073d5cb86c7946723a73d73d83ebd8f70033e"
+          },
+          {
+            "name": "qwen3.6-27b-mmproj-BF16.gguf",
+            "source": "Qwen3.6-27B-mmproj-BF16.gguf",
+            "size": 931146048,
+            "sha256": "c5c8c41da6d155a61edd21b7e3aa50b6ef77f122d502d36afe4a4d5c3e494d4f"
+          }
+        ]
+      },
       "args": {
         "mmproj": "qwen3.6-27b-mmproj-BF16.gguf",
-        "mmproj-device": "CUDA1",
         "image-min-tokens": 256,
         "ctx-size": 131072,
-        "tensor-split": "70,30",
         "spec-type": "draft-mtp",
         "spec-draft-n-max": 4,
         "chat-template-file": "templates\\qwen3.6-agent.jinja",
@@ -31,17 +44,32 @@
         "min-p": 0
       }
     },
-
     "local-coder-q5": {
-      "description": "Wie local-coder, aber Quantisierung Q5_K_M statt Q4_K_M. Vergleichsprofil (docs\\modellwahl.md).",
+      "description": "Like local-coder, but quantised Q5_K_M instead of Q4_K_M. Comparison profile (docs\\modellwahl.md).",
+      "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q5_K_M-mtp.gguf",
-      "source": "https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF (Q5_K_M)",
+      "download": {
+        "repo": "llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF",
+        "revision": "a6b6a6d9385fe7850644e56bfdc93a04a6cb2ee8",
+        "files": [
+          {
+            "name": "qwen3.6-27b-heretic-v2-Q5_K_M-mtp.gguf",
+            "source": "Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf",
+            "size": 19745091680,
+            "sha256": "9d309b8fadd5788bfa8ee26cd34c37b26df0205613a3be34394ba4da7d5a4285"
+          },
+          {
+            "name": "qwen3.6-27b-mmproj-BF16.gguf",
+            "source": "Qwen3.6-27B-mmproj-BF16.gguf",
+            "size": 931146048,
+            "sha256": "c5c8c41da6d155a61edd21b7e3aa50b6ef77f122d502d36afe4a4d5c3e494d4f"
+          }
+        ]
+      },
       "args": {
         "mmproj": "qwen3.6-27b-mmproj-BF16.gguf",
-        "mmproj-device": "CUDA1",
         "image-min-tokens": 256,
         "ctx-size": 65536,
-        "tensor-split": "66,34",
         "spec-type": "draft-mtp",
         "spec-draft-n-max": 4,
         "chat-template-file": "templates\\qwen3.6-agent.jinja",
@@ -51,17 +79,15 @@
         "min-p": 0
       }
     },
-
     "local-coder-rb2048": {
-      "description": "Wie local-coder, aber hoechstens 2048 Denk-Tokens je Antwort. Vergleichsprofil (docs\\modellwahl.md).",
+      "description": "Like local-coder, but at most 2048 thinking tokens per answer. Comparison profile (docs\\modellwahl.md).",
+      "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
-      "source": "https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF (Q4_K_M)",
+      "download": "local-coder",
       "args": {
         "mmproj": "qwen3.6-27b-mmproj-BF16.gguf",
-        "mmproj-device": "CUDA1",
         "image-min-tokens": 256,
         "ctx-size": 131072,
-        "tensor-split": "70,30",
         "spec-type": "draft-mtp",
         "spec-draft-n-max": 4,
         "chat-template-file": "templates\\qwen3.6-agent.jinja",
@@ -72,17 +98,15 @@
         "min-p": 0
       }
     },
-
     "local-coder-rb512": {
-      "description": "Wie local-coder, aber hoechstens 512 Denk-Tokens je Antwort. Vergleichsprofil (docs\\modellwahl.md).",
+      "description": "Like local-coder, but at most 512 thinking tokens per answer. Comparison profile (docs\\modellwahl.md).",
+      "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
-      "source": "https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF (Q4_K_M)",
+      "download": "local-coder",
       "args": {
         "mmproj": "qwen3.6-27b-mmproj-BF16.gguf",
-        "mmproj-device": "CUDA1",
         "image-min-tokens": 256,
         "ctx-size": 131072,
-        "tensor-split": "70,30",
         "spec-type": "draft-mtp",
         "spec-draft-n-max": 4,
         "chat-template-file": "templates\\qwen3.6-agent.jinja",
@@ -93,17 +117,15 @@
         "min-p": 0
       }
     },
-
     "local-coder-rb0": {
-      "description": "Wie local-coder, aber ohne Denk-Tokens (Budget 0). Vergleichsprofil (docs\\modellwahl.md).",
+      "description": "Like local-coder, but without thinking tokens (budget 0). Comparison profile (docs\\modellwahl.md).",
+      "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
-      "source": "https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF (Q4_K_M)",
+      "download": "local-coder",
       "args": {
         "mmproj": "qwen3.6-27b-mmproj-BF16.gguf",
-        "mmproj-device": "CUDA1",
         "image-min-tokens": 256,
         "ctx-size": 131072,
-        "tensor-split": "70,30",
         "spec-type": "draft-mtp",
         "spec-draft-n-max": 4,
         "chat-template-file": "templates\\qwen3.6-agent.jinja",
@@ -114,36 +136,67 @@
         "min-p": 0
       }
     },
-
     "local-fast": {
-      "description": "Qwen 3.6 35B-A3B (Mixture of Experts), unzensiert (Heretic), mit MTP. Mehr Tokens pro Sekunde, bei schwereren Aufgaben weniger zuverlaessig (docs\\modellwahl.md).",
+      "description": "Qwen 3.6 35B-A3B (mixture of experts), uncensored (Heretic), with MTP. More tokens per second and fits smaller graphics cards, less reliable on harder tasks (docs\\modellwahl.md).",
+      "role": "agent",
       "file": "qwen3.6-35b-a3b-heretic-Q4_K_M-mtp.gguf",
-      "source": "https://huggingface.co/llmfan46/Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-GGUF (Q4_K_M)",
+      "download": {
+        "repo": "llmfan46/Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-GGUF",
+        "revision": "fa96dc904fe4dafb415ca707afab30aee2d2e703",
+        "files": [
+          {
+            "name": "qwen3.6-35b-a3b-heretic-Q4_K_M-mtp.gguf",
+            "source": "Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-Q4_K_M.gguf",
+            "size": 21780313248,
+            "sha256": "fc89d92377b27fe0f80eb683a5105d0921234c24f7c1d70ecc2356ddf994d781"
+          },
+          {
+            "name": "qwen3.6-35b-a3b-mmproj-BF16.gguf",
+            "source": "Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-mmproj-BF16.gguf",
+            "size": 902822112,
+            "sha256": "d6050bb82a0187e1b0655f1c5daef60c9479273fbd7402ff25d3137df2e071ce"
+          }
+        ]
+      },
       "args": {
         "mmproj": "qwen3.6-35b-a3b-mmproj-BF16.gguf",
         "image-min-tokens": 256,
         "ctx-size": 131072,
-        "tensor-split": "60,40",
         "spec-type": "draft-mtp",
         "spec-draft-n-max": 4,
         "chat-template-file": "templates\\qwen3.6-agent.jinja",
         "temp": 0.6,
         "top-k": 20,
         "top-p": 0.95,
-        "min-p": 0,
-        "mmproj-device": "CUDA1"
+        "min-p": 0
       }
     },
-
     "local-qwen38": {
-      "description": "Qwen 3.8 27B, unzensiert (Heretic), mit MTP. Standardmodell bis 2026-11-14, bleibt als Vergleich waehlbar.",
+      "description": "Qwen 3.8 27B, uncensored (Heretic), with MTP. Default model until 2026-11-14, reviewer of the second look.",
+      "role": "agent",
       "file": "unc-heretic-27b-Q4_K_M-mtp.gguf",
-      "source": "https://huggingface.co/0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF (RVN-Q4_K_M-mtp.gguf)",
+      "download": {
+        "repo": "0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF",
+        "revision": "ab8d7bd81d03117501e4da60cccdff4c80f0eea0",
+        "files": [
+          {
+            "name": "unc-heretic-27b-Q4_K_M-mtp.gguf",
+            "source": "RVN-Q4_K_M-mtp.gguf",
+            "size": 16998720736,
+            "sha256": "5df52200763806fad5c01add7b1be13e9ef96dd1932a41226632693aac321b7b"
+          },
+          {
+            "name": "qwen3.8-27b-mmproj-Q8_0.gguf",
+            "source": "mmproj-Qwen3.8-27B-Q8_0.gguf",
+            "size": 629247008,
+            "sha256": "2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb"
+          }
+        ]
+      },
       "args": {
         "mmproj": "qwen3.8-27b-mmproj-Q8_0.gguf",
         "image-min-tokens": 256,
         "ctx-size": 131072,
-        "tensor-split": "70,30",
         "spec-type": "draft-mtp",
         "spec-draft-n-max": 4,
         "chat-template-file": "templates\\qwen3.8-agent.jinja",
@@ -151,18 +204,27 @@
         "temp": 1,
         "top-k": 20,
         "top-p": 0.95,
-        "min-p": 0,
-        "mmproj-device": "CUDA1"
+        "min-p": 0
       }
     },
-
     "qwen2.5-coder-1.5b-base": {
-      "description": "Kleines Basismodell fuer die Tab-Vervollstaendigung in Continue (Fill-in-the-middle). Liegt allein auf der RTX 3060.",
-      "file": "qwen2.5-coder-1.5b-base-Q4_K_M.gguf",
-      "source": "ollama pull qwen2.5-coder:1.5b-base",
+      "description": "Small base model for tab completion in Continue (fill-in-the-middle).",
+      "role": "autocomplete",
+      "file": "qwen2.5-coder-1.5b-q8_0.gguf",
+      "download": {
+        "repo": "ggml-org/Qwen2.5-Coder-1.5B-Q8_0-GGUF",
+        "revision": "8be1b8a895a84beea772817caaa71eba6b6e0d07",
+        "files": [
+          {
+            "name": "qwen2.5-coder-1.5b-q8_0.gguf",
+            "source": "qwen2.5-coder-1.5b-q8_0.gguf",
+            "size": 1646573056,
+            "sha256": "29871c94d15727a6e243f79a37113d4ae625a6215b5e800bf41a23af2da32832"
+          }
+        ]
+      },
       "args": {
-        "ctx-size": 8192,
-        "device": "CUDA1"
+        "ctx-size": 8192
       }
     }
   }

@@ -1,0 +1,57 @@
+{
+  "_comment": "Which model and context size the installer suggests for how much graphics memory (scripts\\Install.ps1, lib\\Machine.ps1 Select-Setup). The list runs from the largest machine to the smallest; the first entry whose minVramMiB (sum over all usable cards) and minRamGiB (main memory) the machine meets is suggested. 'args' go into config\\machine.json for that profile. llama.cpp places what does not fit into the graphics memory into main memory by itself (--fit); that works, but is slower. 'measured' says on which hardware the entry was tried (docs\\einrichtung.md), empty = estimate. ignoreDevices: names of integrated graphics, which share the main memory and do not count.",
+
+  "ignoreDevices": "(?i)(UHD|Iris|HD Graphics|Radeon\\(TM\\) Graphics|Radeon Graphics$|Microsoft Basic)",
+
+  "setups": [
+    {
+      "name": "26gb",
+      "minVramMiB": 26000,
+      "minRamGiB": 16,
+      "model": "local-coder",
+      "args": { "ctx-size": 131072 },
+      "measured": ""
+    },
+    {
+      "name": "22gb",
+      "minVramMiB": 22000,
+      "minRamGiB": 16,
+      "model": "local-coder",
+      "args": { "ctx-size": 65536 },
+      "measured": ""
+    },
+    {
+      "name": "15gb",
+      "minVramMiB": 15000,
+      "minRamGiB": 32,
+      "model": "local-fast",
+      "args": { "ctx-size": 65536 },
+      "measured": ""
+    },
+    {
+      "name": "11gb",
+      "minVramMiB": 11000,
+      "minRamGiB": 32,
+      "model": "local-fast",
+      "args": { "ctx-size": 65536 },
+      "measured": ""
+    },
+    {
+      "name": "7gb",
+      "minVramMiB": 7000,
+      "minRamGiB": 32,
+      "model": "local-fast",
+      "args": { "ctx-size": 32768 },
+      "measured": ""
+    },
+    {
+      "name": "cpu",
+      "minVramMiB": 0,
+      "minRamGiB": 32,
+      "model": "local-fast",
+      "args": { "ctx-size": 32768 },
+      "slow": true,
+      "measured": ""
+    }
+  ]
+}

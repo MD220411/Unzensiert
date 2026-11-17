@@ -7,7 +7,10 @@ Skripte jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 
 | Vorhaben | Wo | Beschreibung |
 |---|---|---|
-| Neues Modell aufnehmen, Kontext oder GPU-Aufteilung ändern | `config\models.json` | [modelle.md](modelle.md) |
+| Neues Modell aufnehmen (mit `download`-Eintrag) | `config\models.json` | [modelle.md](modelle.md) |
+| Kontext oder GPU-Aufteilung nur für diesen Rechner ändern | `config\machine.json` | [einrichtung.md](einrichtung.md) |
+| Ändern, welches Modell der Installer für wie viel Grafikspeicher vorschlägt | `config\setups.json`, gemessen mit `Test-Model.ps1` | [einrichtung.md](einrichtung.md) |
+| Installer ändern | `scripts\Install.ps1`, `lib\Machine.ps1`, `lib\Download.ps1`, danach `Test-Install.ps1` | [einrichtung.md](einrichtung.md) |
 | Standardmodell, Kurznamen oder Auswahl von `/model` ändern | `config\agent.json` | [agent.md](agent.md) |
 | Arbeitsregeln des lokalen Modells ändern | `config\entwicklungsregeln.md` | [agent.md](agent.md) |
 | Abschlussprüfung ändern oder abschalten | `stopCheck` in `config\agent.json`, Text in `config\abschluss.md` | [agent.md](agent.md) |

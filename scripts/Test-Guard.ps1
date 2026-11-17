@@ -14,6 +14,11 @@ param([switch]$ShowAll)
 
 $casesFile = Join-Path $script:ProjectRoot 'tests\guard-cases.json'
 $set = Read-JsonFile $casesFile
+# The cases are written for a fixed example machine ("machine" in the case file), so they
+# give the same result on every computer: the guard (a child process) gets these folders
+# instead of the real ones. {repo} in a case stands for this repository.
+$env:CLAUDE_LOCAL_ROOT = [string]$set.machine.installRoot
+$env:CLAUDE_LOCAL_PROJECTS = [string]$set.machine.projectsRoot
 $failed = 0
 $watch = [Diagnostics.Stopwatch]::StartNew()
 
@@ -22,7 +27,7 @@ foreach ($case in $set.cases) {
     if ($case.tool) { $tool = [string]$case.tool }
     $toolInput = [ordered]@{}
     foreach ($field in 'command', 'file_path', 'path') {
-        if ($null -ne $case.$field) { $toolInput[$field] = [string]$case.$field }
+        if ($null -ne $case.$field) { $toolInput[$field] = ([string]$case.$field).Replace('{repo}', $script:ProjectRoot) }
     }
     $cwd = [string]$set.defaultCwd
     if ($case.cwd) { $cwd = [string]$case.cwd }

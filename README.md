@@ -1,8 +1,77 @@
 # Lokaler Coding-Agent
 
-Claude Code mit einem lokalen, unzensierten Modell statt der Anthropic-Cloud. Läuft ohne
-Token-Limit auf den eigenen Grafikkarten, mit llama.cpp als Backend. Das normale `claude`
-bleibt unverändert nutzbar.
+**claude-local** runs [Claude Code](https://code.claude.com) with an open, uncensored model
+on your own graphics card instead of the Anthropic cloud: no token limit, and your code
+never leaves your machine. [llama.cpp](https://github.com/ggml-org/llama.cpp) runs the
+model. Your normal `claude` keeps working as before.
+
+*Deutsch: Claude Code mit einem lokalen, unzensierten Modell auf der eigenen Grafikkarte.
+Die ausführliche Dokumentation ist deutsch und beginnt bei [Benutzen](#benutzen).*
+
+## Quick start
+
+**You need** 64-bit Windows 10 (1809) or 11, a graphics card with 12 GB or more (NVIDIA;
+AMD and Intel are experimental), 32 GB of main memory, about 25 GB of free disk space and
+an internet connection for the install.
+
+**Install.** Open PowerShell (Start menu, type "PowerShell") and paste:
+
+```powershell
+irm https://raw.githubusercontent.com/MD220411/Unzensiert/main/install.ps1 | iex
+```
+
+Or download the [ZIP](https://github.com/MD220411/Unzensiert/archive/refs/heads/main.zip),
+unpack it and double-click **Install.cmd**. If Windows says "Windows protected your PC",
+click "More info", then "Run anyway".
+
+The installer looks at your machine and asks before it installs or downloads anything:
+
+| Step | What happens |
+|---|---|
+| 1 | checks Windows, graphics cards and main memory |
+| 2 | picks an install folder for llama.cpp, models and logs (the drive with the most free space) |
+| 3 | installs Claude Code (Anthropic's official installer) and Git for Windows, if they are missing |
+| 4 | installs llama.cpp in the build that fits your graphics card |
+| 5 | downloads the model that fits your graphics memory (17 to 22 GB from Hugging Face, checked by SHA-256) |
+| 6 | sets up the command `claude-local` |
+| 7 | runs a short test |
+
+**Use.** Open a new terminal window in your project folder and type:
+
+```
+claude-local
+```
+
+The first start of Claude Code asks for a colour theme and whether you trust the folder.
+No Anthropic account is needed for the local model. Inside a session, `/model` switches
+between the models you have installed. More models: `scripts\Get-Model.ps1 -List`.
+
+**Which model you get** depends on the graphics memory (all cards added up,
+`config\setups.json`):
+
+| Graphics memory | Model | Context | Tried on |
+|---|---|---|---|
+| 26 GB or more | `local-coder` (Qwen 3.6 27B) | 128k | RTX 5070 Ti + RTX 3060: about 60 tokens/s |
+| 22 GB or more | `local-coder` | 64k | not measured yet |
+| 15 GB or more | `local-fast` (Qwen 3.6 35B-A3B), partly in main memory | 64k | not measured yet |
+| 11 GB or more | `local-fast`, partly in main memory | 64k | not measured yet |
+| 7 GB or more | `local-fast`, mostly in main memory | 32k | not measured yet |
+| no usable card | `local-fast` on the processor | 32k | slow |
+
+**Update:** run the install line again. **Remove:** double-click **Uninstall.cmd**; it
+asks before deleting anything and leaves Claude Code and Git in place.
+
+**Good to know**
+
+- Claude Code is Anthropic's program and comes from Anthropic's own installer;
+  claude-local only starts it with a local model.
+- The models are uncensored: they do not refuse requests. A guard protects your machine
+  instead: it blocks commands that would destroy data (formatting a drive, deleting your
+  user folder) and asks you before sensitive ones ([docs/sicherheit.md](docs/sicherheit.md)).
+- A local 27B model is much weaker than Claude. Small features, changes across a few
+  files and bug hunting go well; see [Grenzen](#grenzen).
+- Tested on Windows 11 with an RTX 5070 Ti and an RTX 3060. On other hardware it has not
+  run yet: please open an issue and tell what worked and what did not.
 
 ## Benutzen
 
@@ -12,7 +81,8 @@ In einem Terminal (auch im VS-Code-Terminal) im gewünschten Projektordner:
 claude-local
 ```
 
-Das startet Claude Code mit dem Modell `local-coder`. Der Server wird bei Bedarf
+Das startet Claude Code mit dem Standardmodell dieses Rechners (vom Installer passend zum
+Grafikspeicher gewählt, auf großen Karten `local-coder`). Der Server wird bei Bedarf
 mitgestartet; das Modell lädt bei der ersten Anfrage (etwa 10 bis 60 Sekunden). Endet die
 letzte Sitzung, wird das Modell entladen und der GPU-Speicher ist wieder frei.
 
@@ -70,7 +140,8 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
 | Modell | `local-coder` = Qwen 3.6 27B, unzensiert (Heretic v2), mit MTP, 128k Kontext |
 | Tempo | `local-coder` etwa 60 Tokens/s, `local-fast` 83 bis 140; beide vollständig auf den Grafikkarten (RTX 5070 Ti + RTX 3060) |
 | Benchmark | `local-coder`: alle 24 Läufe der vier älteren Aufgaben bestanden, 14 von 15 der fünf schwereren, 89 % der Arbeitsregeln eingehalten, mit Projektvorlage 91 % (gemessen mit 64k); die zwei Aufgaben zu Faktentreue und Konsistenz über Dateien 6 von 6. `local-fast` (Stand vor der Abschlussprüfung): 3 von 15, 52 % ([modellwahl.md](docs/modellwahl.md)) |
-| Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle in `E:\LlamaCpp` |
+| Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle im Installationsordner (`config\machine.json`) |
+| Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme ([einrichtung.md](docs/einrichtung.md)); erprobt nur auf diesem Rechner |
 | Agent | Claude Code über die Anthropic-kompatible Schnittstelle von `llama-server` |
 
 ## Grenzen
@@ -87,8 +158,11 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
 ## Aufbau
 
 ```
+Install.cmd   Installieren oder reparieren (Doppelklick), Uninstall.cmd entfernt wieder
+install.ps1   Einzeiler-Installation: holt das Repository und startet scripts\Install.ps1
 bin\          Befehl claude-local für den PATH
-config\       alle Einstellungen: server.json, models.json, agent.json, Regeln, Vorlagen
+config\       alle Einstellungen: server.json, models.json, agent.json, setups.json, Regeln, Vorlagen;
+              machine.json = Werte dieses Rechners (vom Installer, nicht im Repository)
 scripts\      ein Skript je Aufgabe; gemeinsame Bausteine in scripts\lib\
 benchmark\    Aufgaben für den Agenten-Benchmark
 templates\    Vorlagen für neue Projekte
@@ -97,15 +171,16 @@ docs\         Dokumentation
 logs\         Messergebnisse
 ```
 
-Programme, Modelldateien und das Server-Protokoll liegen außerhalb des Repositorys in
-`E:\LlamaCpp`.
+Programme, Modelldateien und das Server-Protokoll liegen außerhalb des Repositorys im
+Installationsordner, den der Installer wählt (Vorschlag: `claude-local` auf dem Laufwerk
+mit dem meisten Platz).
 
 ## Dokumentation
 
 | Datei | Inhalt |
 |---|---|
 | [docs/architektur.md](docs/architektur.md) | Schichten, Ordner, Grundsätze, Begründungen |
-| [docs/einrichtung.md](docs/einrichtung.md) | Neuaufbau auf einem anderen Rechner, Überblick der Konfigurationsdateien |
+| [docs/einrichtung.md](docs/einrichtung.md) | Installer Schritt für Schritt, Hardware-Stufen, Aktualisieren, Deinstallieren, Werte des Rechners (`machine.json`), Überblick der Konfigurationsdateien |
 | [docs/backend.md](docs/backend.md) | llama-server: bedienen, einstellen, aktualisieren, Fehlersuche |
 | [docs/modelle.md](docs/modelle.md) | Modellprofile, MTP, Chat-Vorlage, neues Modell aufnehmen |
 | [docs/agent.md](docs/agent.md) | `claude-local`, Modellauswahl, Arbeitsregeln, Abschlussprüfung, zweiter Blick, Befehle für feste Abläufe |
@@ -126,13 +201,17 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 
 | Skript | Zweck |
 |---|---|
-| `Install-LlamaCpp.ps1` | llama.cpp in der Version aus `config\server.json` laden, prüfen, entpacken |
-| `Add-Model.ps1` | GGUF-Datei in den Modellordner legen (Hardlink oder Kopie) |
+| `Install.ps1` | Installer: Rechner prüfen, Claude Code, Git, llama.cpp, passendes Modell, PATH, Test; `-Plan` zeigt nur, was passieren würde (auch über `Install.cmd`) |
+| `Uninstall.ps1` | wieder entfernen, mit Rückfragen; löscht nur, was der Installer angelegt hat (auch über `Uninstall.cmd`) |
+| `Install-LlamaCpp.ps1` | llama.cpp in der Version aus `config\server.json` laden, prüfen, entpacken; Paket passend zur Grafikkarte |
+| `Get-Model.ps1` | Dateien eines Modellprofils von Hugging Face laden (fortsetzbar, mit SHA-256), `-List` zeigt alle Profile |
+| `Add-Model.ps1` | eigene GGUF-Datei in den Modellordner legen (Hardlink oder Kopie) |
 | `Start-Server.ps1` | Server starten, Modellprofile anzeigen |
 | `Stop-Server.ps1` | Server und alle Modelle beenden |
 | `Restart-Server.ps1` | Neustart, nötig nach Änderungen an `server.json` oder `models.json` |
 | `Test-Model.ps1` | Tempo, Tool-Calls, Bild-Eingabe und GPU-Speicher eines Profils prüfen |
 | `Test-Setup.ps1` | Konfiguration und Skripte prüfen, ohne ein Modell zu laden (wenige Sekunden) |
+| `Test-Install.ps1` | Logik des Installers prüfen, ohne Download und ohne Grafikkarte: `machine.json`, Geräteliste, Wahl der Stufe, Download-Einträge, Probelauf `-Plan` |
 | `Test-Guard.ps1` | Schutzregeln gegen die Fälle in `tests\guard-cases.json` prüfen |
 | `Test-Tasks.ps1` | Benchmark-Aufgaben prüfen, ohne ein Modell: Vorlage fällt durch, Musterlösung besteht |
 | `Test-Templates.ps1` | Projektvorlagen prüfen: neues Projekt besteht seinen Prüfbefehl, eingebaute Fehler (Widerspruch zu `facts\facts.json`, Fakt ohne Quelle, scheiternder Test) lassen ihn scheitern |

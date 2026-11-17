@@ -52,7 +52,7 @@ param(
 
 . "$PSScriptRoot\_common.ps1"
 
-$cfg = Read-JsonFile (Join-Path $script:ConfigDir 'benchmark.json')
+$cfg = Get-BenchmarkConfig
 $benchDir = Join-Path $script:ProjectRoot 'logs\benchmark'
 # Outside the repository on purpose: Claude Code reads CLAUDE.md files of all parent folders,
 # so a work folder inside the repository would give the agent this project's instructions.

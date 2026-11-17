@@ -18,7 +18,7 @@ param(
 
 . "$PSScriptRoot\_common.ps1"
 
-$cfg = Read-JsonFile (Join-Path $script:ConfigDir 'benchmark.json')
+$cfg = Get-BenchmarkConfig
 $tasksRoot = Join-Path $script:ProjectRoot 'benchmark\tasks'
 $workRoot = Join-Path $env:TEMP 'claude-local-task-test'
 $failures = 0

@@ -32,7 +32,8 @@ if ($jsonBroken) {
 # Windows PowerShell 5.1 reads files without BOM as ANSI, so anything beyond ASCII breaks.
 $notAscii = @()
 $syntax = @()
-foreach ($file in @(Get-ChildItem -Path (Join-Path $script:ProjectRoot 'scripts') -Filter '*.ps1' -Recurse)) {
+$scriptFiles = @(Get-ChildItem -Path (Join-Path $script:ProjectRoot 'scripts') -Filter '*.ps1' -Recurse) + @(Get-ChildItem -Path $script:ProjectRoot -Filter '*.ps1')
+foreach ($file in $scriptFiles) {
     $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
     if ($bytes | Where-Object { $_ -gt 126 -or ($_ -lt 32 -and $_ -ne 9 -and $_ -ne 10 -and $_ -ne 13) } | Select-Object -First 1) { $notAscii += $file.Name }
     $tokens = $null; $errors = $null
@@ -51,14 +52,31 @@ Assert-That (Test-Path $server.modelsDir) "model folder exists: $($server.models
 if ($server.requireApiKey) { Assert-That ((Get-ServerApiKey).Length -ge 32) 'server key is present (created on first use)' }
 
 # --- 4. model profiles ---------------------------------------------------------------
+# Not every profile is downloaded on every machine (scripts\Get-Model.ps1); a profile that
+# is installed must be complete, and every profile must say where its files come from.
 $profiles = Get-ModelNames
+$machineFiles = @{}
+foreach ($p in @((Get-MachineConfig).models.PSObject.Properties)) { if ($p.Value.file) { $machineFiles[$p.Name] = $true } }
 foreach ($name in $profiles) {
     $model = Get-ModelProfile $name
-    Assert-That (Test-Path $model.path) "profile $name`: model file $(Split-Path -Leaf $model.path)"
-    foreach ($key in 'mmproj', 'chat-template-file') {
-        if ($model.args.Contains($key)) { Assert-That (Test-Path $model.args[$key]) "profile $name`: $key $(Split-Path -Leaf $model.args[$key])" }
+    Assert-That (@('agent', 'autocomplete', 'compare') -contains $model.role) "profile $name`: role '$($model.role)' is agent, autocomplete or compare"
+    if (Test-Path $model.path) {
+        foreach ($key in 'mmproj', 'chat-template-file') {
+            if ($model.args.Contains($key)) { Assert-That (Test-Path $model.args[$key]) "profile $name`: $key $(Split-Path -Leaf $model.args[$key])" }
+        }
+    } else {
+        "note  profile $name is not installed on this machine"
     }
+    # the download must bring the model file and the image encoder of the profile
+    $files = @()
+    try { $files = @(Get-ModelFiles $name) } catch {}
+    $names = @($files | ForEach-Object { $_.name })
+    $complete = $files.Count -gt 0 -and @($files | Where-Object { $_.size -le 0 -or $_.sha256 -notmatch '^[0-9a-f]{64}$' }).Count -eq 0
+    if (-not $machineFiles[$name]) { $complete = $complete -and ($names -contains $model.file) }
+    if ($model.args.Contains('mmproj')) { $complete = $complete -and ($names -contains (Split-Path -Leaf $model.args['mmproj'])) }
+    Assert-That $complete "profile $name`: download entry names all its files with size and SHA-256"
 }
+Assert-That ([bool](Get-DefaultAgentModel)) "at least one agent model is installed (claude-local starts with '$(Get-DefaultAgentModel)')"
 
 # --- 5. names that must be profiles ------------------------------------------------------
 $agent = Get-AgentConfig
@@ -68,7 +86,12 @@ foreach ($row in $agent.picker) { Assert-That ($profiles -contains [string]$row.
 if ($agent.rulesFile) { Assert-That (Test-Path (Join-Path $script:ConfigDir ([string]$agent.rulesFile))) "agent.json: rules file $($agent.rulesFile) exists" }
 Assert-That (@('unload', 'stop', 'keep') -contains [string]$agent.onExit) "agent.json: onExit '$($agent.onExit)' is unload, stop or keep"
 
-$bench = Read-JsonFile (Join-Path $script:ConfigDir 'benchmark.json')
+foreach ($setup in (Get-Setups)) {
+    $ok = ($profiles -contains [string]$setup.model) -and ((Get-ModelProfile ([string]$setup.model)).role -eq 'agent') -and $setup.args.'ctx-size'
+    Assert-That $ok "setups.json: setup '$($setup.name)' uses an agent profile ('$($setup.model)') and sets ctx-size"
+}
+
+$bench = Get-BenchmarkConfig
 foreach ($name in $bench.models) { Assert-That ($profiles -contains [string]$name) "benchmark.json: model '$name' is a profile" }
 foreach ($task in $bench.tasks) { Assert-That (Test-Path (Join-Path $script:ProjectRoot "benchmark\tasks\$task\check.py")) "benchmark.json: task '$task' has a check.py" }
 

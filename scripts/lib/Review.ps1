@@ -181,7 +181,11 @@ function Invoke-Review([string]$Folder, [string]$Task, [string]$Model, [int]$Min
     # CLAUDE_LOCAL_REVIEW_MODEL: set by Benchmark-Models.ps1 -ReviewModel to compare reviewers
     if (-not $Model -and $env:CLAUDE_LOCAL_REVIEW_MODEL) { $Model = Resolve-ModelName $env:CLAUDE_LOCAL_REVIEW_MODEL }
     if (-not $Model) { $Model = Resolve-ModelName ([string]$cfg.model) }
+    # A machine with only one model reviews with that one: a fresh context still sees
+    # what the author overlooked (docs\agent.md, second look).
+    if (-not (Test-ModelInstalled $Model)) { $Model = Get-DefaultAgentModel }
     $result = [ordered]@{ status = 'skipped'; reason = ''; errors = @(); hints = @(); lines = 0; files = @(); seconds = 0; model = $Model }
+    if (-not $Model) { $result.reason = 'no model installed'; return $result }
     $change = Get-ChangeForReview $Folder ([int]$cfg.maxDiffChars)
     if (-not $change.ok) { $result.reason = $change.reason; return $result }
     $result.lines = $change.lines

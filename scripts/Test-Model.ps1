@@ -3,12 +3,15 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\Test-Model.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\Test-Model.ps1 -Model schnell
+#   ... -NoLog     do not append to logs\model-tests.log (the installer uses this: the log is
+#                  part of the repository, and a changed file would block a later git pull)
 
-param([string]$Model)
+param([string]$Model, [switch]$NoLog)
 
 . "$PSScriptRoot\_common.ps1"
 
-if (-not $Model) { $Model = (Get-AgentConfig).model }
+if (-not $Model) { $Model = Get-DefaultAgentModel }
+if (-not $Model) { throw 'No model is installed. Run the installer or scripts\Get-Model.ps1 first.' }
 $Model = Resolve-ModelName $Model
 Start-Server
 
@@ -42,6 +45,10 @@ if ((Get-ModelProfile $Model).args.Contains('mmproj')) {
 
 Out-Result "GPU memory used (MiB): $(Get-GpuMemory)"
 
-$logDir = Join-Path $script:ProjectRoot 'logs'
-New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-Add-Content -Path (Join-Path $logDir 'model-tests.log') -Value $lines -Encoding utf8
+$failed = @($lines | Where-Object { $_ -match ': FAILED' }).Count
+if (-not $NoLog) {
+    $logDir = Join-Path $script:ProjectRoot 'logs'
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    Add-Content -Path (Join-Path $logDir 'model-tests.log') -Value $lines -Encoding utf8
+}
+if ($failed -gt 0) { exit 1 }

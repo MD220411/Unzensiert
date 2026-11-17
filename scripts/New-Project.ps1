@@ -32,7 +32,7 @@ if ($Name -notmatch '^[\w][\w .-]*$') {
     [Console]::Error.WriteLine("The name '$Name' may only contain letters, digits, space, dot, hyphen and underscore.")
     exit 1
 }
-if (-not $Path) { $Path = [string]$cfg.projectsRoot }
+if (-not $Path) { $Path = Get-ProjectsRoot }
 $target = Join-Path $Path $Name
 if (Test-Path $target) {
     [Console]::Error.WriteLine("Folder already exists, nothing changed: $target")

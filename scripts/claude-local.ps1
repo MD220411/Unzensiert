@@ -27,9 +27,26 @@ for ($i = 0; $i -lt $args.Count; $i++) {
 
 $agent = Get-AgentConfig
 $server = Get-ServerConfig
-if (-not $Model) { $Model = $agent.model }
-$Model = Resolve-ModelName $Model
-$null = Get-ModelProfile $Model          # fails with a clear message if the profile is unknown
+$claude = Find-ClaudeCode
+if (-not $claude) {
+    [Console]::Error.WriteLine('claude-local: Claude Code is not installed. Run the installer again (Install.cmd in the claude-local folder) or see https://code.claude.com/docs/en/setup')
+    exit 1
+}
+if ($Model) {
+    $Model = Resolve-ModelName $Model
+    $null = Get-ModelProfile $Model      # fails with a clear message if the profile is unknown
+    if (-not (Test-ModelInstalled $Model)) {
+        [Console]::Error.WriteLine("claude-local: the model '$Model' is not installed. Download it with: powershell -ExecutionPolicy Bypass -File `"$PSScriptRoot\Get-Model.ps1`" -Model $Model")
+        exit 1
+    }
+} else {
+    # "model" in config\agent.json, or the first installed model of the picker
+    $Model = Get-DefaultAgentModel
+    if (-not $Model) {
+        [Console]::Error.WriteLine("claude-local: no model is installed yet. Run the installer: $(Join-Path $script:ProjectRoot 'Install.cmd')")
+        exit 1
+    }
+}
 
 if (-not (Test-ServerUp)) {
     'llama-server is not running, starting it ...'
@@ -61,14 +78,15 @@ $pickerModels = @()
 $extraArgs = @()
 $settings = [ordered]@{}
 # /model inside a session: offer the local profiles from config\agent.json ("picker")
-# instead of the Anthropic models
+# instead of the Anthropic models; only those whose model file is on this machine
 if ($agent.picker) {
     $rows = @()
     foreach ($row in $agent.picker) {
+        if (-not (Test-ModelInstalled ([string]$row.model))) { continue }
         $rows += [ordered]@{ model = [string]$row.model; label = [string]$row.label; description = [string]$row.description }
         $pickerModels += [string]$row.model
     }
-    $settings['modelPicker'] = [ordered]@{ options = $rows; replaceBuiltInOptions = $true }
+    if ($rows.Count -gt 0) { $settings['modelPicker'] = [ordered]@{ options = $rows; replaceBuiltInOptions = $true } }
 }
 # the look of a local session: warm theme and status line with the graphics cards
 # (lib\Style.ps1, docs\stil.md); empty if the look is not installed
@@ -124,9 +142,14 @@ if ($pluginDir) { $extraArgs += @('--plugin-dir', $pluginDir) }
 # Local models work better with few tools and a short system prompt: with the full set,
 # the fast model kept calling extras (review findings, memory notes, skills) after it had
 # solved the task and never ended its answer (docs\agent.md).
-#   tools  built-in tools the model may use (Claude Code flag --tools)
+#   tools  built-in tools the model may use (Claude Code flag --tools); without Git Bash
+#          the Bash tool is swapped for the PowerShell tool (lib\Machine.ps1)
 #   env    switches of Claude Code, set for this process only
-if ($agent.tools) { $extraArgs += @('--tools', [string]$agent.tools) }
+if ($agent.tools) {
+    $tools = Get-AgentTools ([string]$agent.tools)
+    $extraArgs += @('--tools', $tools)
+    if ($tools -match '(^|,)PowerShell(,|$)') { $env:CLAUDE_CODE_USE_POWERSHELL_TOOL = '1' }
+}
 if ($agent.env) {
     foreach ($p in $agent.env.PSObject.Properties) { Set-Item -Path "Env:$($p.Name)" -Value ([string]$p.Value) }
 }
@@ -154,7 +177,7 @@ $exitCode = 1
 Register-AgentSession $Model
 Enter-LocalLook                # tints the terminal warm while the local model works
 try {
-    & claude --model $Model @extraArgs @ClaudeArgs
+    & $claude --model $Model @extraArgs @ClaudeArgs
     $exitCode = $LASTEXITCODE
 } finally {
     Exit-LocalLook

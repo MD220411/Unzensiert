@@ -3,6 +3,88 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-17: Installer für jeden Windows-Rechner
+
+Ziel des Nutzers: Jeder soll das Projekt herunterladen, installieren und nutzen können, so
+einfach wie möglich. Entscheidungen des Nutzers: NVIDIA als erprobter Weg, AMD und Intel
+experimentell über Vulkan; Installer und Schnellstart auf Englisch, Doku weiter deutsch;
+Start per Einzeiler und per ZIP mit Doppelklick. Gebaut in einem eigenen Arbeitsordner
+(`git worktree`, Zweig `installer`), weil parallel ein Benchmark aus dem Projektordner lief.
+
+### Durchgeführt
+
+1. **Projekt und Rechner getrennt.** Neue Datei `config\machine.json` (nicht im
+   Repository) mit den Werten dieses Rechners; `lib\Config.ps1` legt ihre Abschnitte über
+   die Dateien in `config\` (`Read-Config`, `Merge-ConfigObject`, `null` entfernt einen
+   Schlüssel). Aus den gemeinsamen Dateien entfernt und nach `machine.json` verschoben:
+   `installRoot` `E:\LlamaCpp`, `projectsRoot` `E:\Projekte`, `package`, `gpu-layers 999`,
+   alle `tensor-split`, `mmproj-device` und `device`, die Q4_K_M-Datei des
+   Autocomplete-Modells. Neue Standardwerte: `%LOCALAPPDATA%\claude-local`,
+   `%USERPROFILE%\Projects`, `modelsDir` und `workDir` leer = unter `installRoot`.
+   Ohne Angaben zur Aufteilung verteilt llama.cpp selbst (`--fit`, voreingestellt).
+2. **Wächter ohne feste Laufwerke.** `config\guard.json` nennt `%CLAUDE_LOCAL_ROOT%` und
+   `%CLAUDE_LOCAL_PROJECTS%`; `scripts\_common.ps1` setzt beide, die Hooks lesen sie über
+   `scripts\hooks\HookEnvironment.ps1` (beim Start von Hand aus den Einstellungen).
+   `machine.json` ist zusätzlich geschützt. `Test-Guard.ps1` setzt feste Beispielordner aus
+   `tests\guard-cases.json` (`machine`), `{repo}` steht für das Repository: 91 Fälle.
+3. **Downloads mit Quelle.** Jedes Profil in `config\models.json` hat `role` und
+   `download` (Hugging-Face-Repository, fester Commit, Größe, SHA-256 je Datei), erzeugt
+   aus den Antworten der API, nicht abgeschrieben. `scripts\Get-Model.ps1` lädt fortsetzbar
+   über `<name>.part` und benennt erst nach Größe und Prüfsumme um (`lib\Download.ps1`).
+   Neue Rechner bekommen das Autocomplete-Modell als Q8_0 von `ggml-org`.
+4. **Hardware erkennen.** `lib\Machine.ps1`: Grafikkarten (`nvidia-smi`, Adapter von
+   Windows, Geräteliste von llama.cpp ohne integrierte Grafik), Hauptspeicher, freier
+   Platz, Git Bash, Claude Code. `config\setups.json`: Stufen nach Grafikspeicher.
+   `Install-LlamaCpp.ps1` wählt mit `package: auto` das Paket nach Karte (`packages` in
+   `server.json`), prüft mit `--list-devices` und weicht aus (CUDA 13.5, CUDA 12.4, Vulkan);
+   vor dem Entpacken leert es den Programmordner (nur `b<Nummer>`), damit kein zweites
+   Backend lädt, und stoppt einen laufenden Server.
+5. **Installer.** `scripts\Install.ps1` (sieben Schritte, fragt vor jeder Installation und
+   jedem Download, `-Plan`, `-Yes`, `-InstallRoot`, `-Model`), `Install.cmd` zum
+   Doppelklicken, `install.ps1` als Einzeiler (Git-Klon oder ZIP nach
+   `%LOCALAPPDATA%\Programs\claude-local`, ohne `exit`), `scripts\Uninstall.ps1` mit
+   `Uninstall.cmd` (löscht nur, was der Installer angelegt hat). Fragen und
+   Schrittanzeige in `lib\Dialog.ps1`.
+6. **Agent auf fremden Rechnern.** `claude-local` findet Claude Code auch ohne
+   aktualisierten PATH, startet mit dem ersten geladenen Modell, wenn das Standardmodell
+   fehlt, zeigt in `/model` nur geladene Modelle und ersetzt ohne Git Bash `Bash` durch
+   `PowerShell`. Der zweite Blick prüft mit dem Standardmodell, wenn `local-qwen38` fehlt.
+   `Test-Model.ps1 -NoLog` schreibt nicht in das Log im Repository (sonst blockiert es
+   ein späteres `git pull`) und endet mit Code 1 bei `FAILED`; `Get-GpuMemory` ohne
+   `nvidia-smi` liefert `n/a`.
+7. **Tests.** Neu `scripts\Test-Install.ps1` (43 Prüfungen ohne Download und Modell:
+   `machine.json`, Geräteliste, Stufenwahl, Werkzeuge, Download-Einträge, Probelauf
+   `Install.ps1 -Plan` für einen leeren Rechner, Einzeiler ohne `exit`). `Test-Setup.ps1`
+   meldet nicht geladene Profile als Hinweis statt als Fehler, prüft die Download-Einträge
+   gegen die Dateien jedes Profils und `setups.json`. `.gitattributes`: `.cmd` mit CRLF.
+8. **Doku.** README mit englischem Schnellstart; `einrichtung.md` beschreibt Installer,
+   Stufen, `machine.json`, Aktualisieren und Deinstallieren; angepasst `architektur.md`,
+   `backend.md`, `modelle.md`, `agent.md`, `sicherheit.md`, `projekte.md`,
+   `erweitern.md`, `CLAUDE.md` (Regeln: Projekt und Rechner getrennt, Repository
+   öffentlich, `Test-Install.ps1`).
+
+### Gemessen und geprüft
+
+- Ohne Modell: `Test-Setup`, `Test-Install` (43), `Test-Guard` (91), `Test-Templates`,
+  `Test-Tasks` bestanden. `Install.ps1 -Plan` auf diesem Rechner übernimmt `E:\LlamaCpp`,
+  erkennt beide Karten (28562 MiB) und die vorhandenen Modelldateien; für einen leeren
+  Rechner schlägt es `E:\claude-local` und `local-coder` (16,9 GB) vor.
+- Herkunft der Bild-Encoder: SHA-256 der drei `mmproj`-Dateien nachgerechnet, stimmt mit
+  Hugging Face überein. Damit ist der offene Punkt „Quelle und Prüfsummen der
+  `mmproj`-Dateien“ erledigt. Alle Modelldateien sind byte-gleich groß wie die Quellen.
+- Claude Code ohne Anmeldung: mit leerem Konfigurationsordner (`CLAUDE_CONFIG_DIR`) und
+  einem Stub-Server als `ANTHROPIC_BASE_URL` antwortet `claude -p` sofort, ohne
+  Login-Abfrage (Claude Code 2.1.326). Die interaktive Ersteinrichtung (Farbthema,
+  Vertrauen) ist so nicht prüfbar.
+
+### Offen
+
+- Hardware-Stufen unterhalb von 26 GB sind Schätzungen. Messung folgt mit jeweils einer
+  freigegebenen Karte (5070 Ti allein = 16 GB, 3060 allein = 12 GB).
+- Nicht prüfbar auf diesem Rechner: ein frischer Windows-Rechner (Erststart von Claude Code
+  interaktiv, `winget` für Git, Paketwahl bei altem Treiber), AMD und Intel über Vulkan,
+  der Agent mit dem Werkzeug `PowerShell` statt `Bash`.
+
 ## 2026-11-17: Erste öffentliche Version
 
 ### Durchgeführt

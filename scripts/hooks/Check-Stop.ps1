@@ -26,6 +26,9 @@
 
 $ErrorActionPreference = 'Stop'
 $script:ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# install folder of this machine as $env:CLAUDE_LOCAL_ROOT (state files live there)
+. "$PSScriptRoot\HookEnvironment.ps1"
+Initialize-HookEnvironment
 
 function Read-Json([string]$Path) {
     return (Get-Content -Raw -Path $Path -Encoding UTF8 | ConvertFrom-Json)
@@ -146,8 +149,8 @@ try {
     if (-not $settings -or -not $settings.enabled) { exit 0 }
     $review = $agent.review
 
-    $server = Read-Json (Join-Path $script:ProjectRoot 'config\server.json')
-    $stateDir = Join-Path $server.installRoot 'run\stop'
+    if (-not $env:CLAUDE_LOCAL_ROOT) { exit 0 }
+    $stateDir = Join-Path $env:CLAUDE_LOCAL_ROOT 'run\stop'
     New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
     $stateFile = Join-Path $stateDir ("$($call.session_id)" -replace '[^\w-]', '_')
     $stateFile = "$stateFile.json"

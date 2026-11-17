@@ -29,7 +29,7 @@ ansprechen, die im Browser geöffnet ist: Modelle laden, Anfragen stellen, Antwo
 Der Server meldete das beim Start selbst (`no API key is set and CORS allows all origins`).
 
 - **`requireApiKey`**: Der Server verlangt bei jeder Anfrage einen Schlüssel. Er wird beim
-  ersten Start erzeugt (32 Zufallsbytes) und liegt in `E:\LlamaCpp\run\api-key.txt`,
+  ersten Start erzeugt (32 Zufallsbytes) und liegt in `<installRoot>\run\api-key.txt`,
   außerhalb des Repositorys. Die Skripte, `claude-local` und Continue schicken ihn mit.
 - **`corsOrigins`** = `localhost`: Eine fremde Webseite darf Antworten des Servers nicht
   lesen.
@@ -60,7 +60,7 @@ und `Grep` läuft: `scripts\hooks\Guard-Tool.ps1`. Er entscheidet nach festen Re
 
 | Regel | Inhalt |
 |---|---|
-| `delete-system` | Rekursives Löschen eines Laufwerks, des Benutzerordners und seiner Hauptordner, von `E:\Projekte` und `E:\LlamaCpp` als Ganzes, und alles in Windows- und Programmordnern |
+| `delete-system` | Rekursives Löschen eines Laufwerks, des Benutzerordners und seiner Hauptordner, des Projekt- und des Installationsordners als Ganzes (`%CLAUDE_LOCAL_PROJECTS%`, `%CLAUDE_LOCAL_ROOT%`, siehe unten), und alles in Windows- und Programmordnern |
 | `disk-format` | Formatieren, Partitionieren, rohes Überschreiben eines Laufwerks |
 | `boot-and-backups` | Startkonfiguration, Schattenkopien, Sicherungen löschen, freien Speicher überschreiben |
 
@@ -78,9 +78,18 @@ und `Grep` läuft: `scripts\hooks\Guard-Tool.ps1`. Er entscheidet nach festen Re
 | `autostart` | geplante Aufgaben, Dienste, Autostart-Einträge |
 | `shutdown` | Herunterfahren, Neustart, Abmelden |
 | `credential-tools`, `secret-paths`, `secret-files` | SSH-Schlüssel, Anmeldedaten von Cloud-Diensten, GitHub und Claude, Browser-Profile, Passwort-Datenbanken (`secretPaths`, `secretFileNames`). Öffentliche Schlüssel (`*.pub`) sind frei. |
-| `guard-files` | Änderungen an `config\guard.json`, am Wächter selbst und an den Einstellungen von Claude Code |
+| `guard-files` | Änderungen an `config\guard.json`, `config\machine.json`, am Wächter selbst und an den Einstellungen von Claude Code |
 
-Was davon in einer Sitzung vorkam, steht in `E:\LlamaCpp\logs\guard.log`.
+Was davon in einer Sitzung vorkam, steht in `<installRoot>\logs\guard.log`.
+
+**Ordner dieses Rechners.** `config\guard.json` nennt keine festen Laufwerke. Den
+Installationsordner und den Projektordner schreibt sie als `%CLAUDE_LOCAL_ROOT%` und
+`%CLAUDE_LOCAL_PROJECTS%`. `scripts\_common.ps1` setzt beide Variablen aus den
+Einstellungen des Rechners, und der Wächter bekommt sie über Claude Code mit; startet man
+ihn von Hand, liest `scripts\hooks\HookEnvironment.ps1` sie selbst nach. Ein Eintrag mit
+einer unbekannten Variable fällt weg, die übrigen Regeln gelten weiter. `Test-Guard.ps1`
+setzt feste Beispielordner (`machine` in `tests\guard-cases.json`), damit die Fälle auf
+jedem Rechner dasselbe ergeben.
 
 ### Regeln ändern
 

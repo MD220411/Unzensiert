@@ -1,7 +1,7 @@
 {
-  "_comment": "Settings of scripts\\Benchmark-Models.ps1. 'models' are profile names from config\\models.json, 'tasks' are folders in benchmark\\tasks\\. 'workDir' is where the agent solves the tasks; it must lie outside this repository, otherwise Claude Code loads the repository's CLAUDE.md into every task. 'allowedTools' are the commands the agent may run without a person to confirm them. 'taskTimeoutSeconds' overrides 'agentTimeoutSeconds' for single tasks.",
+  "_comment": "Settings of scripts\\Benchmark-Models.ps1. 'models' are profile names from config\\models.json, 'tasks' are folders in benchmark\\tasks\\. 'workDir' is where the agent solves the tasks (empty = <installRoot>\\bench-work); it must lie outside this repository, otherwise Claude Code loads the repository's CLAUDE.md into every task. 'allowedTools' are the commands the agent may run without a person to confirm them. 'taskTimeoutSeconds' overrides 'agentTimeoutSeconds' for single tasks.",
 
-  "workDir": "E:\\LlamaCpp\\bench-work",
+  "workDir": "",
   "agentTimeoutSeconds": 600,
   "taskTimeoutSeconds": {
     "psscript": 900,

@@ -3,7 +3,8 @@
 # Description: docs\projekte.md.
 
 function Get-ProjectsConfig {
-    return (Read-JsonFile (Join-Path $script:ConfigDir 'projects.json'))
+    # config\projects.json with the values of this machine (config\machine.json)
+    return (Read-Config 'projects')
 }
 
 function Get-TemplateDir([string]$Name) {

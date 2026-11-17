@@ -1,11 +1,18 @@
 {
-  "_comment": "Settings of the llama.cpp server (llama-server). Read by scripts\\lib\\Config.ps1. After a change run scripts\\Restart-Server.ps1. Details: docs\\backend.md.",
+  "_comment": "Settings of the llama.cpp server (llama-server), the same on every machine. Values of this machine (installRoot, package, ...) are in config\\machine.json, written by scripts\\Install.ps1. Read by scripts\\lib\\Config.ps1. After a change run scripts\\Restart-Server.ps1. Details: docs\\backend.md.",
 
-  "installRoot": "E:\\LlamaCpp",
+  "installRoot": "%LOCALAPPDATA%\\claude-local",
   "build": "b12433",
-  "package": "win-cuda-13.5-x64",
+  "package": "auto",
+  "packages": {
+    "_comment": "What package 'auto' means (scripts\\Install-LlamaCpp.ps1). With an NVIDIA card 'nvidia' is tried first; if llama.cpp then sees no card (driver too old for that CUDA version), 'nvidiaFallback'. 'other' for AMD and Intel cards (experimental, untested), 'cpu' without a usable card. The names are those of the files in a llama.cpp release: llama-<build>-bin-<package>.zip.",
+    "nvidia": "win-cuda-13.5-x64",
+    "nvidiaFallback": "win-cuda-12.4-x64",
+    "other": "win-vulkan-x64",
+    "cpu": "win-cpu-x64"
+  },
 
-  "modelsDir": "E:\\LlamaCpp\\models",
+  "modelsDir": "",
 
   "host": "127.0.0.1",
   "port": 8080,

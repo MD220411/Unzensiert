@@ -8,9 +8,9 @@ macht ihn in jedem Terminal verfügbar.
 
 | Befehl | Wirkung |
 |---|---|
-| `claude-local` | Sitzung mit dem Standardmodell (`model` in `config\agent.json`) |
-| `claude-local -Model schnell` | Sitzung mit einem Kurznamen aus `aliases` oder einem Profilnamen aus `config\models.json` |
-| `/model` in der Sitzung | Modell wechseln, ohne die Sitzung zu beenden. Zur Auswahl stehen die Einträge unter `picker`. |
+| `claude-local` | Sitzung mit dem Standardmodell (`model` in `config\agent.json`, auf diesem Rechner ggf. aus `config\machine.json`). Ist es nicht geladen, startet das erste geladene Modell aus `picker`. |
+| `claude-local -Model schnell` | Sitzung mit einem Kurznamen aus `aliases` oder einem Profilnamen aus `config\models.json`. Ist das Modell nicht geladen, nennt `claude-local` den Befehl zum Laden. |
+| `/model` in der Sitzung | Modell wechseln, ohne die Sitzung zu beenden. Zur Auswahl stehen die Einträge unter `picker`, deren Modell auf diesem Rechner geladen ist. |
 | `claude-local -p "Frage"` | einmalige Antwort ohne Sitzung |
 | `claude-local --continue` | letzte Sitzung im Ordner fortsetzen |
 | `claude-local -OnExit keep` | Modelle nach dieser Sitzung geladen lassen (überschreibt `onExit`) |
@@ -21,13 +21,13 @@ Alle weiteren Argumente gehen unverändert an Claude Code.
 
 | Schlüssel | Wert | Zweck |
 |---|---|---|
-| `model` | `local-coder` | Standardmodell |
+| `model` | `local-coder` | Standardmodell. Der Installer schreibt das Modell, das zum Grafikspeicher passt, nach `machine.json` ([einrichtung.md](einrichtung.md)). |
 | `aliases` | `unzensiert` → `local-coder`, `schnell` → `local-fast`, `qwen38` → `local-qwen38` | Kurznamen für `-Model` |
 | `picker` | Liste aus `model`, `label`, `description` | Einträge der Auswahl von `/model` |
 | `rulesFile` | `entwicklungsregeln.md` | Datei in `config\`, die an den Systemprompt angehängt wird. Leer lassen oder entfernen, um ohne Regeln zu starten. |
 | `stopCheck` | `enabled`, `commands`, `timeoutSeconds`, `maxBlocks`, `reminderFile` | Abschlussprüfung, siehe unten. `enabled: false` schaltet sie ab. |
 | `pluginDir` | `befehle` | Ordner in `config\` mit den Befehlen `/lokal:feature`, `/lokal:bugfix`, `/lokal:pruefen`. Leer lassen oder entfernen, um ohne sie zu starten. |
-| `tools` | `Bash,Read,Edit,Write,Glob,Grep` | Werkzeuge, die das Modell benutzen darf (`--tools`). Leer lassen oder entfernen für den vollen Satz von Claude Code. |
+| `tools` | `Bash,Read,Edit,Write,Glob,Grep` | Werkzeuge, die das Modell benutzen darf (`--tools`). Leer lassen oder entfernen für den vollen Satz von Claude Code. Ohne Git for Windows ersetzt `claude-local` `Bash` durch `PowerShell`, siehe „Schlanker Werkzeugsatz“. |
 | `env` | Auto-Memory und mitgelieferte Skills aus | Schalter von Claude Code, nur für diesen Prozess gesetzt |
 | `onExit` | `unload` | Was geschieht, wenn die letzte Sitzung endet: `unload` entlädt die Modelle des Agenten, `stop` beendet den Server, `keep` lässt alles geladen. Siehe unten. |
 | `gitCheck` | `true` | Hinweis beim Start, wenn der Ordner kein Git-Repository ist oder nicht gesicherte Änderungen hat ([sicherheit.md](sicherheit.md)) |
@@ -85,7 +85,8 @@ Will das Modell eine Antwort beenden, in der es Dateien geändert hat, läuft
 Nach Antworten ohne Dateiänderung geschieht nichts. Ob Dateien geändert wurden, liest der
 Hook aus dem Verlauf der Sitzung (Aufrufe von `Edit` und `Write`); Änderungen, die nur über
 Shell-Befehle entstehen, sieht er nicht. Ein Fehler im Hook selbst lässt das Modell immer
-aufhören. Der Stand je Sitzung liegt in `E:\LlamaCpp\run\stop\`.
+aufhören. Der Stand je Sitzung liegt in `<installRoot>\run\stop\`; den Ordner bekommt der
+Hook über die Variable `CLAUDE_LOCAL_ROOT` (`scripts\hooks\HookEnvironment.ps1`).
 
 Gemessen an 15 Läufen von `local-coder` ([modellwahl.md](modellwahl.md)): Mit der
 Abschlussprüfung nennt die README das Neue in 15 statt 7 Läufen, ein Test steht in 15
@@ -117,7 +118,8 @@ Prüfbefehl und Erinnerung nichts mehr offen haben, und nur in einem Git-Reposit
 1. `scripts\Invoke-Review.ps1` sammelt die nicht committete Änderung (Diff gegen `HEAD`
    und neue Dateien) und zählt die geänderten Zeilen. Unter `minChangedLines` (20) endet
    es hier.
-2. Der Prüfer (`local-qwen38`) bekommt in einer einzigen Anfrage: den Prüfauftrag
+2. Der Prüfer (`local-qwen38`; ist er auf diesem Rechner nicht geladen, das Standardmodell
+   selbst in frischem Kontext) bekommt in einer einzigen Anfrage: den Prüfauftrag
    `config\zweiter-blick.md`, die letzte Eingabe des Nutzers als Auftrag, die
    `CLAUDE.md` und `facts\facts.json` des Projekts, den Diff und die geänderten Dateien
    vollständig, die kleinsten zuerst, soweit sie in `maxFileChars` passen. Ganze Dateien
@@ -134,7 +136,7 @@ Prüfbefehl und Erinnerung nichts mehr offen haben, und nur in einem Git-Reposit
 
 Der Router lädt den Prüfer und entlädt dafür `local-coder`. Danach lädt er `local-coder`
 wieder und liest die Unterhaltung neu ein. Jeder Lauf steht als JSON-Zeile in
-`E:\LlamaCpp\logs\review.log` (Projekt, Zeilen, Sekunden, Anzahl Fehler und Hinweise).
+`<installRoot>\logs\review.log` (Projekt, Zeilen, Sekunden, Anzahl Fehler und Hinweise).
 
 Von Hand, auch für ein anderes Modell als Prüfer:
 
@@ -213,7 +215,7 @@ auf und meldet das Ergebnis in einer Zeile, zum Beispiel
 
 Läuft noch eine andere Sitzung von `claude-local`, bleiben die Modelle geladen, und erst
 die letzte räumt auf. Jede Sitzung legt dafür eine Markierung in
-`E:\LlamaCpp\run\sessions\` ab (`scripts\lib\Session.ps1`); Markierungen beendeter
+`<installRoot>\run\sessions\` ab (`scripts\lib\Session.ps1`); Markierungen beendeter
 Prozesse werden ignoriert und gelöscht.
 
 Wird das Terminalfenster geschlossen, kann `claude-local` nicht aufräumen. Dann gibt das
@@ -225,7 +227,7 @@ Modell seinen Speicher nach 30 Minuten ohne Anfrage selbst frei
 Vor jedem Werkzeug-Aufruf des Modells läuft ein Wächter, der zerstörerische Befehle sperrt
 und bei heiklen nachfragt; normale Arbeit im Projektordner bleibt frei. Sagt das Modell, ein
 Befehl sei vom „Schutz von claude-local“ gesperrt, steht der Grund in der Meldung und in
-`E:\LlamaCpp\logs\guard.log`. Regeln, Grenzen und wie man sie ändert:
+`<installRoot>\logs\guard.log`. Regeln, Grenzen und wie man sie ändert:
 [sicherheit.md](sicherheit.md).
 
 ## Bilder
@@ -248,6 +250,11 @@ beide 9 von 9. Der Abstand liegt im Bereich der üblichen Streuung.
 Wer Subagenten, Websuche oder Skills braucht, ergänzt die Namen in `tools`
 (zum Beispiel `Agent`, `WebFetch`, `WebSearch`, `Skill`) oder entfernt den Schlüssel.
 
+**Ohne Git for Windows.** Das Werkzeug `Bash` braucht Git Bash. Findet `claude-local` es
+nicht (`lib\Machine.ps1`, `Find-GitBash`), ersetzt es `Bash` durch `PowerShell` und setzt
+`CLAUDE_CODE_USE_POWERSHELL_TOOL=1`. Gemessen sind Benchmark und Arbeitsregeln nur mit
+`Bash`; mit `PowerShell` ist der Agent ungetestet. Der Installer bietet Git for Windows an.
+
 ## Was `claude-local` setzt
 
 Nur für den eigenen Prozess, das normale `claude` bleibt unverändert:
@@ -265,7 +272,8 @@ Nur für den eigenen Prozess, das normale `claude` bleibt unverändert:
 | `--append-system-prompt-file <Datei>` | Arbeitsregeln, siehe oben |
 | `--settings <Datei>` mit `hooks.Stop` | Abschlussprüfung, siehe oben |
 | `--plugin-dir <Ordner>` | Befehle `/lokal:feature`, `/lokal:bugfix`, `/lokal:pruefen`, siehe oben |
-| `--tools <Liste>` | Schlanker Werkzeugsatz aus `tools`, siehe oben |
+| `--tools <Liste>` | Schlanker Werkzeugsatz aus `tools`, siehe oben; ohne Git Bash mit `PowerShell` statt `Bash` und `CLAUDE_CODE_USE_POWERSHELL_TOOL=1` |
+| `CLAUDE_LOCAL_ROOT`, `CLAUDE_LOCAL_PROJECTS` | Installations- und Projektordner dieses Rechners für die Hooks (Wächter, Abschlussprüfung), gesetzt von `scripts\_common.ps1` |
 | `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `CLAUDE_CODE_DISABLE_BUNDLED_SKILLS` | Aus `env`: keine Notizen ins Memory-Verzeichnis, keine mitgelieferten Skills |
 | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Keine Telemetrie und Update-Prüfungen im lokalen Modus |
 

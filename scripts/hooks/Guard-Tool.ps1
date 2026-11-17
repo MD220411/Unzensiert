@@ -16,6 +16,10 @@
 
 $ErrorActionPreference = 'Stop'
 $script:ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# install and projects folder of this machine, used by %CLAUDE_LOCAL_ROOT% and
+# %CLAUDE_LOCAL_PROJECTS% in config\guard.json
+. "$PSScriptRoot\HookEnvironment.ps1"
+Initialize-HookEnvironment
 $script:Rank = @{ none = 0; ask = 1; deny = 2 }
 $script:Verdict = @{ decision = 'none'; rule = ''; reason = '' }
 
@@ -38,8 +42,7 @@ function Write-Verdict([string]$Tool, [string]$Subject) {
     $out = @{ hookSpecificOutput = @{ hookEventName = 'PreToolUse'; permissionDecision = $v.decision; permissionDecisionReason = $text } }
     [Console]::Out.Write(($out | ConvertTo-Json -Compress -Depth 4))
     try {
-        $server = Get-Content -Raw -Path (Join-Path $script:ProjectRoot 'config\server.json') -Encoding UTF8 | ConvertFrom-Json
-        $logDir = Join-Path $server.installRoot 'logs'
+        $logDir = Join-Path $env:CLAUDE_LOCAL_ROOT 'logs'
         New-Item -ItemType Directory -Force -Path $logDir | Out-Null
         $short = ($Subject -replace '\s+', ' ')
         if ($short.Length -gt 300) { $short = $short.Substring(0, 300) + ' ...' }

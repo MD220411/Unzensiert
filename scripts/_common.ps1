@@ -1,7 +1,10 @@
 # Entry point for the shared helpers. Every script starts with:
 #   . "$PSScriptRoot\_common.ps1"
 # The helpers themselves live in scripts\lib\, one file per topic:
-#   lib\Config.ps1   reads config\*.json (server, models, agent)
+#   lib\Config.ps1   reads config\*.json (server, models, agent) and config\machine.json
+#   lib\Machine.ps1  this machine: graphics cards, memory, disk space, programs, setups
+#   lib\Download.ps1 downloads with resume and checksum (llama.cpp, model files)
+#   lib\Dialog.ps1   steps, notes and yes/no questions of the installer and uninstaller
 #   lib\Server.ps1   starts, stops and queries llama-server
 #   lib\Measure.ps1  speed, tool-call and GPU-memory measurements
 #   lib\Session.ps1  running claude-local sessions; frees the GPU memory after the last one
@@ -17,6 +20,9 @@
 $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\lib\Config.ps1"
+. "$PSScriptRoot\lib\Machine.ps1"
+. "$PSScriptRoot\lib\Download.ps1"
+. "$PSScriptRoot\lib\Dialog.ps1"
 . "$PSScriptRoot\lib\Server.ps1"
 . "$PSScriptRoot\lib\Measure.ps1"
 . "$PSScriptRoot\lib\Session.ps1"
@@ -26,3 +32,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\Tasks.ps1"
 . "$PSScriptRoot\lib\Projects.ps1"
 . "$PSScriptRoot\lib\Style.ps1"
+
+# install folder and projects folder for the hooks, which Claude Code starts as processes
+# of their own (lib\Config.ps1, Publish-ConfigEnvironment)
+Publish-ConfigEnvironment

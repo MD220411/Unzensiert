@@ -1,9 +1,9 @@
 {
-  "_comment": "Settings of scripts\\New-Project.ps1. templateDir: folder with the project templates, relative to the repository. sharedTemplate: subfolder copied into every new project. languages: one subfolder per language. projectsRoot: where new projects are created unless -Path is given. Details: docs\\projekte.md.",
+  "_comment": "Settings of scripts\\New-Project.ps1. templateDir: folder with the project templates, relative to the repository. sharedTemplate: subfolder copied into every new project. languages: one subfolder per language. projectsRoot: where new projects are created unless -Path is given (%VARIABLES% allowed; the folder of this machine is in config\\machine.json). Details: docs\\projekte.md.",
 
   "templateDir": "templates\\projekt",
   "sharedTemplate": "gemeinsam",
-  "projectsRoot": "E:\\Projekte",
+  "projectsRoot": "%USERPROFILE%\\Projects",
   "defaultLanguage": "python",
   "languages": {
     "python": "Python-Paket mit unittest",
