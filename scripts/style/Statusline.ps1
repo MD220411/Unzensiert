@@ -57,7 +57,6 @@ if (-not $modeName) { $modeName = [string]$cfg.claude.cloudMode }
 $isLocal = ($modeName -eq [string]$cfg.claude.localMode)
 $mode = Get-StyleMode $modeName
 $width = [int]$cfg.claude.statusLine.gaugeWidth
-$sep = '  ' + (Format-Ink ([string]$cfg.glyphs.sep) $mode.faint) + '  '
 
 $parts = @()
 
@@ -112,4 +111,9 @@ if ($dir) {
     $parts += $where
 }
 
-Write-StdoutUtf8 (' ' + ($parts -join $sep))
+# separators between the parts (sprayed in colourful modes), and characters breaking
+# away at the end
+$line = ' ' + $parts[0]
+for ($i = 1; $i -lt $parts.Count; $i++) { $line += '  ' + (Format-StyleSep $mode) + '  ' + $parts[$i] }
+if (Test-ModeTrail $mode) { $line += '  ' + (Format-Trail 6 $mode) }
+Write-StdoutUtf8 $line

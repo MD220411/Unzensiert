@@ -194,15 +194,41 @@ function Get-TerminalTheme {
     }
 }
 
-function Get-TerminalProfile([string]$IconPath) {
+function New-WallImage {
+    # Draws the wall of characters behind the terminal ("terminal.wall"), lib\CharArt.ps1.
+    # Returns the file path, or '' for styles without a wall.
+    $t = $style.terminal
+    if (-not $t.PSObject.Properties['wall']) { return '' }
+    $w = $t.wall
+    $dir = Join-Path $env:LOCALAPPDATA $styleName
+    if ($PreviewDir) { $dir = $PreviewDir }
+    $null = New-Item -ItemType Directory -Force -Path $dir
+    $file = Join-Path $dir 'wand.png'
+    $face = [string]$style.font.fallback
+    if (Test-FontInstalled ([string]$style.font.face)) { $face = [string]$style.font.face }
+    $wall = New-CharWall ([int]$w.cols) ([int]$w.rows) ([string]$w.text) ([string](Get-StyleMode (Get-ShellModeName)).background)
+    Save-ArtCellsImage $wall $file $face ([int]$w.fontPixels)
+    return $file
+}
+
+function Get-TerminalProfile([string]$IconPath, [string]$WallPath) {
     $shell = Join-Path $PSScriptRoot 'style\Shell.ps1'
-    return [ordered]@{
-        guid        = $profileGuid
+    $entry = [ordered]@{
+        guid        = $entryGuid
         name        = $styleName
         commandline = '%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoExit -ExecutionPolicy RemoteSigned -File "{0}"' -f $shell
         icon        = $IconPath
         hidden      = $false
     }
+    if ($WallPath) {
+        # the wall stays in its corner at its own size, faint enough to read in front of it
+        $w = $style.terminal.wall
+        $entry['backgroundImage'] = $WallPath
+        $entry['backgroundImageOpacity'] = [double]$w.opacity
+        $entry['backgroundImageStretchMode'] = 'none'
+        $entry['backgroundImageAlignment'] = [string]$w.alignment
+    }
+    return $entry
 }
 
 function Update-TerminalSettings([string]$Path) {
@@ -250,7 +276,7 @@ function Update-TerminalSettings([string]$Path) {
 
         $schemes += Get-TerminalScheme
         $themes += Get-TerminalTheme
-        $profiles = @(Get-TerminalProfile (New-TabIcon)) + $profiles
+        $profiles = @(Get-TerminalProfile (New-TabIcon) (New-WallImage)) + $profiles
         Set-Prop $wt 'theme' $styleName
         Set-Prop $wt 'defaultProfile' $guid
     }

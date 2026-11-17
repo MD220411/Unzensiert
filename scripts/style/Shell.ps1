@@ -82,8 +82,10 @@ function global:prompt {
     else { $title = Format-Ink $leaf $mode.foreground -Bold }
     $left = ' ' + $ember + ' ' + $title
     if ($parent) { $left += '  ' + (Format-Ink $parent $mode.dim) }
-    if ($git) { $left += '  ' + (Format-Ink ([string]$g.sep) $mode.faint) + '  ' + (Format-GitSummary $git $mode.dim) }
+    if ($git) { $left += '  ' + (Format-StyleSep $mode) + '  ' + (Format-GitSummary $git $mode.dim) }
     if ($global:StyleState.isAdmin) { $left += '  ' + (Format-Ink ([string]$cfg.texts.admin) $cfg.ink.error -Bold) }
+    # sprayed modes: characters break away at the end, like in the picture
+    if ((Test-ModeTrail $mode) -and $cfg.shell.trail) { $left += '  ' + (Format-Trail ([int]$cfg.shell.trail) $mode) }
 
     # measured, not claimed: how long the last command took
     $right = ''
@@ -95,7 +97,7 @@ function global:prompt {
         if ($seconds -ge [double]$cfg.shell.slowCommandSeconds) {
             if ($seconds -ge 60) { $took = '{0} min {1} s' -f [int][Math]::Floor($seconds / 60), [int]($seconds % 60) }
             else { $took = (Format-Number $seconds 1) + ' s' }
-            $right += (Format-Ink $took $mode.accentSoft) + ' ' + (Format-Ink ([string]$g.sep) $mode.faint) + ' '
+            $right += (Format-Ink $took $mode.accentSoft) + ' ' + (Format-StyleSep $mode) + ' '
         }
     }
     $right += Format-Ink (Get-Date -Format 'HH:mm') $mode.dim
@@ -117,8 +119,9 @@ function global:prompt {
 # --- greeting -------------------------------------------------------------------------
 
 function Show-StyleGreeting {
-    # Name of the look (or its picture made of characters), date, one gauge per graphics
-    # card and whether the server runs.
+    # Name of the look (or its picture made of characters with a sprayed line below),
+    # date, one gauge per graphics card, whether the server runs and, in colourful
+    # styles, a saying.
     $cfg = Get-StyleConfig
     $mode = Get-StyleMode (Get-ShellModeName)
     $sep = Format-Ink ([string]$cfg.glyphs.sep) $mode.faint
@@ -133,6 +136,8 @@ function Show-StyleGreeting {
     if ($art.Count -gt 0) {
         ''
         $art
+        $line = Format-SprayLine ($width - 5) $mode.background
+        if ($line) { '  ' + $line }
         $left = '  ' + (Format-Rainbow ([string]$cfg.texts.tagline) $script:StyleRandom.NextDouble() 0.8)
     } else {
         $title = (([string]$cfg.name).ToUpper().ToCharArray() -join ' ')
@@ -166,6 +171,13 @@ function Show-StyleGreeting {
     } else {
         '  ' + (Format-Ink ([string]$cfg.glyphs.emberOff) $mode.faint) + ' ' + (Format-Ink ([string]$cfg.texts.emberOff) $mode.dim)
     }
+
+    $saying = ''
+    if ($cfg.texts.PSObject.Properties['sprueche']) { $saying = Get-StyleText 'sprueche' }
+    if ($saying) {
+        ''
+        '  ' + (Format-Trail 3 $mode) + ' ' + (Format-Rainbow ([char]0x201E + $saying + [char]0x201C) $script:StyleRandom.NextDouble() 0.5 -Bold)
+    }
 }
 
 # --- cloud sessions -------------------------------------------------------------------
@@ -173,9 +185,20 @@ function Show-StyleGreeting {
 function global:claude {
     # Runs the real claude.exe (Anthropic cloud) and tints the terminal in the cloud mode
     # for as long as the session lasts. Arguments and piped input pass through unchanged.
+    # An interactive session starts with the picture of "art.cloudText" in the single
+    # colour of the cloud.
     $exe = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $exe) { Write-Error 'claude.exe not found on PATH.'; return }
-    Set-TerminalPalette ([string](Get-StyleConfig).claude.cloudMode)
+    $cfg = Get-StyleConfig
+    $printOnly = @($args | Where-Object { $_ -eq '-p' -or $_ -eq '--print' }).Count -gt 0
+    if (-not $printOnly -and -not $MyInvocation.ExpectingInput -and (Test-StyledOutput) -and
+        $cfg.PSObject.Properties['art'] -and $cfg.art.PSObject.Properties['cloudText']) {
+        $cloud = Get-StyleMode ([string]$cfg.claude.cloudMode)
+        Write-Host ''
+        Get-CharArt ([string]$cfg.art.cloudText) ([int]$cfg.art.bannerScale) (Get-WindowWidth) $cloud.background -1 $cloud.accent | Write-Host
+        Write-Host ''
+    }
+    Set-TerminalPalette ([string]$cfg.claude.cloudMode)
     try {
         if ($MyInvocation.ExpectingInput) { $input | & $exe.Source @args }
         else { & $exe.Source @args }

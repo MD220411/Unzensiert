@@ -176,11 +176,13 @@ $sessionModels = @($Model) + $pickerModels | Select-Object -Unique
 $exitCode = 1
 Register-AgentSession $Model
 Enter-LocalLook                # tints the terminal warm while the local model works
+$sessionStart = Get-Date
 try {
     & $claude --model $Model @extraArgs @ClaudeArgs
     $exitCode = $LASTEXITCODE
 } finally {
     Exit-LocalLook
+    Get-LocalLookFarewell $sessionStart    # colourful styles say goodbye (lib\Style.ps1)
     "claude-local: $(Complete-AgentSession $OnExit $sessionModels)"
 }
 exit $exitCode

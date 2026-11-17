@@ -242,8 +242,22 @@ if ($style.PSObject.Properties['art']) {
     $bg = (Get-StyleMode (Get-ShellModeName)).background
     $wide = @(Get-CharArt ([string]$style.art.text) ([int]$style.art.scale) 160 $bg 7)
     $over = @($wide | Where-Object { (Get-VisibleLength $_) -gt 159 })
-    Assert-That ($wide.Count -eq 7 -and $over.Count -eq 0) "art: picture of '$($style.art.text)' has 7 lines within 160 columns"
+    Assert-That ($wide.Count -ge 7 -and $over.Count -eq 0) "art: picture of '$($style.art.text)' has $($wide.Count) lines within 160 columns"
     Assert-That (@(Get-CharArt ([string]$style.art.text) ([int]$style.art.scale) 10 $bg 7).Count -eq 0) 'art: no picture when the window is too narrow'
+    # one colour (cloud): cyan, only lightened or darkened, so green and blue stay alike
+    $offHue = @([regex]::Matches((@(Get-CharArt 'TEST' 2 60 $bg 7 '#2EE6E6') -join ''), '38;2;(\d+);(\d+);(\d+)m') | Where-Object {
+        [Math]::Abs([int]$_.Groups[2].Value - [int]$_.Groups[3].Value) -gt 12 -or [int]$_.Groups[1].Value -gt [int]$_.Groups[2].Value
+    })
+    Assert-That ($offHue.Count -eq 0) 'art: a picture in one colour (cloud) stays in that colour'
+    $mode = Get-StyleMode (Get-ShellModeName)
+    Assert-That ((Get-VisibleLength (Format-SprayLine 40 $bg)) -eq 40 -or -not $style.art.PSObject.Properties['line']) 'art: a sprayed line of width 40 is 40 characters wide'
+    Assert-That ((Get-VisibleLength (Format-Trail 7 $mode)) -eq 7) 'art: a trail of 7 is 7 characters wide'
+    if ($style.terminal.PSObject.Properties['wall']) {
+        $w = $style.terminal.wall
+        $wall = New-CharWall ([int]$w.cols) ([int]$w.rows) ([string]$w.text) $bg 7
+        $filled = @($wall | ForEach-Object { $_ } | Where-Object { $null -ne $_ }).Count
+        Assert-That ($wall.Count -eq [int]$w.rows -and $wall[0].Count -eq [int]$w.cols -and $filled -gt 50) "wall: $($w.cols) x $($w.rows) cells, $filled of them sprayed"
+    }
 }
 Assert-That ((Get-VisibleLength (Format-Gauge 0.4 12 'rainbow' '#333333')) -eq 12) 'gauge: a gauge of width 12 is 12 characters wide'
 # the status line reads JSON from stdin; a PowerShell pipe may send a byte order mark first

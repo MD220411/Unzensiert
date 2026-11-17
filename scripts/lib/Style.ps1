@@ -227,6 +227,79 @@ function Format-ModeLabel($Mode) {
     return $mark + ' ' + (Format-Ink ([string]$Mode.label) $Mode.accent -Bold)
 }
 
+# --- sprayed details (colourful styles) ----------------------------------------------
+
+function Test-ModeTrail($Mode) {
+    # True if a mode wants the sprayed details: separators, trails of characters.
+    return [bool]($Mode.PSObject.Properties['trail'] -and $Mode.trail -and (Test-Rainbow))
+}
+
+function Get-StyleText([string]$Name) {
+    # A text from "texts"; a list means: a different one each time.
+    $value = (Get-StyleConfig).texts.$Name
+    if ($value -is [array]) { return [string]$value[$script:StyleRandom.Next($value.Count)] }
+    return [string]$value
+}
+
+function Format-StyleSep($Mode) {
+    # The separator between parts of a line: plain and faint, or in sprayed modes a
+    # random character from "glyphs.sepSpray" in a random colour of the wheel.
+    $glyphs = (Get-StyleConfig).glyphs
+    if ((Test-ModeTrail $Mode) -and $glyphs.PSObject.Properties['sepSpray']) {
+        $set = [string]$glyphs.sepSpray
+        $rgb = Get-MixedRgb (Get-RainbowRgb $script:StyleRandom.NextDouble()) (ConvertTo-RgbParts $Mode.background) 0.2
+        return (Get-RgbCode $rgb) + $set[$script:StyleRandom.Next($set.Length)] + $script:StyleReset
+    }
+    return Format-Ink ([string]$glyphs.sep) $Mode.faint
+}
+
+function Format-Trail([int]$Length, $Mode) {
+    # Characters breaking away at the end of a line, lighter and fainter towards the
+    # right, like the picture. Always $Length columns wide.
+    $art = (Get-StyleConfig).art
+    if ($Length -le 0 -or -not $art) { return '' }
+    $mid = [string]$art.flightMid
+    $far = [string]$art.flightFar
+    $bg = ConvertTo-RgbParts $Mode.background
+    $start = $script:StyleRandom.NextDouble()
+    $sb = New-Object System.Text.StringBuilder
+    for ($i = 0; $i -lt $Length; $i++) {
+        $d = $i / $Length
+        if ($script:StyleRandom.NextDouble() -lt 0.2 + 0.5 * $d) { $null = $sb.Append(' '); continue }
+        if ($d -lt 0.4) { $set = $mid } else { $set = $far }
+        $rgb = Get-MixedRgb (Get-RainbowRgb ($start + 0.07 * $i)) $bg (0.15 + 0.6 * $d)
+        $null = $sb.Append((Get-RgbCode $rgb)).Append($set[$script:StyleRandom.Next($set.Length)]).Append($script:StyleReset)
+    }
+    return $sb.ToString()
+}
+
+function Format-SprayLine([int]$Width, [string]$BackgroundHex, [string]$MonoHex = '') {
+    # A line sprayed across the window from the characters of "art.line": thin at the
+    # ends, dense and bright in the middle, along the wheel (or in one colour).
+    $art = (Get-StyleConfig).art
+    if ($Width -le 0 -or -not $art -or -not $art.PSObject.Properties['line']) { return '' }
+    $set = [string]$art.line
+    $bg = ConvertTo-RgbParts $BackgroundHex
+    $mono = $null
+    if ($MonoHex) { $mono = [int[]](ConvertTo-RgbParts $MonoHex) }
+    $start = $script:StyleRandom.NextDouble()
+    $sb = New-Object System.Text.StringBuilder
+    for ($x = 0; $x -lt $Width; $x++) {
+        $e = [Math]::Sin([Math]::PI * ($x + 0.5) / $Width)
+        if ($script:StyleRandom.NextDouble() -ge 0.2 + 0.7 * $e) { $null = $sb.Append(' '); continue }
+        if ($mono) { $rgb = $mono } else { $rgb = Get-RainbowRgb ($start + 0.9 * $x / $Width) }
+        $rgb = Get-MixedRgb $rgb $bg (0.65 - 0.5 * $e)
+        $null = $sb.Append((Get-RgbCode $rgb)).Append($set[$script:StyleRandom.Next($set.Length)]).Append($script:StyleReset)
+    }
+    return $sb.ToString()
+}
+
+function Get-WindowWidth {
+    # Width of the console in columns; 80 when there is no console (redirected output).
+    try { $w = $Host.UI.RawUI.WindowSize.Width; if ($w -gt 0) { return $w } } catch { }
+    return 80
+}
+
 function Format-Number([double]$Value, [int]$Decimals = 0) {
     # German number format: 1.234,5
     return $Value.ToString("N$Decimals", $script:StyleCulture)
@@ -304,9 +377,10 @@ function Get-LocalLookBanner([string]$Model, [string]$BaseUrl, [int]$ContextUsab
     $lines += ''
     # colourful styles start every local session with a picture made of characters
     if ($cfg.PSObject.Properties['art'] -and $cfg.art.bannerText) {
-        $width = 80
-        try { $width = $Host.UI.RawUI.WindowSize.Width } catch { }
+        $width = Get-WindowWidth
         $lines += @(Get-CharArt ([string]$cfg.art.bannerText) ([int]$cfg.art.bannerScale) $width $mode.background)
+        $line = Format-SprayLine ($width - 5) $mode.background
+        if ($line) { $lines += '  ' + $line }
         $lines += ''
     }
     $lines += ' ' + (Format-ModeLabel $mode) + '  ' +
@@ -327,6 +401,27 @@ function Enter-LocalLook {
 
 function Exit-LocalLook {
     Set-TerminalPalette (Get-ShellModeName)
+}
+
+function Get-LocalLookFarewell([datetime]$Started) {
+    # The lines after a local session: a sprayed line and how long it lasted ("texts.
+    # farewell"). Empty for styles without it, when the look is not installed or the
+    # output is redirected.
+    $cfg = Get-StyleConfig
+    if (-not $cfg.texts.PSObject.Properties['farewell']) { return @() }
+    if (-not (Test-StyledOutput) -or -not (Test-StyleInstalled)) { return @() }
+    $mode = Get-StyleMode ([string]$cfg.claude.localMode)
+    $minutes = ((Get-Date) - $Started).TotalMinutes
+    if ($minutes -ge 60) { $took = '{0} h {1} min' -f [int][Math]::Floor($minutes / 60), [int]($minutes % 60) }
+    elseif ($minutes -ge 1) { $took = '{0} min' -f [int][Math]::Round($minutes) }
+    else { $took = '{0} s' -f [int][Math]::Round($minutes * 60) }
+    $width = Get-WindowWidth
+    return @(
+        '',
+        ('  ' + (Format-SprayLine ([Math]::Min(60, $width - 5)) $mode.background)),
+        (' ' + (Format-Ink ([string]$mode.mark) $mode.accent) + ' ' + (Format-Rainbow ([string]$cfg.texts.farewell -f $took) $script:StyleRandom.NextDouble() 0.6) + '  ' + (Format-Trail 6 $mode)),
+        ''
+    )
 }
 
 # --- readings -------------------------------------------------------------------------
