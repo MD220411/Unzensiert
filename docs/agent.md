@@ -172,8 +172,14 @@ Dieselbe Änderung ohne Fehler: kein Befund in je zwei Läufen beider Prüfer, a
 Fehlalarm. Von Ende zu Ende über die Abschlussprüfung, so aufgerufen wie Claude Code es
 tut: Erinnerung, dann zweiter Blick (53 s), Befund an den Autor, danach Ende. Grenzen:
 ein einziger Fall, wenige Läufe. Hier fand `local-coder` als Prüfer mehr, `local-qwen38`
-war schneller. Der Nutzer hat `local-qwen38` gewählt (Variante A). Die Messung mit
-mehreren Aufgaben steht unter H4 im [Zukunftsplan](roadmap.md).
+war schneller. Der Nutzer hat `local-qwen38` gewählt (Variante A).
+
+**Im Benchmark** (Lauf `h3-qwen38`, bisher nur `extend`, `refactor`, `psscript`, je
+dreimal, Einzelheiten im [Protokoll](protokoll.md)): 9 Prüfungen, im Mittel 126 s. Ein
+FEHLER-Befund, und der war echt (ein Test ohne `test_`, der nie lief); kein Fehlalarm;
+ein durchgefallener Lauf blieb unbemerkt. Die drei Aufgaben dauerten zusammen 53 % länger
+als ohne zweiten Blick. Die Messung mit `local-coder` als Prüfer und an den Aufgaben aus H4
+steht noch aus ([Zukunftsplan](roadmap.md)).
 
 - **Anderer Prüfer:** `model` ändern, etwa auf `local-coder`. Für einen einzelnen Lauf
   geht es auch über die Umgebungsvariable `CLAUDE_LOCAL_REVIEW_MODEL`; das nutzt

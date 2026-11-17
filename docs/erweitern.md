@@ -56,6 +56,11 @@ Ergebnis: `docs\benchmark.md`, Rohdaten: `logs\benchmark\results.jsonl`.
 - **Ruhezustand:** Während das Skript läuft, verhindert es den Ruhezustand des Rechners
   (`SetThreadExecutionState`, keine Systemeinstellung; die Anforderung endet mit dem
   Skript). Vorher ging der Rechner während langer Messungen schlafen.
+- **Wenn `claude-local` nicht startet** (keine Ergebniszeile, etwa weil eine andere
+  Sitzung gerade ein Skript oder `config\` umbaut), bricht das Skript mit Exit-Code 1 ab.
+  Die Läufe davor bleiben im Datensatz, der Grund steht im Feld `error`. Die fehlenden
+  Aufgaben dann mit `-Tasks` unter einem neuen `-Label` messen. Während einer Messung
+  nichts an `config\` und `scripts\` ändern: jeder Lauf liest beides neu.
 - **Zuverlässigkeit prüfen:** `-Repeat 3` löst jede Aufgabe dreimal. Ein einzelner Lauf ist
   wegen der Zufälligkeit der Modelle nur ein Anhaltspunkt; dieselbe Aufgabe dauerte mit
   demselben Modell schon zwischen 122 s und 412 s.

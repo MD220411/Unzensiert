@@ -1,7 +1,7 @@
 ﻿# Benchmark-Ergebnisse
 
 Automatisch erzeugt von `scripts\Benchmark-Models.ps1`. Nicht von Hand bearbeiten.
-Stand: 2026-11-17 15:51. Rohdaten: `logs\benchmark\results.jsonl`.
+Stand: 2026-11-17 17:13. Rohdaten: `logs\benchmark\results.jsonl`.
 Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bis 2026-11-14).
 
 ## Rohwerte
@@ -21,6 +21,7 @@ Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bi
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 64k | stufe3-projekt | RTX 5070 Ti 14718, RTX 3060 7529 MiB | 7.7 s | 61.4 Tok./s | 63 % | 1314.2 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | b12433 | RTX 5070 Ti 15582, RTX 3060 10371 MiB | 7.2 s | 59.2 Tok./s | 63 % | 1312.1 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | h3-probe | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 6.7 s | 61.8 Tok./s | 63 % | 1509.4 Tok./s | OK |
+| llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | h3-qwen38 | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 6.7 s | 59.9 Tok./s | 59 % | 1495.8 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | h4 | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 7.2 s | 66.0 Tok./s | 69 % | 1503.8 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | stufe4 | RTX 5070 Ti 15582, RTX 3060 10371 MiB | 7.4 s | 61.0 Tok./s | 64 % | 1306.0 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | stufe4-128k | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 7.2 s | 57.5 Tok./s | 57 % | 1314.2 Tok./s | OK |
@@ -69,6 +70,7 @@ Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bi
 | llama.cpp | `local-coder` | stufe3-projekt | 10 / 15 | 6555 s | 60 / 66 (91 %) |
 | llama.cpp | `local-coder` | b12433 | 13 / 15 | 4463 s | 60 / 66 (91 %) |
 | llama.cpp | `local-coder` | h3-probe | 1 / 1 | 205 s | 5 / 5 (100 %) |
+| llama.cpp | `local-coder` | h3-qwen38 | 8 / 9 | 4448 s | 34 / 42 (81 %) |
 | llama.cpp | `local-coder` | h4 | 6 / 6 | 786 s | 27 / 30 (90 %) |
 | llama.cpp | `local-coder` | stufe4 | 14 / 15 | 4903 s | 59 / 66 (89 %) |
 | llama.cpp | `local-coder` | stufe4-128k | 1 / 3 | 42290 s | 12 / 12 (100 %) |
@@ -143,6 +145,9 @@ Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bi
 | llama.cpp | `local-coder` | b12433 | screenshot | 3 / 3 | ja (110 s), ja (101 s), ja (103 s) | 12 / 12 (100 %) |
 | llama.cpp | `local-coder` | b12433 | longcontext | 1 / 3 | ja (374 s), nein (409 s), nein (460 s) | 12 / 12 (100 %) |
 | llama.cpp | `local-coder` | h3-probe | datenblatt | 1 / 1 | ja (205 s) | 5 / 5 (100 %) |
+| llama.cpp | `local-coder` | h3-qwen38 | extend | 3 / 3 | ja (354 s), ja (379 s), ja (369 s) | 12 / 15 (80 %) |
+| llama.cpp | `local-coder` | h3-qwen38 | refactor | 3 / 3 | ja (365 s), ja (503 s), ja (422 s) | 10 / 12 (83 %) |
+| llama.cpp | `local-coder` | h3-qwen38 | psscript | 2 / 3 | ja (580 s), ja (742 s), nein (734 s) | 12 / 15 (80 %) |
 | llama.cpp | `local-coder` | h4 | datenblatt | 3 / 3 | ja (129 s), ja (198 s), ja (121 s) | 12 / 15 (80 %) |
 | llama.cpp | `local-coder` | h4 | pinwechsel | 3 / 3 | ja (103 s), ja (105 s), ja (130 s) | 15 / 15 (100 %) |
 | llama.cpp | `local-coder` | stufe4 | extend | 3 / 3 | ja (334 s), ja (245 s), ja (241 s) | 12 / 15 (80 %) |
@@ -246,6 +251,7 @@ Gezaehlt ueber alle Laeufe der Aufgaben, die die Regel pruefen (auch ueber nicht
 | llama.cpp | `local-coder` | stufe3-projekt | 12 / 15 | 13 / 15 | 5 / 6 | 12 / 12 | 3 / 3 | 15 / 15 | - |
 | llama.cpp | `local-coder` | b12433 | 15 / 15 | 14 / 15 | 1 / 6 | 12 / 12 | 3 / 3 | 15 / 15 | - |
 | llama.cpp | `local-coder` | h3-probe | 1 / 1 | 1 / 1 | - | 1 / 1 | - | 1 / 1 | 1 / 1 |
+| llama.cpp | `local-coder` | h3-qwen38 | 9 / 9 | 7 / 9 | 0 / 6 | 6 / 6 | 3 / 3 | 9 / 9 | - |
 | llama.cpp | `local-coder` | h4 | 6 / 6 | 6 / 6 | - | 6 / 6 | - | 3 / 6 | 6 / 6 |
 | llama.cpp | `local-coder` | stufe4 | 15 / 15 | 15 / 15 | 0 / 6 | 11 / 12 | 3 / 3 | 15 / 15 | - |
 | llama.cpp | `local-coder` | stufe4-128k | 3 / 3 | 3 / 3 | - | 3 / 3 | - | 3 / 3 | - |

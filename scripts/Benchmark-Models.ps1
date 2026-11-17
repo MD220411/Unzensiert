@@ -34,6 +34,9 @@
 #
 # While it runs the computer does not go to sleep on its own (SetThreadExecutionState; no
 # system setting is changed, the request ends with the script).
+#
+# If claude-local does not start at all (no result line), the run stops with exit code 1:
+# the runs measured before are kept in the record, the failure goes to its "error" field.
 
 param(
     [string]$Only = '*',
@@ -123,11 +126,13 @@ function Invoke-AgentTask([string]$model, [string]$task, [string]$workDir) {
 
     $turns = $null
     $outTokens = $null
+    $answered = $false
     if (Test-Path $out) {
         $jsonLine = Get-Content -Path $out | Where-Object { $_.TrimStart().StartsWith('{') } | Select-Object -Last 1
         if ($jsonLine) {
             try {
                 $answer = $jsonLine | ConvertFrom-Json
+                $answered = $true
                 $turns = $answer.num_turns
                 if ($answer.modelUsage) {
                     $outTokens = 0
@@ -135,6 +140,15 @@ function Invoke-AgentTask([string]$model, [string]$task, [string]$workDir) {
                 }
             } catch {}
         }
+    }
+
+    # Ended without a result line: claude-local or Claude Code itself did not run (a broken
+    # setting, a script in mid-edit by another session). Checking the untouched task files
+    # would record a failed run that the model never had.
+    if ($finished -and -not $answered) {
+        $why = @(Get-Content -Path $err -ErrorAction SilentlyContinue | Where-Object { $_.Trim() } | Select-Object -First 3) -join ' '
+        if (-not $why) { $why = 'no result line in ' + (Split-Path -Leaf $out) }
+        return [ordered]@{ startError = $why.Substring(0, [Math]::Min(300, $why.Length)); sec = $seconds }
     }
 
     # the check also says which working rules the agent kept (lib\Tasks.ps1)
@@ -293,6 +307,7 @@ if ($Tasks) {
     $runTasks = @($Tasks | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     foreach ($t in $runTasks) { if ($cfg.tasks -notcontains $t) { throw "Task '$t' is not listed in config\benchmark.json." } }
 }
+$startFailed = $false
 $done = @{}
 foreach ($x in (Get-Results)) { $done["$(Get-Backend $x)|$($x.id)|$($x.label)"] = $true }
 
@@ -323,15 +338,20 @@ foreach ($name in $cfg.models) {
 
         if (-not $SkipAgent) {
             $agent = @()
-            foreach ($task in $runTasks) {
-                for ($n = 1; $n -le $Repeat; $n++) {
-                    $res = Invoke-AgentTask $name $task (Join-Path $workRoot "$name-$Label-$task-$n")
-                    $res.task = $task
-                    $agent += $res
-                    "  agent $task #$n : pass=$($res.pass) sec=$($res.sec) timeout=$($res.timeout) turns=$($res.turns)"
+            try {
+                foreach ($task in $runTasks) {
+                    for ($n = 1; $n -le $Repeat; $n++) {
+                        $res = Invoke-AgentTask $name $task (Join-Path $workRoot "$name-$Label-$task-$n")
+                        if ($res.startError) { throw "claude-local did not start ($task #$n): $($res.startError)" }
+                        $res.task = $task
+                        $agent += $res
+                        "  agent $task #$n : pass=$($res.pass) sec=$($res.sec) timeout=$($res.timeout) turns=$($res.turns)"
+                    }
                 }
+            } finally {
+                # keeps the runs measured before a failure
+                $record.agent = $agent
             }
-            $record.agent = $agent
         }
     } catch {
         $record.error = $_.Exception.Message
@@ -339,7 +359,11 @@ foreach ($name in $cfg.models) {
     }
 
     Add-Content -Path $resultsFile -Value ($record | ConvertTo-Json -Depth 10 -Compress) -Encoding utf8
+    # A start failure is a fault of the setup, not of the model: stop instead of filling
+    # the next profiles with empty runs.
+    if ([string]$record.error -like 'claude-local did not start*') { $startFailed = $true; break }
 }
 
 Set-KeepAwake $false
 Write-Report
+if ($startFailed) { "STOPPED: claude-local did not start, see the error above. The runs before it are kept; fix the setup, then measure the missing tasks with -Tasks under a new -Label."; exit 1 }
