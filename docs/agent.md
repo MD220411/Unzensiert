@@ -84,7 +84,9 @@ Will das Modell eine Antwort beenden, in der es Dateien geändert hat, läuft
 
 Nach Antworten ohne Dateiänderung geschieht nichts. Ob Dateien geändert wurden, liest der
 Hook aus dem Verlauf der Sitzung (Aufrufe von `Edit` und `Write`); Änderungen, die nur über
-Shell-Befehle entstehen, sieht er nicht. Ein Fehler im Hook selbst lässt das Modell immer
+Shell-Befehle entstehen, sieht er nicht. Er zählt nur echte Aufrufe (`tool_use`-Blöcke, jede
+Aufruf-ID einmal): Claude Code schreibt auch die Werkzeug-Beschreibungen in den Verlauf und
+wiederholt frühere Nachrichten bei jeder Anfrage. Ein Fehler im Hook selbst lässt das Modell immer
 aufhören. Der Stand je Sitzung liegt in `<installRoot>\run\stop\`; den Ordner bekommt der
 Hook über die Variable `CLAUDE_LOCAL_ROOT` (`scripts\hooks\HookEnvironment.ps1`).
 

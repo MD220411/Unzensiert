@@ -132,15 +132,20 @@ if ($agent.stopCheck -and $agent.stopCheck.enabled) {
     try {
         $transcript = Join-Path $scratch 'transcript.jsonl'
         $session = "setup-test-$PID"
-        Set-Content -Path $transcript -Encoding ASCII -Value '{"type":"tool_use","name":"Read"}'
+        # Claude Code also writes the tool descriptions into the transcript; they are no calls
+        Set-Content -Path $transcript -Encoding ASCII -Value @(
+            '{"type":"api-request-blob","tools":[{"name":"Edit","description":"Performs exact string replacement"},{"name":"Write","description":"Writes a file"}]}',
+            '{"type":"tool_use","id":"toolu_r1","name":"Read","input":{"file_path":"README.md"}}')
         $answer = Invoke-StopHook $session $transcript $scratch $false
-        Assert-That ($answer.decision -eq '') 'closing check: silent after an answer without edits'
-        Add-Content -Path $transcript -Encoding ASCII -Value '{"type":"tool_use","name":"Edit","input":{"file_path":"src/app.py"}}'
+        Assert-That ($answer.decision -eq '') 'closing check: silent after an answer without edits (tool descriptions in the transcript do not count)'
+        Add-Content -Path $transcript -Encoding ASCII -Value '{"type":"tool_use","id":"toolu_e1","name":"Edit","input":{"file_path":"src/app.py"}}'
         $answer = Invoke-StopHook $session $transcript $scratch $false
         if ($agent.stopCheck.reminderFile) {
             Assert-That ($answer.decision -eq 'block' -and $answer.reason -match 'README') 'closing check: reminder after an edit'
+            # the next request repeats the earlier messages in the transcript
+            Add-Content -Path $transcript -Encoding ASCII -Value '{"type":"api-request-blob","messages":[{"type":"tool_use","id":"toolu_e1","name":"Edit","input":{"file_path":"src/app.py"}}]}'
             $answer = Invoke-StopHook $session $transcript $scratch $false
-            Assert-That ($answer.decision -eq '') 'closing check: no second reminder without new edits'
+            Assert-That ($answer.decision -eq '') 'closing check: no second reminder without new edits (a repeated call id counts once)'
         }
         if ($agent.stopCheck.reminderFile -and $agent.stopCheck.reminderPoints) {
             foreach ($file in 'src/app.py', 'README.md') {

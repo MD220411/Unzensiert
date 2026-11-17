@@ -36,11 +36,21 @@ function Read-Json([string]$Path) {
 
 function Get-EditedFiles([string]$Transcript) {
     # Paths of the file-changing tool calls in the transcript of the session, in order,
-    # one entry per call ('' if the path cannot be read).
+    # one entry per call ('' if the path cannot be read). Only real calls count: newer
+    # versions of Claude Code also write the tool descriptions into the transcript
+    # ({"name":"Edit","description":...}) and repeat earlier messages with every request,
+    # so a call is a "tool_use" block and each call id counts once.
     if (-not $Transcript -or -not (Test-Path $Transcript)) { return @() }
     $text = [System.IO.File]::ReadAllText($Transcript)
     $files = @()
-    foreach ($match in [regex]::Matches($text, '"name"\s*:\s*"(Edit|Write|NotebookEdit)"')) {
+    $ids = @{}
+    $pattern = '"type"\s*:\s*"tool_use"\s*,\s*(?:"id"\s*:\s*"([^"]*)"\s*,\s*)?"name"\s*:\s*"(Edit|Write|NotebookEdit)"'
+    foreach ($match in [regex]::Matches($text, $pattern)) {
+        $id = $match.Groups[1].Value
+        if ($id) {
+            if ($ids.ContainsKey($id)) { continue }
+            $ids[$id] = $true
+        }
         $window = $text.Substring($match.Index, [Math]::Min(600, $text.Length - $match.Index))
         $path = [regex]::Match($window, '"(file_path|notebook_path)"\s*:\s*"((?:[^"\\]|\\.)*)"')
         if ($path.Success) { $files += ($path.Groups[2].Value -replace '\\\\', '\' -replace '\\/', '/') } else { $files += '' }

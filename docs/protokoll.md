@@ -98,6 +98,19 @@ Start per Einzeiler und per ZIP mit Doppelklick. Gebaut in einem eigenen Arbeits
   60 Tok./s); die Feinabstimmung bleibt in `machine.json` dieses Rechners. Der private
   Speicher des Modellprozesses lag bei Auslagerung zwischen 10,4 und 19,5 GB; bei voller
   Karte zeigt Windows auf diesem Rechner keinen verlässlichen Wert.
+- **Ende-zu-Ende auf diesem Rechner:** `Install.ps1 -Yes` aus dem Projektordner (Reparatur):
+  übernimmt Ordner, Paket und Feinabstimmung, lädt nichts, `Test-Setup` bestanden,
+  `local-coder` 61,8 Tok./s, Tool-Calls und Bild-Eingabe OK.
+- **Fehler gefunden und behoben (Abschlussprüfung):** Ein Lauf `claude-local -p` im
+  Repository hing über 4 min in einer Schleife. Ursache: Claude Code 2.1.326 schreibt die
+  Beschreibungen der Werkzeuge (`{"name":"Edit","description":...}`) und bei jeder Anfrage
+  die bisherigen Nachrichten in den Verlauf. `Check-Stop.ps1` zählte jedes `"name":"Edit"`
+  als Schreibaufruf, meldete nach reinem Lesen „Du hast Dateien geändert“, und das Modell
+  wollte daraufhin Dateien nachbessern, was `-p` ohne Freigabe ablehnte, immer wieder.
+  Jetzt zählen nur `tool_use`-Blöcke, jede Aufruf-ID einmal; zwei neue Fälle in
+  `Test-Setup.ps1`. Gegenprobe in einem Testordner: vorher 3 Runden mit falscher
+  Erinnerung, nachher 2 Runden, 7 s. Ungeklärt, seit welcher Version von Claude Code das
+  so ist: Benchmark-Zeiten der letzten Läufe können unnötige Erinnerungsrunden enthalten.
 
 ### Offen
 
