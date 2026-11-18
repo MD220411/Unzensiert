@@ -1,135 +1,135 @@
 # Backend: llama.cpp
 
-Der Server, der die Modelle auf die Grafikkarten lädt und Anfragen beantwortet, ist
-`llama-server` aus [llama.cpp](https://github.com/ggml-org/llama.cpp).
+The server that loads the models onto the graphics cards and answers requests is
+`llama-server` from [llama.cpp](https://github.com/ggml-org/llama.cpp).
 
-## Bedienen
+## Operating it
 
-Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
+Each one is called with `powershell -ExecutionPolicy Bypass -File scripts\<name>`.
 
-| Skript | Wirkung |
+| Script | Effect |
 |---|---|
-| `Start-Server.ps1` | Startet den Server, falls er nicht läuft, und zeigt die Modellprofile. |
-| `Stop-Server.ps1` | Beendet den Server und alle geladenen Modelle. Gibt den GPU-Speicher frei. |
-| `Restart-Server.ps1` | Beides nacheinander. Nötig nach jeder Änderung an `config\server.json` oder `config\models.json`. |
-| `Test-Model.ps1 [-Model <name>]` | Lädt ein Profil und prüft Tempo, Tool-Calls, Bild-Eingabe und GPU-Speicher. |
-| `Test-Setup.ps1` | Prüft Konfiguration und Skripte, ohne ein Modell zu laden. |
+| `Start-Server.ps1` | Starts the server if it is not running and shows the model profiles. |
+| `Stop-Server.ps1` | Stops the server and all loaded models. Frees the GPU memory. |
+| `Restart-Server.ps1` | Both, one after the other. Needed after every change to `config\server.json` or `config\models.json`. |
+| `Test-Model.ps1 [-Model <name>]` | Loads a profile and checks speed, tool calls, image input and GPU memory. |
+| `Test-Setup.ps1` | Checks configuration and scripts without loading a model. |
 
-`claude-local` startet den Server selbst, wenn er nicht läuft. Für Continue muss er laufen;
-nach einem Neustart des Rechners also einmal `Start-Server.ps1` oder `claude-local` ausführen.
+`unzensiert` and `claude-local` start the server themselves when it is not running. Continue
+needs it running; after a restart of the computer run `Start-Server.ps1`, `unzensiert` or
+`claude-local` once.
 
-Modelle werden bei der ersten Anfrage geladen (unzensiert etwa 8 s aus dem Datei-Cache, bis
-zu 50 s von der Platte).
+Models are loaded with the first request (the uncensored one in about 8 s from the file
+cache, up to 50 s from disk).
 
-## Wann der GPU-Speicher frei wird
+## When the GPU memory is freed
 
-| Anlass | Wirkung | Einstellung |
+| Occasion | Effect | Setting |
 |---|---|---|
-| Die letzte Sitzung von `claude-local` endet | Die Modelle des Agenten werden entladen, der Server läuft weiter. Gemessen: 15,6 und 10,4 GB belegt (128k Kontext), danach 7 und 0 MiB. | `onExit` in `config\agent.json` ([agent.md](agent.md)) |
-| 30 Minuten keine Anfrage an ein Modell | Das Modell schläft: Sein Prozess bleibt, gibt den Speicher aber frei (gemessen: 226 und 105 MiB Rest). Die nächste Anfrage weckt es in etwa 7 s; der Kontext-Cache ist dann leer, die Unterhaltung wird einmal neu eingelesen. | `sleep-idle-seconds` in `config\models.json` |
-| Ein anderes Modell braucht den Platz | Der Server entlädt unbenutzte Modelle, bis das neue passt. | `memoryMarginMiB`, `modelsMax` |
-| `Stop-Server.ps1` | Alles frei. | |
+| The last session of `claude-local` ends | The models of the agent are unloaded, the server keeps running. Measured: 15.6 and 10.4 GB in use (128k context), afterwards 7 and 0 MiB. | `onExit` in `config\agent.json` ([agent.md](agent.md)) |
+| 30 minutes without a request to a model | The model sleeps: its process stays but frees the memory (measured: 226 and 105 MiB left). The next request wakes it in about 7 s; the context cache is empty then, the conversation is read in once more. | `sleep-idle-seconds` in `config\models.json` |
+| Another model needs the room | The server unloads unused models until the new one fits. | `memoryMarginMiB`, `modelsMax` |
+| `Stop-Server.ps1` | Everything freed. | |
 
-Der Server selbst belegt ohne geladenes Modell keinen GPU-Speicher. Die Leerlauf-Grenze
-ist das Netz für die Fälle, in denen `claude-local` nicht aufräumen kann: Fenster
-geschlossen, Absturz, oder das Modell wurde von Continue geladen. Abfragen des Zustands
-(`/health`, `/models`, `/props`) zählen nicht als Anfrage.
+Without a loaded model the server itself uses no GPU memory. The idle limit is the safety
+net for cases in which `claude-local` cannot clean up: window closed, crash, or the model was
+loaded by Continue. Status queries (`/health`, `/models`, `/props`) do not count as requests.
 
-## Einstellungen (`config\server.json`)
+## Settings (`config\server.json`)
 
-Werte dieses Rechners stehen in `config\machine.json` (Abschnitt `server`) und
-überschreiben die Datei ([einrichtung.md](einrichtung.md)).
+Values of this computer are in `config\machine.json` (section `server`) and override the
+file ([setup.md](setup.md)).
 
-| Schlüssel | Wert | Zweck |
+| Key | Value | Purpose |
 |---|---|---|
-| `installRoot` | `%LOCALAPPDATA%\claude-local` | Ordner für Programme, Modelle, Protokoll und erzeugte Dateien. Der Installer wählt ihn und schreibt ihn in `machine.json` (Entwicklungsrechner: `E:\LlamaCpp`). |
-| `build` | `b12433` | Version von llama.cpp (Tag der GitHub-Releases). Programme liegen in `<installRoot>\<build>\`. |
-| `package` | `auto` | Variante des Downloads. `auto` wählt nach Grafikkarte, siehe `packages`; das Paket, das funktioniert hat, steht danach in `machine.json`. |
-| `packages` | `nvidia`: `win-cuda-13.5-x64`, `nvidiaFallback`: `win-cuda-12.4-x64`, `other`: `win-vulkan-x64`, `cpu`: `win-cpu-x64` | Was `auto` bedeutet. Mit NVIDIA-Karte zuerst CUDA 13.5; sieht llama.cpp damit keine Karte (Treiber zu alt), CUDA 12.4. AMD und Intel: Vulkan (experimentell, ungetestet). Ohne Karte: CPU. |
-| `modelsDir` | leer = `<installRoot>\models` | Ordner der GGUF-Dateien |
-| `host`, `port` | `127.0.0.1`, `8080` | Adresse des Servers. Nur vom eigenen Rechner erreichbar. |
-| `requireApiKey` | `true` | Der Server verlangt bei jeder Anfrage einen Schlüssel. Er wird beim ersten Start erzeugt und liegt in `<installRoot>\run\api-key.txt` ([sicherheit.md](sicherheit.md)). |
-| `corsOrigins` | `localhost` | Welche Webseiten Antworten des Servers im Browser lesen dürfen. Leer lassen für die Voreinstellung von llama.cpp (alle). |
-| `modelsMax` | `3` | Höchstens so viele Modelle gleichzeitig geladen |
-| `memoryMarginMiB` | `512` | Vor dem Laden eines Modells entlädt der Server so lange unbenutzte Modelle, bis das neue passt und je Karte so viel Speicher frei bleibt |
-| `startTimeoutSeconds` | `60` | So lange warten die Skripte auf den Start des Servers |
-| `loadTimeoutSeconds` | `300` | So lange warten Test und Benchmark auf das Laden eines Modells |
+| `installRoot` | `%LOCALAPPDATA%\claude-local` | Folder for programs, models, logs and generated files. The installer chooses it and writes it into `machine.json`. |
+| `build` | `b12433` | Version of llama.cpp (tag of the GitHub releases). The programs are in `<installRoot>\<build>\`. |
+| `package` | `auto` | Variant of the download. `auto` chooses by graphics card, see `packages`; the package that worked is then noted in `machine.json`. |
+| `packages` | `nvidia`: `win-cuda-13.5-x64`, `nvidiaFallback`: `win-cuda-12.4-x64`, `other`: `win-vulkan-x64`, `cpu`: `win-cpu-x64` | What `auto` means. With an NVIDIA card CUDA 13.5 first; if llama.cpp sees no card with it (driver too old), CUDA 12.4. AMD and Intel: Vulkan (experimental, untested). Without a card: CPU. |
+| `modelsDir` | empty = `<installRoot>\models` | Folder of the GGUF files |
+| `host`, `port` | `127.0.0.1`, `8080` | Address of the server. Reachable only from this computer. |
+| `requireApiKey` | `true` | The server requires a key with every request. It is created at the first start and stored in `<installRoot>\run\api-key.txt` ([security.md](security.md)). |
+| `corsOrigins` | `localhost` | Which web pages may read answers of the server in the browser. Leave empty for the llama.cpp default (all). |
+| `modelsMax` | `3` | At most this many models loaded at the same time |
+| `memoryMarginMiB` | `512` | Before loading a model the server unloads unused models until the new one fits and this much memory stays free per card |
+| `startTimeoutSeconds` | `60` | How long the scripts wait for the server to start |
+| `loadTimeoutSeconds` | `300` | How long test and benchmark wait for a model to load |
 
-Steht die Adresse hier anders, muss sie auch in `config\continue.config.yaml` geändert werden.
+If the address is different here, change it in `config\continue.config.yaml` as well.
 
-## Wie der Server gestartet wird
+## How the server is started
 
-`scripts\lib\Server.ps1` macht bei `Start-Server` drei Dinge:
+`scripts\lib\Server.ps1` does three things in `Start-Server`:
 
-1. Es erzeugt aus `config\models.json` und den Werten des Rechners (`machine.json`) die
-   Datei `<installRoot>\run\models.ini` (das Format von `llama-server --models-preset`).
-   Profile, deren GGUF-Datei nicht geladen ist, fehlen darin; das ist normal, nicht jeder
-   Rechner hat jedes Modell (`Get-Model.ps1 -List`).
-2. Es entfernt alle Variablen `LLAMA_ARG_*` aus der eigenen Umgebung. `llama-server` liest
-   seine Optionen auch aus solchen Variablen; eine vergessene Variable (wie früher
-   `LLAMA_ARG_TENSOR_SPLIT` aus der Ollama-Zeit) würde sonst unbemerkt jedes Modell
-   beeinflussen.
-3. Es startet `llama-server` im Router-Modus:
+1. It creates the file `<installRoot>\run\models.ini` (the format of
+   `llama-server --models-preset`) from `config\models.json` and the values of this computer
+   (`machine.json`). Profiles whose GGUF file has not been downloaded are left out; that is
+   normal, not every computer has every model (`Get-Model.ps1 -List`).
+2. It removes every `LLAMA_ARG_*` variable from its own environment. `llama-server` also
+   reads its options from such variables; a forgotten variable (like
+   `LLAMA_ARG_TENSOR_SPLIT` from the Ollama days) would otherwise silently affect every
+   model.
+3. It starts `llama-server` in router mode:
    `--models-preset <ini> --models-max <n> --models-memory-margin <MiB> --no-ui --offline
-   --cors-origins <wert>`. Der Schlüssel geht über die Variable `LLAMA_API_KEY` an den
-   Prozess, nicht über die Befehlszeile; so verlangen ihn auch die Modell-Prozesse.
+   --cors-origins <value>`. The key reaches the process through the variable
+   `LLAMA_API_KEY`, not through the command line; that way the model processes require it
+   as well.
 
-Der Router startet für jedes angefragte Modell einen eigenen `llama-server`-Kindprozess mit
-den Optionen des Profils. `Stop-Server` beendet nur Prozesse aus `installRoot`; ein
-`llama-server` eines anderen Programms bleibt unberührt.
+The router starts a child process `llama-server` with the options of the profile for every
+requested model. `Stop-Server` only stops processes from `installRoot`; a `llama-server` of
+another program stays untouched.
 
-Der Server startet nicht mit Windows, siehe [einrichtung.md](einrichtung.md).
+The server does not start with Windows, see [setup.md](setup.md).
 
-## Schnittstellen
+## Interfaces
 
-| Schnittstelle | Adresse | Genutzt von |
+| Interface | Address | Used by |
 |---|---|---|
-| Anthropic-kompatibel | `http://127.0.0.1:8080/v1/messages` | Claude Code |
-| OpenAI-kompatibel | `http://127.0.0.1:8080/v1/chat/completions` | Continue (Chat), Test- und Benchmark-Skripte |
-| llama.cpp-eigen | `http://127.0.0.1:8080/completion` | Continue (Autocomplete) |
-| Verwaltung | `GET /models`, `POST /models/load`, `POST /models/unload`, `GET /health` | Skripte |
+| OpenAI-compatible | `http://127.0.0.1:8080/v1/chat/completions` | Unzensiert, Continue (chat), test and benchmark scripts |
+| Anthropic-compatible | `http://127.0.0.1:8080/v1/messages` | Claude Code (`claude-local`) |
+| llama.cpp's own | `http://127.0.0.1:8080/completion` | Continue (autocomplete) |
+| Management | `GET /models`, `POST /models/load`, `POST /models/unload`, `GET /health` | scripts |
 
-Jede Anfrage nennt im Feld `model` den Namen eines Profils und schickt den Schlüssel des
-Servers mit (`Authorization: Bearer <schlüssel>` oder `x-api-key`). Nur `/health` antwortet
-ohne Schlüssel. Von Hand:
+Every request names a profile in the field `model` and sends the key of the server along
+(`Authorization: Bearer <key>` or `x-api-key`). Only `/health` answers without a key. By
+hand:
 
 ```
 $key = Get-Content <installRoot>\run\api-key.txt
 curl.exe -H "Authorization: Bearer $key" http://127.0.0.1:8080/models
 ```
 
-## llama.cpp aktualisieren
+## Updating llama.cpp
 
-1. Auf <https://github.com/ggml-org/llama.cpp/releases> einen neueren Build wählen.
-2. In `config\server.json` den Wert `build` ändern.
-3. `scripts\Install-LlamaCpp.ps1` ausführen. Lädt die Archive des Pakets, prüft ihre
-   SHA-256-Summen gegen die von GitHub veröffentlichten, entpackt nach
-   `<installRoot>\<build>\` (vorher geleert, damit kein Rest eines anderen Pakets ein
-   zweites Backend lädt) und prüft mit `--list-devices`, dass llama.cpp die Grafikkarte
-   sieht. Sonst probiert es das nächste Paket aus `packages`. Ein anderes Paket erzwingt
-   `-Package win-vulkan-x64`.
-4. `scripts\Restart-Server.ps1`, dann `scripts\Test-Model.ps1`.
-5. Bei Zweifeln `scripts\Benchmark-Models.ps1 -Label <build>` und mit dem vorigen Lauf
-   vergleichen. Zurück geht es, indem `build` wieder auf den alten Wert gesetzt wird; der
-   alte Ordner bleibt liegen, bis man ihn löscht.
+1. Choose a newer build on <https://github.com/ggml-org/llama.cpp/releases>.
+2. Change the value `build` in `config\server.json`.
+3. Run `scripts\Install-LlamaCpp.ps1`. It downloads the archives of the package, checks their
+   SHA-256 sums against the ones GitHub publishes, unpacks them into `<installRoot>\<build>\`
+   (emptied first, so that no leftover of another package loads a second backend) and
+   checks with `--list-devices` that llama.cpp sees the graphics card. Otherwise it tries
+   the next package from `packages`. `-Package win-vulkan-x64` forces another package.
+4. `scripts\Restart-Server.ps1`, then `scripts\Test-Model.ps1`.
+5. When in doubt, `scripts\Benchmark-Models.ps1 -Label <build>` and compare with the previous
+   run. To go back, set `build` to the old value again; the old folder stays until you
+   delete it.
 
-## Fehlersuche
+## Troubleshooting
 
-Das Protokoll des Servers und aller Modellprozesse ist `<installRoot>\logs\server.log`.
+The log of the server and of all model processes is `<installRoot>\logs\server.log`.
 
-| Symptom | Ursache und Abhilfe |
+| Symptom | Cause and remedy |
 |---|---|
-| `llama-server not found` | `scripts\Install-LlamaCpp.ps1` ausführen. |
-| Server startet nicht innerhalb von 60 s | Protokoll lesen. Häufig: Port belegt (`port` ändern) oder falsches `package` für den Treiber. |
-| Profil fehlt in der Modellliste | Die GGUF-Datei ist auf diesem Rechner nicht geladen: `scripts\Get-Model.ps1 -Model <profil>`, dann `Restart-Server.ps1`. Siehe [modelle.md](modelle.md). |
-| Modell lädt nicht (Zustand bleibt `loading` oder fällt auf `unloaded`) | Im Protokoll nach `error` suchen. Meist reicht der GPU-Speicher nicht: andere Programme schließen oder `ctx-size` senken. |
-| Fehler `model limit reached, try again later` | Das neue Modell passt nur, wenn ein anderes entladen wird, und dieses bearbeitet gerade eine Anfrage. Ein Modell in Benutzung wird nie entladen. Warten, oder die andere Sitzung beenden. Prüfen: `curl "http://127.0.0.1:8080/slots?model=<profil>"` (`is_processing`). |
-| Deutlich langsamer als erwartet | Teile des Modells liegen im Arbeitsspeicher (bei kleinen Karten gewollt, siehe [einrichtung.md](einrichtung.md), Hardware-Stufen). `Test-Model.ps1` zeigt den GPU-Speicher; in `machine.json` für das Profil `ctx-size` senken oder bei mehreren Karten `tensor-split` setzen. |
-| Fehler `System message must be at the beginning` | Das Modell nutzt seine eingebaute Chat-Vorlage. Dem Profil `chat-template-file` geben, siehe [modelle.md](modelle.md). |
-| Fehler 500 `A tool message must follow an assistant or tool message`, Claude Code wiederholt die Anfrage mehrfach | Wie oben: eingebaute Chat-Vorlage ohne den Block „agent fix“. Tritt auf, sobald ein Tool-Ergebnis zusammen mit Text ankommt, etwa nach dem Lesen eines Bildes. [modelle.md](modelle.md), Abschnitt „Chat-Vorlage“. |
-| Modell erkennt Bilder nicht oder liest sie falsch | `Test-Model.ps1` ausführen. `image input: not configured`: dem Profil fehlt `mmproj`. Warnung beim Start: die `mmproj`-Datei fehlt in `modelsDir`. Falsch gelesene kleine Bilder: `image-min-tokens` erhöhen. |
-| GPU-Speicher bleibt nach `exit` belegt | Eine andere Sitzung von `claude-local` läuft noch (die Abschlusszeile nennt den Grund), `onExit` steht auf `keep`, oder das Fenster wurde geschlossen. Dann greift die Leerlauf-Grenze; sofort frei mit `Stop-Server.ps1`. |
-| Continue meldet Verbindungsfehler | Server läuft nicht: `scripts\Start-Server.ps1`. |
-| Fehler 401 `Invalid API Key` | Der Aufrufer schickt keinen oder einen alten Schlüssel. Continue: `scripts\Install-Continue.ps1` und VS Code neu starten. Eigene Aufrufe: Schlüssel aus `<installRoot>\run\api-key.txt` mitschicken, siehe „Schnittstellen“. Läuft noch ein Server von vor einer Änderung am Schlüssel: `Restart-Server.ps1`. |
-| Ein Skript scheitert an einer Konfigurationsdatei | `scripts\Test-Setup.ps1` nennt die Datei und die Stelle, die nicht passt. |
-| Antwort endet nie, das Modell ruft immer weiter Werkzeuge auf | Das Modell schreibt am Ende ein offenes `<tool_call>`, und die Grammatik von llama.cpp erzwingt daraus einen vollständigen Aufruf. Betraf qwen3-coder 30B; anderes Modell nehmen ([modellwahl.md](modellwahl.md)). |
+| `llama-server not found` | Run `scripts\Install-LlamaCpp.ps1`. |
+| The server does not start within 60 s | Read the log. Often: port in use (change `port`) or the wrong `package` for the driver. |
+| A profile is missing from the model list | Its GGUF file has not been downloaded on this computer: `scripts\Get-Model.ps1 -Model <profile>`, then `Restart-Server.ps1`. See [models.md](models.md). |
+| A model does not load (state stays `loading` or falls back to `unloaded`) | Search the log for `error`. Usually the GPU memory is not enough: close other programs or lower `ctx-size`. |
+| Error `model limit reached, try again later` | The new model only fits when another one is unloaded, and that one is answering a request right now. A model in use is never unloaded. Wait, or end the other session. Check: `curl "http://127.0.0.1:8080/slots?model=<profile>"` (`is_processing`). |
+| Much slower than expected | Parts of the model are in main memory (intended on small cards, see [setup.md](setup.md), hardware tiers). `Test-Model.ps1` shows the GPU memory; lower `ctx-size` for the profile in `machine.json`, or with several cards let the planner compute the split ([planner.md](planner.md)). |
+| Error `System message must be at the beginning` | The model uses its built-in chat template. Give the profile a `chat-template-file`, see [models.md](models.md). |
+| Error 500 `A tool message must follow an assistant or tool message`, Claude Code repeats the request several times | As above: built-in chat template without the block "agent fix". Happens as soon as a tool result arrives together with text, for example after reading an image. [models.md](models.md), section "Chat template". |
+| The model does not recognise images or reads them wrong | Run `Test-Model.ps1`. `image input: not configured`: the profile has no `mmproj`. A warning at start: the `mmproj` file is missing from `modelsDir`. Small images read wrong: raise `image-min-tokens`. |
+| GPU memory stays in use after `exit` | Another session of `claude-local` is still running (the last line names the reason), `onExit` is set to `keep`, or the window was closed. Then the idle limit takes over; free it at once with `Stop-Server.ps1`. |
+| Continue reports connection errors | The server is not running: `scripts\Start-Server.ps1`. |
+| Error 401 `Invalid API Key` | The caller sends no key or an old one. Continue: `scripts\Install-Continue.ps1` and restart VS Code. Own calls: send the key from `<installRoot>\run\api-key.txt`, see "Interfaces". If a server from before a change of the key is still running: `Restart-Server.ps1`. |
+| A script fails on a configuration file | `scripts\Test-Setup.ps1` names the file and the place that does not fit. |
+| The answer never ends, the model keeps calling tools | The model writes an open `<tool_call>` at the end, and the grammar of llama.cpp forces a complete call out of it. Affected qwen3-coder 30B; use another model ([model-choice.md](model-choice.md)). |

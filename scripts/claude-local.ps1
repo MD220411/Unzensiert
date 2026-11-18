@@ -89,11 +89,11 @@ if ($agent.picker) {
     if ($rows.Count -gt 0) { $settings['modelPicker'] = [ordered]@{ options = $rows; replaceBuiltInOptions = $true } }
 }
 # the look of a local session: warm theme and status line with the graphics cards
-# (lib\Style.ps1, docs\stil.md); empty if the look is not installed
+# (lib\Style.ps1, docs\style.md); empty if the look is not installed
 $look = Get-LocalLookSettings
 foreach ($key in $look.Keys) { $settings[$key] = $look[$key] }
 # the safety guard: checks every tool call of the model before it runs
-# (lib\Safety.ps1, config\guard.json, docs\sicherheit.md); empty if switched off
+# (lib\Safety.ps1, config\guard.json, docs\security.md); empty if switched off
 Merge-Settings $settings (Get-SafetySettings)
 # the closing check: runs the project's check command and reminds of tests and README when
 # the model wants to end an answer in which it changed files (lib\Quality.ps1,

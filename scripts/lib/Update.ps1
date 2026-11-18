@@ -6,7 +6,7 @@
 # Work in progress on main never arrives, and copies someone works on (changed files, a full
 # git clone that is not on a release) are never touched. Needs lib\Config.ps1,
 # lib\AgentApi.ps1 (JSON) and lib\Review.ps1 (Invoke-Git). Keep this file ASCII-only.
-# Description: docs\einrichtung.md.
+# Description: docs\setup.md.
 
 function Get-ProgramVersion {
     $file = Join-Path $script:ProjectRoot 'VERSION'

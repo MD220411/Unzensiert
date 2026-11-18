@@ -490,13 +490,13 @@ function Show-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]
     [Console]::Write(($out -join "`n") + "`n")
 
     $badge = { param($key) Format-UiSpans @(New-UiSpan (' ' + $key + ' ') $mode.background 'b' $hex) }
-    $choices = '  ' + (& $badge 'j') + ' ' + (Format-UiInk (Get-UiText 'permission.yes') $mode.foreground) + '    '
+    $choices = '  ' + (& $badge 'y') + ' ' + (Format-UiInk (Get-UiText 'permission.yes') $mode.foreground) + '    '
     if ($CanAlways) {
         $rules = @()
         if ($A) { try { $rules = @(Get-AlwaysRules $Name $A) } catch {} }
         $always = Get-UiText 'permission.always'
         if ($rules.Count -gt 0) { $always = Get-UiText 'permission.alwaysFor' ($rules -join ', ') }
-        $choices += (& $badge 'i') + ' ' + (Format-UiInk (Limit-UiText $always ($width - 40)) $mode.foreground) + '    '
+        $choices += (& $badge 'a') + ' ' + (Format-UiInk (Limit-UiText $always ($width - 40)) $mode.foreground) + '    '
     }
     $choices += (& $badge 'n') + ' ' + (Format-UiInk (Get-UiText 'permission.no') $mode.foreground) + '   ' + (Format-UiInk ([string][char]0x203A) $hex -Bold) + ' '
     [Console]::Write($choices)
@@ -521,6 +521,7 @@ function Read-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]
     while (-not $reply) {
         $k = [Console]::ReadKey($true)
         $c = [string]$k.KeyChar
+        # y and a; the German j (ja) and i (immer) of earlier versions work as well
         if ($k.Key -eq [ConsoleKey]::Enter -or $c -eq 'y' -or $c -eq 'j') { $reply = 'yes' }
         elseif ($CanAlways -and ($c -eq 'a' -or $c -eq 'i')) { $reply = 'always' }
         elseif ($k.Key -eq [ConsoleKey]::Escape -or $c -eq 'n') { $reply = 'no' }

@@ -1,7 +1,7 @@
 # Protection of the user's machine in claude-local sessions: switches the safety guard on
 # (a hook of Claude Code, scripts\hooks\Guard-Tool.ps1 with the rules in config\guard.json)
 # and reminds of git as the way back. Needs lib\Config.ps1. Keep this file ASCII-only.
-# Description: docs\sicherheit.md.
+# Description: docs\security.md.
 
 function Get-GuardConfig {
     return (Read-JsonFile (Join-Path $script:ConfigDir 'guard.json'))

@@ -1,6 +1,6 @@
 # Computes how a model is best spread over the graphics cards and the main memory of this
 # machine. Used by scripts\Plan-Models.ps1; tested without a graphics card by
-# scripts\Test-Install.ps1. Details: docs\planer.md.
+# scripts\Test-Install.ps1. Details: docs\planner.md.
 #
 #   memory  For one placement, llama.cpp itself estimates how many MiB of weights, context
 #           and compute buffers land on every device (llama-fit-params --fit-print). The
@@ -450,7 +450,7 @@ function New-SpeedCalibration($Model, $Cards, $Cfg, [double]$HostCapMiB) {
     if ((Get-EstimateTotal $est 'Host') -le $HostCapMiB) {
         $tps = Invoke-BenchSpeed $Model @() @() 0 ([int]$bench.cpuTokens) 1
     } else {
-        # the model does not fit into main memory: assume a typical value instead (docs\planer.md)
+        # the model does not fit into main memory: assume a typical value instead (docs\planner.md)
         $tps = 1e6 / (25.0 * [math]::Max(1.0, [double]$cpuReads['Host']))
     }
     $cpuRun = @{ reads = $cpuReads; tps = $tps }

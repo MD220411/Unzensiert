@@ -2,7 +2,7 @@
     Source: the template embedded in the GGUF file (read with GET /props, llama.cpp b12359).
     One change: the block "agent fix" below, which moves tool results directly behind the
     assistant message that asked for them.
-    See docs\modelle.md, section "Chat-Vorlage". -#}
+    See docs\models.md, section "Chat template". -#}
 {%- set image_count = namespace(value=0) %}
 {%- set video_count = namespace(value=0) %}
 {%- macro render_content(content, do_vision_count, is_system_content=false) %}

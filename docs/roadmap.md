@@ -1,165 +1,163 @@
-# Zukunftsplan
+# Roadmap
 
-Was als Nächstes kommt, damit der lokale Coder sicherer, zuverlässiger, sparsamer und
-schneller wird und Software baut, die sich über Jahre pflegen und erweitern lässt.
-Stand: 2026-11-16.
+What comes next so the local coder becomes safer, more reliable, more economical and faster,
+and builds software that can be maintained and extended for years. As of 2026-11-16.
 
-**So wird der Plan benutzt:** von oben nach unten abarbeiten. Jeder Punkt nennt, woran man
-misst, ob er etwas gebracht hat. Ein erledigter Punkt wandert mit seinem Messwert ins
-[Protokoll](protokoll.md) und wird hier gestrichen. Ein Punkt ohne messbare Wirkung wird
-zurückgenommen.
+**How the plan is used:** work through it from top to bottom. Every point says how to measure
+whether it helped. A finished point moves with its measurement into the
+[development log](devlog.md) and is struck out here. A point without measurable effect is
+taken back.
 
-**Wie belastbar eine Angabe ist:**
+**How solid a statement is:**
 
-| Kennzeichen | Bedeutung |
+| Mark | Meaning |
 |---|---|
-| gemessen | auf diesem Rechner mit `Test-Model.ps1`, `Benchmark-Models.ps1` oder einem Lauf im Protokoll belegt |
-| belegt | steht in der Dokumentation oder im Quelltext von Claude Code oder llama.cpp, hier nicht ausprobiert |
-| Annahme | plausibel, aber ungeprüft; vor einer Entscheidung messen |
+| measured | shown on this computer with `Test-Model.ps1`, `Benchmark-Models.ps1` or a run in the development log |
+| documented | stated in the documentation or source code of Claude Code or llama.cpp, not tried here |
+| assumption | plausible but unchecked; measure before deciding |
 
-## Ausgangslage
+## Starting point
 
-| Bereich | Stand | Beleg |
+| Area | State | Evidence |
 |---|---|---|
-| Tempo | `local-coder` 57 bis 65 Tokens/s, `local-fast` 130 bis 137, Einlesen etwa 1500 Tokens/s | gemessen, `logs\model-tests.log` |
-| Zuverlässigkeit | `local-coder` besteht alle 24 Läufe der vier älteren Aufgaben und 14 von 15 der fünf neuen (die lange Aufgabe 2 von 3); `local-fast` 3 von 15 (vor Stufe 3) | gemessen, [modellwahl.md](modellwahl.md) |
-| Kontext | 128k (alle drei Profile), davon rund 5200 Tokens für Systemprompt, Werkzeuge und Regeln, bevor die erste Frage gestellt ist | gemessen, Server-Protokoll |
-| GPU-Speicher | `local-coder` belegt 15,6 von 16,3 GB und 10,4 von 12,3 GB; nach der Sitzung 0 | gemessen |
-| Bilder | lesbar über Einfügen und über `Read` | gemessen, [modelle.md](modelle.md) |
-| Absicherung | Server verlangt einen Schlüssel; ein Wächter sperrt zerstörerische Befehle und fragt bei heiklen nach. Befehle laufen weiter ohne Sandbox auf dem echten Rechner. | gemessen, [sicherheit.md](sicherheit.md) |
-| Messbarkeit | neun Aufgaben (Python, PowerShell, Bild, langer Kontext, Umbau), jede mit Musterlösung und Selbsttest | gemessen, `Test-Tasks.ps1` |
-| Regeltreue | `local-coder` hält mit Abschlussprüfung 89 % der geprüften Arbeitsregeln ein (vorher 65 %): README und Test 15 von 15, Wert in die Konfigurationsdatei 0 von 6, mit Projektvorlage 5 von 6. Kosten: etwa ein Viertel mehr Laufzeit als ohne Abschlussprüfung | gemessen, [modellwahl.md](modellwahl.md) |
-| Arbeitsweise | `New-Project.ps1` legt Projekte mit `CLAUDE.md`, Prüfbefehl, Git-Hook und Entscheidungsordner an; Befehle `/lokal:feature`, `/lokal:bugfix`, `/lokal:pruefen` | gemessen, `Test-Templates.ps1`; Befehle nur an einer Aufgabe |
+| Speed | `local-coder` 57 to 65 tokens/s, `local-fast` 130 to 137, reading about 1500 tokens/s | measured, `logs\model-tests.log` |
+| Reliability | `local-coder` passes all 24 runs of the four older tasks and 14 of 15 of the five new ones (the long task 2 of 3); `local-fast` 3 of 15 (before stage 3) | measured, [model-choice.md](model-choice.md) |
+| Context | 128k (all three profiles), of which about 5200 tokens go to system prompt, tools and rules before the first question is asked | measured, server log |
+| GPU memory | `local-coder` takes 15.6 of 16.3 GB and 10.4 of 12.3 GB; 0 after the session | measured |
+| Images | readable by pasting and through `Read` | measured, [models.md](models.md) |
+| Protection | the server requires a key; a guard blocks destructive commands and asks about delicate ones. Commands still run without a sandbox on the real computer. | measured, [security.md](security.md) |
+| Measurability | nine tasks (Python, PowerShell, image, long context, refactoring), each with a reference solution and self-test | measured, `Test-Tasks.ps1` |
+| Rule adherence | with the closing check `local-coder` follows 89 % of the checked working rules (65 % before): README and test 15 of 15, value into the configuration file 0 of 6, with the project template 5 of 6. Cost: about a quarter more run time than without the closing check | measured, [model-choice.md](model-choice.md) |
+| Way of working | `New-Project.ps1` creates projects with `CLAUDE.md`, check command, git hook and decisions folder; workflows `/feature`, `/bugfix`, `/review` | measured, `Test-Templates.ps1`; workflows only on one task |
 
-Die größten Lücken sind jetzt die ungeprüften Stellen: die Bedienung am Terminal (S8,
-N8), die Linter im Prüfbefehl (N9) und der Wert in der Konfigurationsdatei ohne
-Projektvorlage. Der Speicher ist mit 128k Kontext fast ausgeschöpft; mehr Tempo oder eine
-größere Quantisierung gehen nur noch auf Kosten des Kontexts oder mit anderer Hardware.
+The biggest gaps now are the unchecked places: operation at the terminal (S8, N8), the linters
+in the check command (N9) and the value in the configuration file without the project
+template. Memory is almost used up with 128k context; more speed or a larger quantisation
+only come at the cost of context or with other hardware.
 
-## Härtung für echte Projekte (Vorrang seit 2026-11-16)
+## Hardening for real projects (priority since 2026-11-16)
 
-Bei echter Arbeit an einer ESP32-Firmware zeigte `local-coder` zwei Fehlerklassen, die der
-Benchmark nicht misst: **erfundene Fakten** (Pins, Spannungen, Konfigurationsschlüssel)
-und **Widersprüche zwischen Dateien** nach einer Änderung. Eine Gegenprüfung mit einem
-großen Modell fand beides. Ziel des Nutzers: Projekte, die mit dem lokalen Coder
-nachhaltig zuverlässig werden. Gleichstand eines 27B-Modells mit großen Modellen ist durch
-Einstellungen nicht zu erreichen (Annahme, nicht gemessen); das Ziel gilt dem ganzen
-System aus Modell, Regeln und Prüfprogrammen. Der Nutzer wählte am 2026-11-16 „Setup
-härten“ und für den zweiten Blick die lokale Variante (A).
+During real work on an ESP32 firmware `local-coder` showed two classes of errors the benchmark
+does not measure: **made-up facts** (pins, voltages, configuration keys) and
+**contradictions between files** after a change. A cross-check with a large model found
+both. The user's goal: projects that become reliable for the long run with the local coder.
+Parity of a 27B model with large models cannot be reached through settings (assumption, not
+measured); the goal applies to the whole system of model, rules and check programs. On
+2026-11-16 the user chose "harden the setup" and the local variant (A) for the second look.
 
-| Nr. | Schritt | Stand |
+| No. | Step | State |
 |---|---|---|
-| H1 | Eine Quelle der Wahrheit je Projekt (`facts\facts.json`) und Abgleich gegen Doku und Code im Prüfbefehl | erledigt 2026-11-17 ([projekte.md](projekte.md)) |
-| H2 | Regel „Fakten belegen statt raten“ in `entwicklungsregeln.md` und der `CLAUDE.md` der Vorlage | erledigt 2026-11-17; Wirkung nicht gemessen (H4) |
-| H3 | Zweiter Blick: nach größeren Änderungen prüft ein zweites lokales Modell (`local-qwen38`) den Diff in frischem Kontext | erledigt 2026-11-17 ([agent.md](agent.md)); an einem Fall gemessen, `local-coder` fand dort als Prüfer mehr. Benchmark `h3-qwen38` nach 9 von 42 Läufen unterbrochen: 1 echter Befund, kein Fehlalarm, 53 % mehr Zeit. Offen: Rest der Aufgaben und `local-coder` als Prüfer (`h3-coder`) |
-| H4 | Benchmark-Aufgaben für Faktentreue und Konsistenz über Dateien | Aufgaben `datenblatt` und `pinwechsel` erledigt 2026-11-17 ([erweitern.md](erweitern.md)); `local-coder` besteht beide 3 von 3, `fakten` 6 von 6 ([Protokoll](protokoll.md)). Offen: Vergleich ohne Faktenablage; Wirkung des zweiten Blicks mit `Benchmark-Models.ps1 -Git` |
+| H1 | One source of truth per project (`facts\facts.json`) and comparison against documentation and code in the check command | done 2026-11-17 ([projects.md](projects.md)) |
+| H2 | Rule "check facts instead of guessing" in `coding-rules.md` and the `CLAUDE.md` of the template | done 2026-11-17; effect not measured (H4) |
+| H3 | Second look: after larger changes a second local model (`local-qwen38`) checks the diff in a fresh context | done 2026-11-17 ([agent.md](agent.md)); measured on one case, where `local-coder` found more as reviewer. Benchmark `h3-qwen38` interrupted after 9 of 42 runs: 1 real finding, no false alarm, 53 % more time. Open: the remaining tasks and `local-coder` as reviewer (`h3-coder`) |
+| H4 | Benchmark tasks for faithfulness to facts and consistency across files | tasks `datenblatt` and `pinwechsel` done 2026-11-17 ([extending.md](extending.md)); `local-coder` passes both 3 of 3, `facts` 6 of 6 ([development log](devlog.md)). Open: comparison without the facts file; effect of the second look with `Benchmark-Models.ps1 -Git` |
 
-## Reihenfolge
+## Order
 
-| Stufe | Inhalt | Aufwand | Ziel |
+| Stage | Content | Effort | Goal |
 |---|---|---|---|
-| 1 | Schutznetz: erledigt am 2026-11-15 ([Protokoll](protokoll.md), [sicherheit.md](sicherheit.md)). Rest: S8 | eine Sitzung am Terminal | Ein Fehler des Modells zerstört nichts auf dem Rechner, ein Tippfehler in `config\` fällt sofort auf |
-| 2 | Messbarkeit: erledigt am 2026-11-15 ([Protokoll](protokoll.md), [modellwahl.md](modellwahl.md)) | | Jede spätere Änderung lässt sich an Aufgaben prüfen, die dem echten Einsatz gleichen |
-| 3 | Arbeitsweise: erledigt am 2026-11-15 ([Protokoll](protokoll.md), [projekte.md](projekte.md), [agent.md](agent.md)). Rest: N8, N9, Q9 | | Jedes neue Projekt beginnt pflegbar, Tests und Prüfungen laufen ohne Zutun des Modells |
-| 4 | Feinschliff, erster Teil erledigt am 2026-11-16 (E1, E2, G1, G2, Q9: [modellwahl.md](modellwahl.md)). Rest: E3 bis E5, G3, G4, Q4, Q5 (Q6 ist als H3 erledigt, G5 laufend) | je ein Messlauf | Mehr Kontext und Tempo, jeweils mit Zahl belegt |
-| 5 | Größere Schritte: S6, S9, Q7, G6 | offen | Sandbox, Modellwechsel, Hardware |
+| 1 | Safety net: done on 2026-11-15 ([development log](devlog.md), [security.md](security.md)). Left: S8 | one session at the terminal | A mistake of the model destroys nothing on the computer, a typo in `config\` shows up at once |
+| 2 | Measurability: done on 2026-11-15 ([development log](devlog.md), [model-choice.md](model-choice.md)) | | Every later change can be checked against tasks that resemble real use |
+| 3 | Way of working: done on 2026-11-15 ([development log](devlog.md), [projects.md](projects.md), [agent.md](agent.md)). Left: N8, N9, Q9 | | Every new project starts maintainable, tests and checks run without the model's help |
+| 4 | Fine-tuning, first part done on 2026-11-16 (E1, E2, G1, G2, Q9: [model-choice.md](model-choice.md)). Left: E3 to E5, G3, G4, Q4, Q5 (Q6 is done as H3, G5 ongoing) | one measuring run each | More context and speed, each backed by a number |
+| 5 | Larger steps: S6, S9, Q7, G6 | open | Sandbox, model change, hardware |
 
-## Sicherheit
+## Security
 
-Ein unzensiertes Modell lehnt nichts ab, auch keine Anweisung, die in einer gelesenen
-Datei oder Webseite versteckt ist. Die Absicherung muss deshalb außerhalb des Modells
-liegen: im Server, in Claude Code und in Git.
+An uncensored model refuses nothing, not even an instruction hidden in a file or web page it
+has read. The protection therefore has to lie outside the model: in the server, in the agent
+and in git.
 
-**Grundsatz (Vorgabe des Nutzers, 2026-11-15):** Der Schutz dient dem eigenen Rechner und
-den eigenen Daten. Er bewertet nicht, woran das Modell arbeitet, und er behindert die
-normale Arbeit nicht. Jeder Vorschlag unten ist daran zu messen; im Zweifel fragt der
-Schutz nach, statt zu sperren.
+**Principle (given by the user, 2026-11-15):** the protection serves your own computer and
+your own data. It does not judge what the model is working on, and it does not get in the
+way of normal work. Every proposal below is measured against that; when in doubt, the
+protection asks instead of blocking.
 
-Erledigt sind der Schlüssel für den Server, der Wächter vor jedem Werkzeug-Aufruf (auch
-für Zugangsdaten) und der Git-Hinweis beim Start: [sicherheit.md](sicherheit.md).
+Done are the key for the server, the guard before every tool call (also for credentials) and
+the git note at start: [security.md](security.md).
 
-| Nr. | Vorschlag | Warum | Prüfen |
+| No. | Proposal | Why | Check |
 |---|---|---|---|
-| S5 | **Herkunft und Prüfsummen der Modelldateien.** Feld `sha256` je Datei in `models.json`, `Add-Model.ps1` prüft es. Quelle der drei `mmproj`-Dateien nachtragen. | Modelldateien sind fremder Code für die Grafikkarte. Bei den `mmproj`-Dateien ist die Quelle nicht festgehalten. | `Add-Model.ps1` lehnt eine Datei mit falscher Summe ab |
-| S6 | **Riskante Arbeit in WSL2.** Claude Code in WSL2 mit eingeschalteter Sandbox (Schreiben nur im Projektordner, Netz nur zu erlaubten Adressen), `llama-server` bleibt unter Windows. Vorher den Schalter `--restricted` ausprobieren, der die Datei-Werkzeuge auf den Arbeitsordner beschränkt. | Einzige Möglichkeit, Befehle wirklich einzusperren (belegt). Aufwand: Netzwerk zwischen WSL2 und Windows, zweite Installation. | Schreibversuch außerhalb des Projektordners scheitert |
-| S7 | **Abhängigkeiten prüfen, ohne die Arbeit aufzuhalten.** `pip-audit` oder `npm audit` im Prüfbefehl des Projekts (N9); keine Rückfrage bei jeder Installation. | Pakete aus dem Netz sind der übliche Weg für Schadcode auf dem eigenen Rechner; ein lokales Modell erfindet gelegentlich Paketnamen (Annahme). Eine Rückfrage bei jedem `pip install` würde die normale Arbeit behindern. | Ein Paket mit bekannter Lücke lässt die Projektprüfung scheitern |
-| S8 | **Rückfrage in einer echten Sitzung bestätigen.** Im Terminal einen Befehl auslösen, bei dem der Wächter fragt (etwa `git reset --hard` in einem Testordner), und prüfen, dass die Frage mit Begründung erscheint und Ja wie Nein wirken. Danach `E:\LlamaCpp\logs\guard.log` nach einigen Tagen Arbeit durchsehen: Regeln, die bei normaler Arbeit anschlagen, lockern. | Geprüft sind bisher Sperren und Rückfragen in Läufen ohne Nutzer; dort zählt eine Rückfrage als Nein. Ob der Wächter im Alltag stört, zeigt nur der Alltag. | Frage erscheint; kein Eintrag im Protokoll des Wächters, der normale Arbeit betrifft |
-| S9 | **Sperren schwerer umgehbar machen.** Skripte, die das Modell schreibt und dann startet, vor dem Start mit denselben Regeln prüfen. | Gemessen: Auf eine Sperre hin suchte das Modell von sich aus eine andere Schreibweise. Ein Wächter, der nur die Befehlszeile sieht, bemerkt nicht, was in einer gestarteten Datei steht. | Testfall: gesperrter Befehl in einer `.ps1`- oder `.sh`-Datei wird beim Start erkannt |
+| S5 | **Origin and checksums of the model files.** A field `sha256` per file in `models.json`, `Add-Model.ps1` checks it. Record the source of the three `mmproj` files. | Model files are foreign code for the graphics card. The source of the `mmproj` files is not recorded. | `Add-Model.ps1` rejects a file with a wrong sum |
+| S6 | **Risky work in WSL2.** Claude Code in WSL2 with the sandbox switched on (writing only in the project folder, network only to allowed addresses), `llama-server` stays on Windows. First try the switch `--restricted`, which limits the file tools to the working folder. | The only way to really lock commands in (documented). Effort: network between WSL2 and Windows, a second installation. | A write attempt outside the project folder fails |
+| S7 | **Check dependencies without holding up work.** `pip-audit` or `npm audit` in the check command of the project (N9); no question at every installation. | Packages from the internet are the usual way for malicious code onto your own computer; a local model occasionally makes up package names (assumption). A question at every `pip install` would get in the way of normal work. | A package with a known vulnerability makes the project check fail |
+| S8 | **Confirm the question in a real session.** Trigger a command at the terminal where the guard asks (for example `git reset --hard` in a test folder) and check that the question appears with its reason and that yes and no both work. Then look through `<installRoot>\logs\guard.log` after a few days of work: loosen rules that fire during normal work. | So far blocks and questions are checked in runs without a user; there a question counts as no. Only everyday use shows whether the guard gets in the way. | The question appears; no entry in the guard's log that concerns normal work |
+| S9 | **Make blocks harder to get around.** Check scripts that the model writes and then starts with the same rules before they start. | Measured: after a block the model looked for another spelling on its own. A guard that only sees the command line does not notice what is in a started file. | Test case: a blocked command in a `.ps1` or `.sh` file is recognised when it starts |
 
-## Qualität
+## Quality
 
-Erledigt sind die Aufgaben nach dem echten Einsatz und die Messung der Regeltreue
-([erweitern.md](erweitern.md)), die Hinweise zu PowerShell 5.1 (`psscript` 9 von 9 statt
-0 von 6) und die Abschlussprüfung ([agent.md](agent.md)). Ausgangswerte für alles Weitere,
-`local-coder`, Lauf `stufe4`: 14 von 15 Läufen bestanden in 4903 s, 89 % der Regeln
-eingehalten, `longcontext` 2 von 3.
+Done are the tasks modelled on real use and the measurement of rule adherence
+([extending.md](extending.md)), the notes on PowerShell 5.1 (`psscript` 9 of 9 instead of
+0 of 6) and the closing check ([agent.md](agent.md)). Baseline for everything further,
+`local-coder`, run `stufe4`: 14 of 15 runs passed in 4903 s, 89 % of the rules followed,
+`longcontext` 2 of 3.
 
-| Nr. | Vorschlag | Warum | Prüfen |
+| No. | Proposal | Why | Check |
 |---|---|---|---|
-| Q4 | **Denkaufwand begrenzen.** `reasoning-budget` in Stufen messen. | Offener Punkt aus dem Protokoll. Weniger Denk-Tokens sparen Zeit und Kontext; ob die Qualität leidet, ist offen (Annahme). | `planner` sechsmal je Stufe: Quote und Zeit |
-| Q5 | **Größere Quantisierung.** Q5_K_M des 27B-Modells statt Q4_K_M. Die Datei ist geladen (Prüfsumme gleich der Angabe der Quelle), Profil `local-coder-q5`. Gemessen: passt nur mit 64k Kontext (Aufteilung 66/34), 54 statt 61 Tok./s. Offen ist der Vergleich der Qualität; ein Gewinn müsste den Verlust von 64k Kontext aufwiegen. | Mehr Bits je Gewicht heißt weniger Rechenfehler; ob das bei Agenten-Aufgaben sichtbar wird, ist offen (Annahme). Kostet Speicher und etwas Tempo. | `planner` und die fünf neueren Aufgaben, Tempo aus `Test-Model.ps1` |
-| Q7 | **Modelle beobachten, mit festem Verfahren.** Einmal im Monat Kandidaten sichten (zuletzt genannt: Devstral Small 2, neuere Qwen-Coder-Modelle; Angaben der Hersteller, hier ungeprüft). Ein Wechsel nur, wenn das neue Modell den ganzen Benchmark mindestens so gut besteht. | Qwen 3.8 war laut Hersteller besser und in der eigenen Messung schlechter als Qwen 3.6 (gemessen). Eigene Messung schlägt Bestenlisten. | Eintrag in [modellwahl.md](modellwahl.md) je Kandidat |
+| Q4 | **Limit the thinking effort.** Measure `reasoning-budget` in steps. | Open point from the development log. Fewer thinking tokens save time and context; whether quality suffers is open (assumption). | `planner` six times per step: rate and time |
+| Q5 | **Larger quantisation.** Q5_K_M of the 27B model instead of Q4_K_M. The file is downloaded (checksum equal to the one given by the source), profile `local-coder-q5`. Measured: fits only with 64k context (split 66/34), 54 instead of 61 tok/s. Open is the comparison of quality; a gain would have to outweigh the loss of 64k context. | More bits per weight means fewer computing errors; whether that shows in agent tasks is open (assumption). Costs memory and a little speed. | `planner` and the five newer tasks, speed from `Test-Model.ps1` |
+| Q7 | **Watch models, with a fixed procedure.** Look at candidates once a month (last named: Devstral Small 2, newer Qwen coder models; figures of the makers, unchecked here). Change only when the new model passes the whole benchmark at least as well. | According to its maker Qwen 3.8 was better, and in our own measurement worse than Qwen 3.6 (measured). Our own measurement beats leaderboards. | An entry in [model-choice.md](model-choice.md) per candidate |
 
-## Nachhaltige Entwicklung
+## Sustainable development
 
-Der Coder soll Projekte bauen, die in zwei Jahren noch jemand versteht und erweitert. Dafür
-reichen Regeln im Prompt nicht. Die Struktur muss im Projekt liegen, und die Prüfung muss
-ein Programm übernehmen.
+The coder should build projects that someone still understands and extends two years from
+now. Rules in the prompt are not enough for that. The structure has to be in the project,
+and a program has to do the checking.
 
-Erledigt sind die Projektvorlage mit `New-Project.ps1`, die kurze `CLAUDE.md`, der Ordner
-für Entscheidungen, der Prüfbefehl mit Git-Hook, Schnittstellen und Versionen in der
-Vorlage und die Befehle für feste Abläufe: [projekte.md](projekte.md). Gemessen: Mit
-`CLAUDE.md` und Prüfbefehl hält `local-coder` 91 % der Regeln ein statt 85 %, der Wert in
-der Konfigurationsdatei gelingt in 5 von 6 statt 0 von 6 Läufen.
+Done are the project template with `New-Project.ps1`, the short `CLAUDE.md`, the folder for
+decisions, the check command with git hook, interfaces and versions in the template and the
+workflows: [projects.md](projects.md). Measured: with `CLAUDE.md` and check command
+`local-coder` follows 91 % of the rules instead of 85 %, the value in the configuration file
+succeeds in 5 of 6 runs instead of 0 of 6.
 
-| Nr. | Vorschlag | Warum | Prüfen |
+| No. | Proposal | Why | Check |
 |---|---|---|---|
-| N8 | **Entscheidungsdateien und Befehle messen.** Eine Benchmark-Aufgabe, bei der eine Änderung an einer Schnittstelle eine Datei in `docs\entscheidungen\` verlangt; `/lokal:feature` und `/lokal:bugfix` an allen passenden Aufgaben; Befehle und Abschlussprüfung in einer echten Sitzung am Terminal ausprobieren. | Der Ordner und die Befehle sind da, aber ob das Modell Entscheidungen von sich aus festhält, ist nicht gemessen. `/lokal:feature` ist nur an `extend` gemessen (2 von 3, Regeln 15 von 15). | Quote je Befehl; Entscheidungsdatei in drei von drei Läufen |
-| N9 | **Prüfbefehl ausbauen.** `ruff`, `PSScriptAnalyzer`, `gitleaks` und `pip-audit` (S7) installieren und die optionalen Schritte in `config\check.json` der Vorlagen ausprobieren; derselbe Befehl in GitHub Actions. | Die Linter-Schritte stehen in der Vorlage, sind aber ungeprüft, weil die Programme fehlen. Eine Suche nach Geheimnissen fehlt ganz. | Absichtlich eingebaute Fehler (unbenutzter Import, Schlüssel im Code) lassen den Befehl scheitern |
-| N6 | **Kleine Schritte.** Ein Auftrag je Sitzung, danach `/clear`. Ein Commit je abgeschlossener Änderung. Große Vorhaben zuerst in einer Liste in `docs\` zerlegen, dann Punkt für Punkt. | 64k Kontext sind schnell voll; nach dem Komprimieren fehlen Einzelheiten. Kleine Commits lassen sich einzeln zurücknehmen. | Erfahrungswert, im Protokoll notieren |
+| N8 | **Measure decision files and workflows.** A benchmark task in which a change to an interface requires a file in `docs\decisions\`; `/feature` and `/bugfix` on all fitting tasks; try workflows and closing check in a real session at the terminal. | The folder and the workflows exist, but whether the model records decisions on its own is not measured. `/feature` is only measured on `extend` (2 of 3, rules 15 of 15). | Rate per workflow; decision file in three of three runs |
+| N9 | **Extend the check command.** Install `ruff`, `PSScriptAnalyzer`, `gitleaks` and `pip-audit` (S7) and try the optional steps in `config\check.json` of the templates; the same command in GitHub Actions. | The linter steps are in the template but unchecked because the programs are missing. A search for secrets is missing entirely. | Deliberately built-in errors (unused import, key in the code) make the command fail |
+| N6 | **Small steps.** One task per session, then `/clear`. One commit per finished change. Break large plans into a list in `docs\` first, then point by point. | 64k context fills up fast; after compacting, details are missing. Small commits can be undone one by one. | Experience, note it in the development log |
 
-## Effizienz
+## Efficiency
 
-Knapp sind der Kontext und der Speicher der schnelleren Grafikkarte. Erledigt: Bild-Encoder
-auf der RTX 3060 und 128k Kontext ([modellwahl.md](modellwahl.md)).
+What is scarce are the context and the memory of the faster graphics card. Done: image
+encoder on the RTX 3060 and 128k context ([model-choice.md](model-choice.md)).
 
-| Nr. | Vorschlag | Warum | Prüfen |
+| No. | Proposal | Why | Check |
 |---|---|---|---|
-| E3 | **Ausgaben von Werkzeugen begrenzen.** Obergrenze für die Ausgabe von `Bash` senken; Regel: lange Ausgaben in eine Datei leiten und gezielt lesen. | Eine einzige lange Testausgabe kann mehrere tausend Tokens kosten (Annahme zur Größenordnung). | Tokens je Aufgabe im Benchmark |
-| E4 | **Kontext-Cache über Pausen retten.** `slot-save-path` ausprobieren. | Nach der Leerlauf-Grenze und nach dem Entladen wird die Unterhaltung neu eingelesen: bei 60k Tokens etwa 40 s (gerechnet aus 1500 Tokens/s). | Zeit der ersten Antwort nach dem Aufwachen |
-| E5 | **Systemprompt stabil halten.** Schalter `--exclude-dynamic-system-prompt-sections` und kürzere Werkzeugbeschreibungen prüfen. | Der Schalter verschiebt wechselnde Angaben aus dem Systemprompt (belegt, `claude --help`); ob der Cache des Servers dadurch öfter trifft, ist offen. Der Cache selbst arbeitet: Im Protokoll wurden von 6300 Tokens nur 385 neu eingelesen (gemessen). | Neu eingelesene Tokens je Anfrage im `server.log` |
+| E3 | **Limit tool output.** Lower the limit for the output of `Bash`; rule: send long output into a file and read it selectively. | A single long test output can cost several thousand tokens (assumption about the magnitude). | Tokens per task in the benchmark |
+| E4 | **Keep the context cache across breaks.** Try `slot-save-path`. | After the idle limit and after unloading, the conversation is read in again: about 40 s at 60k tokens (computed from 1500 tokens/s). | Time of the first answer after waking up |
+| E5 | **Keep the system prompt stable.** Try the switch `--exclude-dynamic-system-prompt-sections` and shorter tool descriptions (for `claude-local`). | The switch moves changing details out of the system prompt (documented, `claude --help`); whether the server's cache then hits more often is open. The cache itself works: in the log only 385 of 6300 tokens were read in anew (measured). | Tokens read in anew per request in `server.log` |
 
-## Geschwindigkeit
+## Speed
 
-| Nr. | Vorschlag | Warum | Prüfen |
+| No. | Proposal | Why | Check |
 |---|---|---|---|
-| G2 | **GPU-Aufteilung, falls Kontext frei wird.** 79/21 statt 70/30. | Gemessen bei 64k: 65,5 statt 61 Tok./s, Einlesen 1635 statt 1316 Tok./s. Der Speicher dafür ist seit 128k Kontext belegt; die Frage stellt sich neu mit G6 oder einem kleineren Kontext. | `Test-Model.ps1` |
-| G3 | **Hintergrundanfragen.** Im `server.log` einer echten Sitzung zählen, wie oft Claude Code Nebenanfragen schickt und ob danach die ganze Unterhaltung neu eingelesen wird. Falls ja: zweiter Platz (`parallel = 2`) oder ein kleines Modell auf der 3060 für diese Anfragen. | Mit einem Platz kann eine Nebenanfrage den Cache der Hauptunterhaltung verdrängen (Annahme). In Läufen mit `-p` kommt das nicht vor. | Neu eingelesene Tokens je Anfrage |
-| G4 | **Aufgaben verteilen.** `local-fast` für Suchen, Erklären und kleine Änderungen, `local-coder` für alles Schwere. | `local-fast` ist doppelt so schnell und besteht die leichten Aufgaben (gemessen), scheitert aber an `planner`. | Zeit je Aufgabenart |
-| G5 | **llama.cpp aktuell halten.** Neue Versionen nach dem Verfahren in [backend.md](backend.md) einspielen. Zuletzt b12433 am 2026-11-16: 13 von 15 in 4463 s, 91 % Regeln, Tempo gleich ([Protokoll](protokoll.md)). | MTP und das Rechnen mit mehreren Karten werden laufend schneller. Nach jedem Wechsel den Benchmark wiederholen. | `Benchmark-Models.ps1 -Label <version>` |
-| G6 | **Hardware.** Eine Karte mit 24 GB statt der RTX 3060, oder die zweite Karte an einen Steckplatz mit mehr Leitungen. | Der Anschluss mit PCIe x4 bremst ([gpu-tuning.md](gpu-tuning.md)). Mehr Speicher erlaubt Q5 oder Q6 zusammen mit 128k Kontext und die schnellere Aufteilung. Größter Hebel, einziger mit Kosten. MTP-Länge, Aufteilung und Kontext sind ausgeschöpft (gemessen). | Benchmark vorher und nachher |
+| G2 | **GPU split, if context becomes free.** 79/21 instead of 70/30. | Measured at 64k: 65.5 instead of 61 tok/s, reading 1635 instead of 1316 tok/s. The memory for it is taken since 128k context; the question comes up again with G6 or a smaller context. (Today the planner computes the split, [planner.md](planner.md).) | `Test-Model.ps1` |
+| G3 | **Background requests.** Count in the `server.log` of a real session how often Claude Code sends side requests and whether the whole conversation is read in again afterwards. If so: a second slot (`parallel = 2`) or a small model on the 3060 for these requests. | With one slot a side request can push the cache of the main conversation out (assumption). It does not happen in runs with `-p`. | Tokens read in anew per request |
+| G4 | **Distribute tasks.** `local-fast` for searching, explaining and small changes, `local-coder` for everything hard. | `local-fast` is twice as fast and passes the easy tasks (measured), but fails at `planner`. | Time per kind of task |
+| G5 | **Keep llama.cpp up to date.** Bring in new versions with the procedure in [backend.md](backend.md). Last b12433 on 2026-11-16: 13 of 15 in 4463 s, 91 % rules, speed the same ([development log](devlog.md)). | MTP and computing with several cards keep getting faster. Repeat the benchmark after every change. | `Benchmark-Models.ps1 -Label <version>` |
+| G6 | **Hardware.** A card with 24 GB instead of the RTX 3060, or the second card in a slot with more lanes. | The PCIe x4 connection slows things down ([gpu-tuning.md](gpu-tuning.md)). More memory allows Q5 or Q6 together with 128k context and the faster split. Biggest lever, the only one that costs money. MTP length, split and context are exhausted (measured). | Benchmark before and after |
 
-## Pflege dieses Projekts
+## Maintaining this project
 
-| Nr. | Vorschlag | Warum | Prüfen |
+| No. | Proposal | Why | Check |
 |---|---|---|---|
-| P3 | **Tests für die Bausteine.** Pester-Tests für `lib\Config.ps1`, die erzeugte `models.ini` und `lib\Session.ps1`. | Bisher prüft nur der Lauf mit geladenem Modell. Die Logik darum herum wächst. | Tests laufen in `Test-Setup.ps1` mit |
-| P4 | **Fehler an llama.cpp melden.** Die falsche Reihenfolge von Text und Tool-Ergebnis ([modelle.md](modelle.md)) als Issue. | Dann entfällt der Block „agent fix“ irgendwann, und die Vorlagen bleiben näher am Original. Braucht das GitHub-Konto des Nutzers. | Issue angelegt |
-| P5 | **Offenes aus dem Protokoll.** `/model` und Continue in echter Bedienung bestätigen, Ablehnungsraten selbst prüfen, Einzelwirkung der Arbeitsregeln messen (Lauf mit und ohne `entwicklungsregeln.md`, Quote „Regeln eingehalten“). Im Benchmark abgelehnte Aufrufe ansehen: Das Modell schrieb den Arbeitsordner mit falscher Groß- und Kleinschreibung oder setzte `cd ... &&` vor den Befehl. | Stehen seit dem 14.11. offen. | Einträge im Protokoll |
+| P3 | **Tests for the building blocks.** Pester tests for `lib\Config.ps1`, the generated `models.ini` and `lib\Session.ps1`. | So far only the run with a loaded model checks them. The logic around it grows. | Tests run as part of `Test-Setup.ps1` |
+| P4 | **Report the bug to llama.cpp.** The wrong order of text and tool result ([models.md](models.md)) as an issue. | Then the block "agent fix" can go away some day, and the templates stay closer to the original. Needs the user's GitHub account. | Issue created |
+| P5 | **Open points from the development log.** Confirm `/model` and Continue in real use, check refusal rates yourself, measure the effect of the working rules alone (run with and without `coding-rules.md`, rate "rules followed"). Look at refused calls in the benchmark: the model wrote the working folder with the wrong upper and lower case or put `cd ... &&` in front of the command. | Open since Nov 14. | Entries in the development log |
 
-## Quellen der Recherche
+## Sources of the research
 
-- Claude Code, Sandbox: <https://code.claude.com/docs/en/sandboxing> (Windows ohne Sandbox,
-  Einstellungen der Sandbox)
-- Unsloth, Claude Code mit lokalen Modellen: <https://unsloth.ai/docs/basics/claude-code>
-  (Cache, Schalter für den Systemprompt, Sampling)
-- llama.cpp, Dokumentation des Servers im Stand b12359: `tools/server/README.md`
-  (Schlafen im Leerlauf, Router, Cache-Optionen), Quelltext `tools/server/server-chat.cpp`
-- Stack Overflow Blog, „Coding guidelines for AI agents“:
+- Claude Code, sandbox: <https://code.claude.com/docs/en/sandboxing> (Windows without a
+  sandbox, settings of the sandbox)
+- Unsloth, Claude Code with local models: <https://unsloth.ai/docs/basics/claude-code>
+  (cache, switch for the system prompt, sampling)
+- llama.cpp, documentation of the server as of b12359: `tools/server/README.md`
+  (sleeping when idle, router, cache options), source code `tools/server/server-chat.cpp`
+- Stack Overflow Blog, "Coding guidelines for AI agents":
   <https://stackoverflow.blog/2026/03/26/coding-guidelines-for-ai-agents-and-people-too/>
-- Sonar, „Seven habits of highly effective AI coding“:
+- Sonar, "Seven habits of highly effective AI coding":
   <https://www.sonarsource.com/blog/seven-habits-of-highly-effective-ai-coding/>
-- Marmelab, „Agent Experience“: <https://marmelab.com/blog/2026/01/21/agent-experience.html>
-- Modellübersichten (Angaben der Hersteller, hier nicht nachgemessen):
+- Marmelab, "Agent Experience": <https://marmelab.com/blog/2026/01/21/agent-experience.html>
+- Model overviews (figures of the makers, not measured here):
   <https://insiderllm.com/guides/best-local-coding-models-2026/>,
   <https://www.promptquorum.com/local-llms/best-local-llms-for-coding>

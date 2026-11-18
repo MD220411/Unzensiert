@@ -1,6 +1,6 @@
 # Computes how each model is best spread over the graphics cards and the main memory of
 # this machine and writes the result into config\machine.json (lib\Planner.ps1,
-# docs\planer.md):
+# docs\planner.md):
 #   1. stops llama-server, so the cards are empty, and reads their free memory
 #   2. calibration: measures every model once with llama-bench (about half a minute per
 #      model); kept in machine.json and repeated only for other cards or with -Recalibrate
@@ -60,7 +60,7 @@ if ($targets.Count -eq 0) { throw 'No agent model is installed. Download one fir
 # The models of the /model picker share one context window per session: claude-local takes
 # the smallest of them, so that switching cannot overflow a model. The default model is
 # therefore planned first, and the other picker models get at least its context if they
-# can (docs\planer.md).
+# can (docs\planner.md).
 $defaultModel = Get-DefaultAgentModel
 $pickerModels = @(@((Get-AgentConfig).picker) | ForEach-Object { [string]$_.model })
 $targets = @(@($targets | Where-Object { $_ -eq $defaultModel }) + @($targets | Where-Object { $_ -ne $defaultModel }))
@@ -122,7 +122,7 @@ function Invoke-Planning([string]$Name, [double]$Reserve) {
     $speed = ConvertTo-Hashtable $cal.speed
     # The speed of a card is a property of the card. A mixture-of-experts model measures it
     # badly (its runs are bound by computing more than by memory), so the values a dense
-    # model measured on the same cards are used if there are any (docs\planer.md).
+    # model measured on the same cards are used if there are any (docs\planner.md).
     if ($info.nExpert -gt 0) {
         $all = (Get-MachineConfig).PSObject.Properties['calibration']
         foreach ($p in @($all.Value.PSObject.Properties)) {

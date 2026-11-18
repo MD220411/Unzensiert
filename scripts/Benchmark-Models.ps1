@@ -188,7 +188,7 @@ function Get-ReviewLogEntries([string]$workDir) {
 
 function Set-KeepAwake([bool]$On) {
     # Asks Windows not to sleep while the benchmark runs (ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
-    # off clears the request. Long runs were cut by sleep before (docs\protokoll.md).
+    # off clears the request. Long runs were cut by sleep before (docs\devlog.md).
     if (-not ('ClaudeLocal.Power' -as [type])) {
         Add-Type -Namespace ClaudeLocal -Name Power -MemberDefinition '[System.Runtime.InteropServices.DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);'
     }

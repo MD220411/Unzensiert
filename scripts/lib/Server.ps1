@@ -23,7 +23,7 @@ function Write-ModelPresetFile {
         $lines.Add("model = $($model.path)")
         # Without its image encoder a model still loads, it just cannot read images.
         $noVision = $model.args.Contains('mmproj') -and -not (Test-Path $model.args['mmproj'])
-        if ($noVision) { Write-Warning "Model '$name': image encoder $($model.args['mmproj']) is missing, loading without image input. See docs\modelle.md." }
+        if ($noVision) { Write-Warning "Model '$name': image encoder $($model.args['mmproj']) is missing, loading without image input. See docs\models.md." }
         foreach ($key in $model.args.Keys) {
             if ($noVision -and $key -like 'mmproj*') { continue }
             $value = $model.args[$key]

@@ -1,208 +1,204 @@
-# Unzensiert: der eigene Agent
+# Unzensiert: the own agent
 
-`unzensiert` ist der Coding-Agent dieses Projekts. Er arbeitet im aktuellen Ordner mit
-einem lokalen Modell von `llama-server`: liest und ändert Dateien, führt Befehle aus und
-prüft seine Arbeit. Er braucht kein weiteres Programm und keine Cloud. Er spricht die
-OpenAI-kompatible Schnittstelle des Servers an (`/v1/chat/completions`, gestreamt, mit
-Werkzeugen) und ist ganz in PowerShell 5.1 geschrieben, das auf jedem Windows vorhanden ist.
+`unzensiert` is the coding agent of this project. It works in the current folder with a local
+model of `llama-server`: it reads and changes files, runs commands and checks its work. It
+needs no further program and no cloud. It talks to the OpenAI-compatible interface of the
+server (`/v1/chat/completions`, streamed, with tools) and is written entirely in PowerShell
+5.1, which is present on every Windows.
 
-Bedienung, Werkzeuge, Arbeitsregeln, Wächter, Abschlussprüfung, zweiter Blick und die
-Befehle `/feature`, `/bugfix`, `/pruefen` sind dieselben wie bei `claude-local`. Die
-Oberfläche zeichnet Unzensiert selbst, im Stil des Projekts und auf Deutsch
-([stil.md](stil.md#die-oberfläche-von-unzensiert)). `claude-local` (Claude Code am lokalen
-Server, [agent.md](agent.md)) bleibt zum Vergleich erhalten; der Benchmark kann beide
-messen.
+Operation, tools, working rules, guard, closing check, second look and the workflows
+`/feature`, `/bugfix`, `/review` are the same as with `claude-local`. Unzensiert draws its
+terminal itself, in the look of the project ([style.md](style.md#the-terminal-of-unzensiert)).
+`claude-local` (Claude Code with the local server, [agent.md](agent.md)) stays for
+comparison; the benchmark can measure both.
 
-## Gemessen gegen Claude Code
+## Measured against Claude Code
 
-Alle elf Benchmark-Aufgaben, jede dreimal, mit `local-coder`, beide Agenten unter gleichen
-Bedingungen (Lauf `vergleich2`; Tabelle je Aufgabe und Bewertung in
-[modellwahl.md](modellwahl.md)):
+All eleven benchmark tasks, each three times, with `local-coder`, both agents under the same
+conditions (run `vergleich2`; table per task and assessment in
+[model-choice.md](model-choice.md)):
 
 | | Unzensiert | claude-local (Claude Code) |
 |---|---|---|
-| bestanden | 27 / 33 | 29 / 33 |
-| Zeit (Summe der Mediane je Aufgabe) | **1.629 s** | 2.160 s |
-| Runden (ebenso) | **268** | 418 |
-| geschriebene Tokens (ebenso) | **98.591** | 122.004 |
-| Arbeitsregeln | 88 / 96 | 86 / 96 |
-| Zeitlimit erreicht (zählt als nicht bestanden) | 1 | 1 |
+| passed | 27 / 33 | 29 / 33 |
+| time (sum of the medians per task) | **1,629 s** | 2,160 s |
+| rounds (likewise) | **268** | 418 |
+| tokens written (likewise) | **98,591** | 122,004 |
+| working rules | 88 / 96 | 86 / 96 |
+| time limit reached (counts as failed) | 1 | 1 |
 
-Unzensiert war bei allen elf Aufgaben schneller: zusammen 25 % weniger Zeit und 36 % weniger
-Runden. Beim Bestehen liegt der Unterschied im Zufall (exakter Test nach Fisher, p = 0,73);
-alle Fehlschläge mit falschem Ergebnis sind Fehler des Modells, die auch bei Claude Code
-vorkamen. Der erste
-Vergleich (`vergleich1`, fünf Aufgaben, je ein Lauf) steht ebenfalls in
-[modellwahl.md](modellwahl.md).
+Unzensiert was faster on all eleven tasks: 25 % less time and 36 % fewer rounds altogether.
+The difference in passing is within chance (Fisher's exact test, p = 0.73); all failures with
+a wrong result are mistakes of the model that also happened with Claude Code. The first
+comparison (`vergleich1`, five tasks, one run each) is also in
+[model-choice.md](model-choice.md).
 
-## Benutzen
+## Using it
 
-| Befehl | Wirkung |
+| Command | Effect |
 |---|---|
-| `unzensiert` | Unterhaltung im Terminal mit dem Standardmodell (`model` in `config\agent.json`) |
-| `unzensiert "Aufgabe"` | dasselbe, beginnt gleich mit dieser Anfrage |
-| `unzensiert -Model schnell` | anderes Modell: Kurzname aus `aliases` oder Profilname |
-| `unzensiert -p "Frage"` | eine Anfrage ohne Terminal, die Antwort als Text; die Anfrage kann auch über eine Pipe kommen |
-| `unzensiert -p --output-format json ...` | dasselbe als eine JSON-Zeile (siehe unten) |
-| `unzensiert -c` | die letzte Unterhaltung in diesem Ordner fortsetzen |
-| `unzensiert --resume` | eine frühere Unterhaltung auswählen (`--resume <id>` direkt) |
-| `unzensiert --permission-mode edits` | Rechte-Modus `ask`, `edits` oder `all` (die Namen von Claude Code gehen auch) |
-| `unzensiert --allowedTools "Bash(python:*)"` | diese Aufrufe ohne Rückfrage erlauben, Schreibweise wie bei Claude Code |
-| `unzensiert --max-turns 30` | höchstens so viele Runden mit Werkzeugaufrufen |
-| `unzensiert -OnExit keep` | Modelle nach dem Ende geladen lassen (`unload`, `stop`, `keep`) |
-| `unzensiert --version`, `--help` | Version, Hilfe |
-| `unzensiert --update` | jetzt nach einem neuen Release sehen und es einspielen |
-| `unzensiert --updates on` / `off` | automatische Updates auf diesem Rechner ein- oder ausschalten |
+| `unzensiert` | conversation in the terminal with the default model (`model` in `config\agent.json`) |
+| `unzensiert "task"` | the same, starting right away with this request |
+| `unzensiert -Model fast` | another model: short name from `aliases` or profile name |
+| `unzensiert -p "question"` | one request without a terminal, the answer as text; the request can also come through a pipe |
+| `unzensiert -p --output-format json ...` | the same as one JSON line (see below) |
+| `unzensiert -c` | continue the last conversation in this folder |
+| `unzensiert --resume` | choose an earlier conversation (`--resume <id>` directly) |
+| `unzensiert --permission-mode edits` | rights mode `ask`, `edits` or `all` (the names of Claude Code work too) |
+| `unzensiert --allowedTools "Bash(python:*)"` | allow these calls without a question, written as in Claude Code |
+| `unzensiert --max-turns 30` | at most this many rounds with tool calls |
+| `unzensiert -OnExit keep` | keep the models loaded after the end (`unload`, `stop`, `keep`) |
+| `unzensiert --version`, `--help` | version, help |
+| `unzensiert --update` | look for a new release now and bring it in |
+| `unzensiert --updates on` / `off` | switch automatic updates on this computer on or off |
 
-Der Server startet bei Bedarf mit, das Modell lädt bei der ersten Anfrage. Endet die letzte
-Sitzung, werden die Modelle wie bei `claude-local` entladen (`onExit` in `config\agent.json`).
+The server starts along when needed, the model loads with the first request. When the last
+session ends, the models are unloaded as with `claude-local` (`onExit` in
+`config\agent.json`).
 
-## In der Unterhaltung
+## In the conversation
 
-| Taste oder Eingabe | Wirkung |
+| Key or input | Effect |
 |---|---|
-| Enter | senden |
-| Shift+Enter (oder Strg+Enter) | neue Zeile |
-| Pfeil hoch/runter | frühere Eingaben (gespeichert in `<installRoot>\unzensiert-history.txt`) |
-| Esc oder Strg+C, während das Modell arbeitet | anhalten; ein laufender Befehl wird mit allen Unterprozessen beendet |
-| Shift+Tab | Rechte-Modus wechseln (`ask` → `edits` → `all`); ein angefangener Text landet in der Liste früherer Eingaben |
-| Alt+V | Bild aus der Zwischenablage einfügen; das Modell sieht es |
-| `!befehl` | einen Befehl selbst ausführen; das Modell sieht Befehl und Ausgabe mit der nächsten Nachricht |
-| `/help` | alle Befehle |
-| `/model [Name oder Nummer]` | Modell wechseln (Einträge von `picker` in `config\agent.json`) |
-| `/mode [ask, edits, all]` | Rechte-Modus setzen oder weiterschalten |
-| `/compact [worauf achten]` | Unterhaltung jetzt zusammenfassen |
-| `/clear` | neue Unterhaltung |
-| `/resume [Nummer]` | frühere Unterhaltung dieses Ordners fortsetzen |
-| `/status` | Modell, Kontext, Tokens, Rechte, Projektanweisungen, Datei der Unterhaltung |
-| `/think` | Denken des Modells mitlesen oder nur die Länge zeigen |
-| `/init` | das Modell schreibt eine `AGENTS.md` für das Projekt |
-| `/feature`, `/bugfix`, `/pruefen` (auch `/lokal:feature` usw.) | feste Abläufe aus `config\befehle\commands\` ([agent.md](agent.md)) |
-| `/exit` | beenden |
+| Enter | send |
+| Shift+Enter (or Ctrl+Enter) | new line |
+| Up/Down arrow | earlier input (saved in `<installRoot>\unzensiert-history.txt`) |
+| Esc or Ctrl+C while the model works | stop; a running command is ended with all its child processes |
+| Shift+Tab | switch the rights mode (`ask` → `edits` → `all`); text you had started goes into the list of earlier input |
+| Alt+V | paste an image from the clipboard; the model sees it |
+| `!command` | run a command yourself; the model sees command and output with the next message |
+| `/help` | all commands |
+| `/model [name or number]` | switch the model (entries of `picker` in `config\agent.json`) |
+| `/mode [ask, edits, all]` | set the rights mode or move to the next one |
+| `/compact [what to keep]` | summarise the conversation now |
+| `/clear` | new conversation |
+| `/resume [number]` | continue an earlier conversation of this folder |
+| `/status` | model, context, tokens, rights, project instructions, file of the conversation |
+| `/think` | show the model's thinking or only its length |
+| `/init` | the model writes an `AGENTS.md` for the project |
+| `/feature`, `/bugfix`, `/review` (also `/local:feature` etc.) | workflows from `config\workflows\commands\` ([agent.md](agent.md)) |
+| `/exit` | quit |
 
-## Was man sieht
+## What you see
 
-Die Oberfläche ist in [stil.md](stil.md#die-oberfläche-von-unzensiert) mit Bild und allen
-Elementen beschrieben; `scripts\Show-AgentDesign.ps1` zeigt sie ohne Modell. Kurz:
+The terminal is described with a picture and all its elements in
+[style.md](style.md#the-terminal-of-unzensiert); `scripts\Show-AgentDesign.ps1` shows it
+without a model. In short:
 
-- **Begrüßung:** das Bild des Stils, daneben Version, Modell, Kontextfenster, Projekt mit
-  Git-Stand, Speicher der Grafikkarten, Rechte, Projektanweisungen und Server; ein Spruch
-  und die wichtigsten Tasten. Bei `-c` oder `--resume` steht dort, welche Unterhaltung
-  weitergeht.
-- **Statuszeile** vor jeder Eingabe: Stimmung und Modell, Kontext als Messlinie, Tempo der
-  letzten Antwort, Rechte, Grafikkarten, Ordner und Git, die Uhrzeit; was nicht in das
-  Fenster passt, fällt weg. Die eigene Nachricht steht nach dem Absenden auf einem farbigen
-  Balken.
-- **Wartezeile**, solange das Modell liest, denkt, einen Werkzeugaufruf schreibt, ein Befehl
-  läuft oder die Abschlussprüfung arbeitet: was gerade geschieht, seit wann, „Esc hält an“.
-  Titel und Fortschrittskreis des Tabs in Windows Terminal zeigen dasselbe, auch wenn das
-  Fenster im Hintergrund liegt.
-- **Antwort** mit Markdown (Überschriften, Listen, Aufgaben, Zitate, Tabellen mit
-  ausgerichteten Spalten, Links), an Wortgrenzen umbrochen; Codeblöcke im Rahmen mit den
-  Farben ihrer Sprache. Nach dem Denken eine Zeile „∴ 6,4 s gedacht · 365 Tokens“.
-- **Werkzeuge** mit Zeichen und Farbe, Haken oder Kreuz und Dauer; Befehle mit Anfang und
-  Ende ihrer Ausgabe, Änderungen als Diff mit Zeilennummern und markierten Zeichen.
-- **Rückfragen** im Rahmen, siehe Rechte.
-- Nach jeder Anfrage eine Zeile mit Dauer, Runden, geänderten Dateien, Tokens und Tempo;
-  am Ende der Sitzung eine Zusammenfassung.
+- **Welcome:** the picture of the style, next to it version, model, context window, project
+  with git state, memory of the graphics cards, rights, project instructions and server; a
+  quote and the most important keys. With `-c` or `--resume` it says which conversation
+  continues.
+- **Status line** before every input: mood and model, context as a gauge, speed of the last
+  answer, rights, graphics cards, folder and git, the time; whatever does not fit into the
+  window is dropped. Your own message stands on a coloured bar after sending.
+- **Activity line** while the model reads, thinks, writes a tool call, a command runs or the
+  closing check works: what is happening, for how long, "Esc stops". Title and progress ring
+  of the tab in Windows Terminal show the same, even when the window is in the background.
+- **Answer** with Markdown (headings, lists, tasks, quotes, tables with aligned columns,
+  links), wrapped at word boundaries; code blocks in a frame with the colours of their
+  language. After thinking a line "∴ thought for 6.4 s · 365 tokens".
+- **Tools** with sign and colour, tick or cross and duration; commands with the beginning and
+  end of their output, changes as a diff with line numbers and marked characters.
+- **Questions** in a frame, see Rights.
+- After every request a line with duration, rounds, changed files, tokens and speed; at the
+  end of the session a summary.
 
-Farben und Zeichen kommen aus dem aktiven Stil (`config\style.json`, Abschnitt `agent` der
-Stil-Datei), die Texte aus `config\unzensiert-texte.json`.
+Colours and glyphs come from the active style (`config\style.json`, section `agent` of the
+style file), the texts from `config\unzensiert-texts.json`.
 
-## Rechte
+## Rights
 
-Zuerst entscheidet in jedem Modus der Wächter (`config\guard.json`, [sicherheit.md](sicherheit.md)):
-Gesperrtes läuft nie, Heikles fragt immer. Danach gilt der Modus:
+The guard decides first in every mode (`config\guard.json`, [security.md](security.md)):
+what is blocked never runs, what is delicate always asks. After that the mode applies:
 
-| Modus | Lesen (Read, Glob, Grep, Befehle, die nur lesen) | Dateien im Projektordner ändern (Edit, Write, Dateibefehle) | andere Befehle |
+| Mode | Reading (Read, Glob, Grep, commands that only read) | Changing files in the project folder (Edit, Write, file commands) | Other commands |
 |---|---|---|---|
-| `ask` (Standard) | ohne Frage | Frage | Frage |
-| `edits` | ohne Frage | ohne Frage | Frage |
-| `all` | ohne Frage | ohne Frage | ohne Frage |
+| `ask` (default) | without a question | question | question |
+| `edits` | without a question | without a question | question |
+| `all` | without a question | without a question | without a question |
 
-- **Befehle, die nur lesen** (`readOnlyCommands`, `readOnlyGit` in `config\unzensiert.json`:
-  `ls`, `cat`, `grep`, `git status`, `git diff`, `Get-ChildItem` ...) laufen auch als Teil
-  einer längeren Zeile (`cd src && ls`). Eine Umleitung in eine Datei (`>`) oder eine
-  Befehlsersetzung (`$(...)`) macht daraus wieder eine Frage.
-- **Außerhalb des Projektordners** fragen Edit und Write auch in `edits`; nur `all` lässt
-  sie ohne Frage zu.
-- **Dateibefehle** (`fileCommands`: `mkdir`, `rm`, `mv`, `cp`, `New-Item`, `Remove-Item` ...)
-  zählen in `edits` als Dateiänderung, wenn jedes Ziel im Projektordner liegt. Ein Ziel
-  außerhalb, in einer Variablen oder der Projektordner selbst führt zur Frage.
-- **Die Frage** steht in einem Rahmen und zeigt den Befehl in den Farben seiner Shell, bei
-  Edit die Änderung als Diff mit Zeilennummern, bei Write den Anfang der Datei, dazu den
-  Grund. Tasten: `j`, `y` oder Enter ja; `i` oder `a` immer (für diese Sitzung: bei Befehlen
-  das Programm, etwa `Bash(python:*)`, das die Frage nennt, bei Dateien alle Änderungen);
-  `n` oder Esc nein. Fragt der Wächter, ist der Rahmen pink und es gibt kein „immer“. Nach
-  einem Nein wartet das Modell auf deine Anweisung.
-- **Ohne Terminal** (`-p`) wird aus jeder Frage eine Ablehnung mit Begründung für das
-  Modell. Nach drei Ablehnungen in einer Anfrage bekommt es den Hinweis, nicht weiter nach
-  Umwegen zu suchen; nach neun endet die Anfrage.
-- Befehlszeilen werden an `&&`, `||`, `;`, `|` und Zeilenumbrüchen außerhalb von
-  Anführungszeichen geteilt; jedes Teilstück muss erlaubt sein, `python -c "a; b"` bleibt
-  ein Befehl.
+- **Commands that only read** (`readOnlyCommands`, `readOnlyGit` in `config\unzensiert.json`:
+  `ls`, `cat`, `grep`, `git status`, `git diff`, `Get-ChildItem` ...) also run as part of a
+  longer line (`cd src && ls`). A redirection into a file (`>`) or a command substitution
+  (`$(...)`) turns it into a question again.
+- **Outside the project folder** Edit and Write ask in `edits` as well; only `all` lets them
+  through without a question.
+- **File commands** (`fileCommands`: `mkdir`, `rm`, `mv`, `cp`, `New-Item`, `Remove-Item` ...)
+  count as file changes in `edits` when every target lies in the project folder. A target
+  outside, in a variable or the project folder itself leads to a question.
+- **The question** stands in a frame and shows the command in the colours of its shell, for
+  Edit the change as a diff with line numbers, for Write the beginning of the file, plus the
+  reason. Keys: `y` or Enter yes; `a` always (for this session: for commands the program the
+  question names, for example `Bash(python:*)`, for files all changes); `n` or Esc no. (The
+  German keys `j` and `i` still work.) If the guard asks, the frame is pink and there is no
+  "always". After a no the model waits for your instruction.
+- **Without a terminal** (`-p`) every question becomes a refusal with a reason for the model.
+  After three refusals in one request it gets the note not to look for further detours; after
+  nine the request ends.
+- Command lines are split at `&&`, `||`, `;`, `|` and line breaks outside quotes; every piece
+  must be allowed, `python -c "a; b"` stays one command.
 
-## Werkzeuge
+## Tools
 
-Das Modell bekommt die Werkzeuge aus `tools` in `config\agent.json`, denselben schlanken
-Satz wie Claude Code unter `claude-local` (`Bash,Read,Edit,Write,Glob,Grep`; ohne Git Bash
-`PowerShell` statt `Bash`). Namen und Parameter sind die von Claude Code, so prüft derselbe
-Wächter beide Agenten.
+The model gets the tools from `tools` in `config\agent.json`, the same lean set as Claude Code
+under `claude-local` (`Bash,Read,Edit,Write,Glob,Grep`; without Git Bash `PowerShell` instead
+of `Bash`). Names and parameters are those of Claude Code, so the same guard checks both
+agents.
 
-| Werkzeug | Was es tut |
+| Tool | What it does |
 |---|---|
-| `Bash` | Befehl in Git Bash, `PowerShell` in Windows PowerShell 5.1; immer im Projektordner. Der Befehl kommt in eine Skriptdatei (kein Ärger mit Anführungszeichen), läuft ohne Eingabe, höchstens `commandTimeoutSeconds` (bis `commandMaxSeconds`, wenn das Modell mehr verlangt) und wird mit allen Unterprozessen beendet. Lange Ausgaben behalten Anfang und Ende, denn dort steht meist der Fehler. Python schreibt dabei UTF-8 (`PYTHONIOENCODING`). |
-| `Read` | Datei mit Zeilennummern, Teile mit `offset`/`limit`; Bilder sieht das Modell als Bild |
-| `Edit` | Text ersetzen; nur nach `Read` und nur, wenn die Datei seitdem nicht geändert wurde. Der Text muss genau einmal vorkommen (oder `replace_all`). Zeilenenden (CR LF), Kodierung und Byte-Order-Mark der Datei bleiben, wie sie waren. Findet es den Text nicht, sagt es, ob nur Einrückung oder Zeilenumbrüche abweichen. |
-| `Write` | neue Datei, oder eine gelesene ganz ersetzen. Hat die Datei schon genau diesen Inhalt, schreibt es nichts und meldet das. |
-| `Glob` | Dateien nach Muster (`**/*.py`, `src/*.{ts,tsx}`), neueste zuerst, ohne `.git`, `node_modules`, `__pycache__`, `.venv` |
-| `Grep` | Inhalt nach regulärem Ausdruck (.NET), Ausgabe `Pfad:Zeile:Text`, mit `glob`, `ignore_case`, `files_only` |
+| `Bash` | command in Git Bash, `PowerShell` in Windows PowerShell 5.1; always in the project folder. The command goes into a script file (no trouble with quotes), runs without input, at most `commandTimeoutSeconds` (up to `commandMaxSeconds` when the model asks for more) and is ended with all its child processes. Long output keeps its beginning and end, because that is usually where the error is. Python writes UTF-8 (`PYTHONIOENCODING`). |
+| `Read` | file with line numbers, parts with `offset`/`limit`; the model sees images as images |
+| `Edit` | replace text; only after `Read` and only if the file has not changed since. The text must appear exactly once (or `replace_all`). Line endings (CR LF), encoding and byte order mark of the file stay as they were. If it does not find the text, it says whether only indentation or line breaks differ. |
+| `Write` | new file, or replace a file that was read completely. If the file already has exactly this content, it writes nothing and says so. |
+| `Glob` | files by pattern (`**/*.py`, `src/*.{ts,tsx}`), newest first, without `.git`, `node_modules`, `__pycache__`, `.venv` |
+| `Grep` | content by regular expression (.NET), output `path:line:text`, with `glob`, `ignore_case`, `files_only` |
 
-## Abschlussprüfung und zweiter Blick
+## Closing check and second look
 
-Will das Modell eine Antwort beenden, in der es Dateien geändert hat, läuft dieselbe
-Abschlussprüfung wie bei `claude-local` (`scripts\hooks\Check-Stop.ps1`, `stopCheck` und
-`review` in `config\agent.json`, [agent.md](agent.md)): Prüfbefehl des Projekts, Erinnerung
-an Test, README und Einstellungen, nach größeren Änderungen der zweite Blick. Unzensiert
-schreibt dafür eine kurze Mitschrift im Format, das der Hook von Claude Code kennt
-(Anfragen und Dateiänderungen, `<Sitzung>.hook.jsonl`). Meldet die Prüfung etwas, macht das
-Modell weiter; die Meldungen nennen den Agenten (`CLAUDE_LOCAL_AGENT=Unzensiert`). Esc
-bricht auch eine lange Prüfung ab.
+When the model wants to end an answer in which it changed files, the same closing check runs
+as with `claude-local` (`scripts\hooks\Check-Stop.ps1`, `stopCheck` and `review` in
+`config\agent.json`, [agent.md](agent.md)): check command of the project, reminder of test,
+README and settings, after larger changes the second look. For that Unzensiert writes a short
+transcript in the format the hook knows from Claude Code (requests and file changes,
+`<session>.hook.jsonl`). If the check reports something, the model goes on; the messages name
+the agent (`CLAUDE_LOCAL_AGENT=Unzensiert`). Esc also breaks off a long check.
 
-## Kontext
+## Context
 
-Das Fenster ist `ctx-size` des Modellprofils. Unzensiert kennt nach jeder Antwort die
-genaue Tokenzahl vom Server und schätzt nur das, was seitdem dazukam. Füllt die Unterhaltung
-`compactAt` (80 %) des Fensters, kürzt es zuerst alte Werkzeugergebnisse (älter als
-`keepRecentRounds` Runden) auf `oldToolResultChars` Zeichen; reicht das nicht, fasst das
-Modell die Unterhaltung zusammen und arbeitet danach weiter, mit der letzten Anfrage im
-Wortlaut. Passt eine Anfrage trotzdem nicht, fasst es zusammen und versucht es noch einmal.
-Das Denken früherer Anfragen fällt weg (die Chat-Vorlagen lassen es ohnehin weg), das Denken
-der laufenden Anfrage geht an das Modell zurück, so kann der Server seinen Cache
-weiterverwenden: in einem Testlauf mit drei Anfragen kamen 8.629 von 8.719 Tokens aus dem
-Cache.
+The window is `ctx-size` of the model profile. After every answer Unzensiert knows the exact
+token count from the server and only estimates what came since. When the conversation fills
+`compactAt` (80 %) of the window, it first shortens old tool results (older than
+`keepRecentRounds` rounds) to `oldToolResultChars` characters; if that is not enough, the
+model summarises the conversation and keeps working afterwards, with the last request word for
+word. If a request still does not fit, it summarises and tries once more. The thinking of
+earlier requests is dropped (the chat templates leave it out anyway), the thinking of the
+current request goes back to the model, so the server can reuse its cache: in a test run with
+three requests 8,629 of 8,719 tokens came from the cache.
 
-## Gespeicherte Unterhaltungen
+## Saved conversations
 
-Jede Unterhaltung steht in `<installRoot>\sessions\<Projektordner>\<Start>.jsonl`, eine
-Nachricht je Zeile; Bilder werden nicht gespeichert, nur ein Vermerk. Nach einer
-Zusammenfassung steht dort eine Marke, ein Fortsetzen (`-c`, `--resume`, `/resume`) beginnt
-dahinter und bekommt einen frischen Systemprompt (Datum, Git-Stand, Regeln von heute).
+Every conversation is in `<installRoot>\sessions\<project folder>\<start>.jsonl`, one message
+per line; images are not saved, only a note. After a summary there is a mark; continuing
+(`-c`, `--resume`, `/resume`) begins behind it and gets a fresh system prompt (date, git
+state, today's rules).
 
-## Systemprompt
+## System prompt
 
-`config\unzensiert-prompt.md` mit den Fakten der Sitzung (Datum, Windows, Ordner, Git,
-Shells), dazu die Anweisungen des Projekts (`projectFiles`: `AGENTS.md`, sonst `CLAUDE.md`,
-aus dem Projektordner und allen Ordnern darüber, der nächste zuletzt) und die Arbeitsregeln
-aus `rulesFile` in `config\agent.json`. Systemprompt und Werkzeugbeschreibungen haben
-zusammen etwa 8.900 Zeichen; die erste Anfrage einer Aufgabe hatte gemessen 2.808 Tokens.
-Claude Code schickt am lokalen Server zuerst etwa 26.000 Tokens ([README](../README.md)).
+`config\unzensiert-prompt.md` with the facts of the session (date, Windows, folder, git,
+shells), plus the instructions of the project (`projectFiles`: `AGENTS.md`, otherwise
+`CLAUDE.md`, from the project folder and every folder above it, the nearest last) and the
+working rules from `rulesFile` in `config\agent.json`. System prompt and tool descriptions
+have about 8,900 characters together; the first request of a task measured 2,808 tokens.
+Claude Code first sends about 26,000 tokens to the local server ([README](../README.md)). The
+prompt says: answer in the language the user writes in.
 
-## Einmal-Lauf und JSON
+## One-off run and JSON
 
-`unzensiert -p` liest die Anfrage aus den Argumenten und, wenn etwas über eine Pipe oder
-Datei kommt, aus der Standardeingabe (UTF-8). Mit `--output-format json` steht am Ende eine
-Zeile im Format von Claude Code, die der Benchmark liest:
+`unzensiert -p` reads the request from the arguments and, when something comes through a pipe
+or file, from standard input (UTF-8). With `--output-format json` there is a line at the end
+in the format of Claude Code, which the benchmark reads:
 
 ```json
 {"type":"result","subtype":"success","is_error":false,"result":"...","num_turns":8,
@@ -212,125 +208,123 @@ Zeile im Format von Claude Code, die der Benchmark liest:
  "changed_files":["..."]}
 ```
 
-`num_turns` zählt die Anfragen an das Modell, `stop_reason` ist `done`, `stopped`, `loop`
-(dieselben Aufrufe immer wieder), `limit` (`--max-turns`) oder `error`. Hinweise wie
-„Server startet“ gehen in einem Einmal-Lauf auf die Fehlerausgabe, die Standardausgabe
-enthält nur das Ergebnis.
+`num_turns` counts the requests to the model, `stop_reason` is `done`, `stopped`, `loop` (the
+same calls again and again), `limit` (`--max-turns`) or `error`. Notes like "server is
+starting" go to the error output in a one-off run; standard output only contains the result.
 
-## Eingebaute Hilfen gegen Schleifen
+## Built-in help against loops
 
-- **Wiederholung:** Macht das Modell denselben Aufruf mit demselben Ergebnis zum dritten
-  Mal, während die geänderten Dateien denselben Inhalt haben, steht ein Hinweis im Ergebnis;
-  beim sechsten Mal endet die Anfrage (`maxRepeats`). Eine Datei, die geändert und wieder
-  zurückgeändert wurde, zählt als unverändert. Laufzeiten und Speicheradressen in Ergebnissen
-  (`Ran 7 tests in 0.507s`, `0x1F2A`) zählen nicht als Unterschied, ganze Zahlen schon.
-- **Änderungen ohne Wirkung:** Ein Edit mit gleichem `old_string` und `new_string` oder ein
-  Write mit dem Inhalt, den die Datei schon hat, ändert nichts. Ab der dritten solchen
-  Änderung in einer Anfrage, mit welchen Argumenten auch immer, steht ein Hinweis im
-  Ergebnis, bei der sechsten endet die Anfrage. Anlass war eine Schleife im Lauf
-  `vergleich2`: Das Modell schrieb dieselbe Datei viermal unverändert und versuchte 16 Edits
-  ohne Wirkung; weil jede Änderung den Zähler für Wiederholungen löschte, lief es bis zum
-  Zeitlimit.
-- **Abgelehnte Aufrufe:** siehe Rechte.
-- **Abgeschnittene Aufrufe:** Endet eine Antwort an der Token-Grenze mitten in einem
-  Werkzeugaufruf, erfährt das Modell, dass es kleinere Stücke schreiben soll.
-- **Höchstzahl:** `maxToolRounds` Runden je Anfrage (200), `--max-turns` für einen Lauf.
+- **Repetition:** when the model makes the same call with the same result for the third time
+  while the changed files have the same content, a note appears in the result; at the sixth
+  time the request ends (`maxRepeats`). A file that was changed and changed back counts as
+  unchanged. Run times and memory addresses in results (`Ran 7 tests in 0.507s`, `0x1F2A`) do
+  not count as a difference, whole numbers do.
+- **Changes without effect:** an Edit with the same `old_string` and `new_string` or a Write
+  with the content the file already has changes nothing. From the third such change in a
+  request, whatever its arguments, a note appears in the result; at the sixth the request
+  ends. The reason was a loop in the run `vergleich2`: the model wrote the same file four
+  times unchanged and tried 16 edits without effect; because every change cleared the counter
+  for repetitions, it ran until the time limit.
+- **Refused calls:** see Rights.
+- **Cut-off calls:** if an answer ends at the token limit in the middle of a tool call, the
+  model learns that it should write smaller pieces.
+- **Maximum:** `maxToolRounds` rounds per request (200), `--max-turns` for one run.
 
-## Einstellungen (`config\unzensiert.json`)
+## Settings (`config\unzensiert.json`)
 
-| Schlüssel | Wert | Zweck |
+| Key | Value | Purpose |
 |---|---|---|
-| `promptFile` | `unzensiert-prompt.md` | Systemprompt in `config\` |
-| `projectFiles` | `AGENTS.md`, `CLAUDE.md` | Anweisungsdateien des Projekts, je Ordner die erste vorhandene |
-| `permissionMode` | `ask` | Rechte-Modus beim Start |
-| `readOnlyCommands`, `readOnlyGit` | Liste | Befehle, die ohne Frage laufen |
-| `fileCommands` | Liste | Befehle, die in `edits` als Dateiänderung zählen |
-| `maxToolRounds` | `200` | Runden je Anfrage |
-| `maxRepeats` | `3` | Schwelle für Wiederholungen, Änderungen ohne Wirkung und Ablehnungen |
-| `compactAt`, `keepRecentRounds`, `oldToolResultChars` | `0.80`, `6`, `1500` | Kontext, siehe oben |
-| `toolResultChars` | `30000` | längste Ausgabe eines Befehls |
-| `readLines` | `2000` | Zeilen, die `Read` ohne `limit` liefert |
-| `commandTimeoutSeconds`, `commandMaxSeconds` | `120`, `600` | Zeitgrenzen für Befehle |
-| `maxOutputTokens` | `16384` | längste Antwort; nie mehr, als im Fenster Platz hat |
-| `showThinking` | `false` | Denken mitlesen (in der Sitzung `/think`) |
-| `historyFile` | `unzensiert-history.txt` | frühere Eingaben, im Installationsordner |
+| `promptFile` | `unzensiert-prompt.md` | system prompt in `config\` |
+| `projectFiles` | `AGENTS.md`, `CLAUDE.md` | instruction files of the project, the first existing one per folder |
+| `permissionMode` | `ask` | rights mode at start |
+| `readOnlyCommands`, `readOnlyGit` | list | commands that run without a question |
+| `fileCommands` | list | commands that count as file changes in `edits` |
+| `maxToolRounds` | `200` | rounds per request |
+| `maxRepeats` | `3` | threshold for repetitions, changes without effect and refusals |
+| `compactAt`, `keepRecentRounds`, `oldToolResultChars` | `0.80`, `6`, `1500` | context, see above |
+| `toolResultChars` | `30000` | longest output of a command |
+| `readLines` | `2000` | lines `Read` returns without `limit` |
+| `commandTimeoutSeconds`, `commandMaxSeconds` | `120`, `600` | time limits for commands |
+| `maxOutputTokens` | `16384` | longest answer; never more than fits into the window |
+| `showThinking` | `false` | show the thinking (in the session `/think`) |
+| `historyFile` | `unzensiert-history.txt` | earlier input, in the install folder |
 
-Modell, Kurznamen, Auswahl von `/model`, Arbeitsregeln, Abschlussprüfung, zweiter Blick,
-Werkzeuge und `onExit` kommen wie bei `claude-local` aus `config\agent.json`. Ein Rechner
-kann jeden Wert in `config\machine.json` unter `"unzensiert"` ändern.
+Model, short names, choice of `/model`, working rules, closing check, second look, tools and
+`onExit` come from `config\agent.json` as with `claude-local`. A computer can change every
+value in `config\machine.json` under `"unzensiert"`.
 
-## Automatische Updates
+## Automatic updates
 
-Neue Versionen erscheinen als Releases auf GitHub (Tag `vX.Y.Z`, die Datei `VERSION` im
-Projekt nennt die eigene). `unzensiert` sieht beim Start im Terminal höchstens alle
-`checkHours` Stunden (24) nach (`config\updates.json`, Zeitgrenze `timeoutSeconds`). Ist ein
-neueres Release da, holt es die Programmdateien – mit git den Tag, sonst das ZIP des Tags,
-das über den Ordner gelegt wird; `config\machine.json` bleibt dabei unberührt –, installiert
-den llama.cpp-Build der neuen Version (`Install-LlamaCpp.ps1`), startet den Server neu, wenn
-sich der Build geändert hat und keine andere Sitzung läuft, und startet sich selbst neu.
+New versions appear as releases on GitHub (tag `vX.Y.Z`; the file `VERSION` in the project
+names its own). At start in a terminal `unzensiert` looks at most every `checkHours` hours (24)
+(`config\updates.json`, time limit `timeoutSeconds`). If a newer release is there, it gets the
+program files – with git the tag, otherwise the ZIP of the tag, laid over the folder;
+`config\machine.json` stays untouched –, installs the llama.cpp build of the new version
+(`Install-LlamaCpp.ps1`), restarts the server when the build changed and no other session is
+running, and restarts itself.
 
-- **Ausschalten:** `unzensiert --updates off` (steht dann in `config\machine.json` unter
-  `"updates"`), einschalten mit `--updates on`. Der Installer fragt einmal.
-- **Von Hand:** `unzensiert --update` sieht sofort nach, auch wenn die automatischen Updates
-  aus sind; die Installationszeile aus der README tut es ebenfalls.
-- **Nie angefasst** wird ein Ordner, in dem Programmdateien von Hand geändert wurden, und ein
-  vollständiger git-Klon, der nicht auf einem Release steht (ein Entwicklungsordner). Nur
-  Kopien des Installers (flache Klone, ZIP) und Klone auf einem Release-Tag werden
-  aktualisiert. Der Stand von `main` zwischen zwei Releases kommt nie automatisch.
-- **Release veröffentlichen** (nur für die Pflege des Repositorys):
-  `scripts\New-Release.ps1 -Version 1.1.0 -Notes "..."` prüft Arbeitsstand, Zweig und Tag,
-  führt die Prüfskripte aus, schreibt `VERSION`, committet, setzt den Tag, pusht und legt
-  das Release mit `gh` an; `-DryRun` zeigt nur, was geschähe.
+- **Switching off:** `unzensiert --updates off` (then noted in `config\machine.json` under
+  `"updates"`), on again with `--updates on`. The installer asks once.
+- **By hand:** `unzensiert --update` looks right away, even when automatic updates are off;
+  the install line from the README does it as well.
+- **Never touched** is a folder in which program files were changed by hand, and a full git
+  clone that is not on a release (a development folder). Only copies of the installer
+  (shallow clones, ZIP) and clones on a release tag are updated. The state of `main` between
+  two releases never comes automatically.
+- **Publishing a release** (only for maintaining the repository):
+  `scripts\New-Release.ps1 -Version 1.1.0 -Notes "..."` checks working state, branch and tag,
+  runs the check scripts, writes `VERSION`, commits, sets the tag, pushes and creates the
+  release with `gh`; `-DryRun` only shows what would happen.
 
-## Aufbau
+## Structure
 
-| Datei | Inhalt |
+| File | Content |
 |---|---|
-| `scripts\unzensiert.ps1`, `bin\unzensiert.cmd` | Starter: Argumente, Update, Modell, Server, Sitzung |
-| `scripts\lib\AgentApi.ps1` | JSON (JavaScriptSerializer von .NET, viel schneller als `ConvertTo-Json`) und die gestreamte Anfrage |
-| `scripts\lib\AgentTools.ps1` | die Werkzeuge |
-| `scripts\lib\AgentPrompt.ps1` | Systemprompt mit Projektanweisungen |
-| `scripts\lib\AgentSession.ps1` | Nachrichten, gespeicherte Unterhaltungen, Größe des Kontexts |
-| `scripts\lib\AgentUi.ps1` | Terminal: Texte, Farben, Begrüßung, Wartezeile, Titel und Fortschritt des Tabs, Hinweise, Eingabe (PSReadLine), Statuszeile, Übersichten, Ende einer Anfrage, Abschied |
-| `scripts\lib\AgentUiMarkdown.ps1` | die Antwort: Markdown, Umbruch, Tabellen, Farben von Code |
-| `scripts\lib\AgentUiTools.ps1` | Werkzeuge, Diffs, Rückfragen |
-| `config\unzensiert-texte.json` | Texte der Oberfläche (deutsch) |
-| `scripts\Show-AgentDesign.ps1`, `tests\agent-design.json` | alle Elemente der Oberfläche mit einer Beispielsitzung, ohne Modell |
-| `scripts\lib\AgentLoop.ps1` | eine Anfrage: Modell, Wächter, Rechte, Werkzeuge, Abschlussprüfung, Kontext |
-| `scripts\lib\AgentRepl.ps1` | Unterhaltung, Befehle mit Schrägstrich, Einmal-Lauf, Argumente |
-| `scripts\lib\Update.ps1` | automatische Updates |
-| `scripts\hooks\GuardRules.ps1` | Regeln des Wächters, gemeinsam mit dem Hook für Claude Code; Unzensiert prüft im eigenen Prozess (2,7 ms je Aufruf statt 280 ms für einen Hook-Prozess, gemessen) |
-| `scripts\Test-Agent.ps1` | Prüfungen ohne Modell (etwa 5 s), `-WithModel` mit einer kleinen Aufgabe |
-| `scripts\New-Release.ps1` | ein Release veröffentlichen |
+| `scripts\unzensiert.ps1`, `bin\unzensiert.cmd` | starter: arguments, update, model, server, session |
+| `scripts\lib\AgentApi.ps1` | JSON (JavaScriptSerializer of .NET, much faster than `ConvertTo-Json`) and the streamed request |
+| `scripts\lib\AgentTools.ps1` | the tools |
+| `scripts\lib\AgentPrompt.ps1` | system prompt with project instructions |
+| `scripts\lib\AgentSession.ps1` | messages, saved conversations, size of the context |
+| `scripts\lib\AgentUi.ps1` | terminal: texts, colours, welcome, activity line, title and progress of the tab, notes, input (PSReadLine), status line, overviews, end of a request, farewell |
+| `scripts\lib\AgentUiMarkdown.ps1` | the answer: Markdown, wrapping, tables, colours of code |
+| `scripts\lib\AgentUiTools.ps1` | tools, diffs, questions |
+| `config\unzensiert-texts.json` | texts of the terminal |
+| `scripts\Show-AgentDesign.ps1`, `tests\agent-design.json` | all elements of the terminal with a sample session, without a model |
+| `scripts\lib\AgentLoop.ps1` | one request: model, guard, rights, tools, closing check, context |
+| `scripts\lib\AgentRepl.ps1` | conversation, slash commands, one-off run, arguments |
+| `scripts\lib\Update.ps1` | automatic updates |
+| `scripts\hooks\GuardRules.ps1` | rules of the guard, shared with the hook for Claude Code; Unzensiert checks in its own process (2.7 ms per call instead of 280 ms for a hook process, measured) |
+| `scripts\Test-Agent.ps1` | checks without a model (about 5 s), `-WithModel` with a small task |
+| `scripts\New-Release.ps1` | publish a release |
 
-Bewusste Eigenheiten von PowerShell 5.1, die der Code beachtet: Listen kommen aus Funktionen
-mit führendem Komma zurück (sonst wird eine Liste mit einem Element zu diesem Element; der
-Aufruf steht dann nicht noch in `@(...)`, das gäbe eine Liste in einer Liste), Indizes eines
-zweidimensionalen Felds mit Ausdrücken (`$t[($i + 1), $j]`) kommen vorher in Variablen, weil
-PowerShell sie als Argument einer Methode nicht lesen kann,
-Daten für den Server enthalten keine Werte von Cmdlets (`New-Object`, `Join-Path`,
-`Get-Date` verpacken sie in ein PSObject, das der Serialisierer nicht kennt), Inhalte von
-Dateien werden mit `-ceq` verglichen (`-eq` übersieht Groß/Klein; ein Edit von `true` zu
-`True` galt deshalb bis 2026-11-18 als „nichts zu ändern“), und Kinderprozesse starten über
-`Start-ChildProcess` (`lib\Machine.ps1`), weil .NET sonst auf einer UTF-8-Konsole ein
-Byte-Order-Mark in ihre Eingabe schreibt.
+Deliberate peculiarities of PowerShell 5.1 the code takes care of: lists come back from
+functions with a leading comma (otherwise a list with one element becomes that element; the
+call then does not also stand in `@(...)`, that would give a list in a list), indices of a
+two-dimensional array with expressions (`$t[($i + 1), $j]`) go into variables first, because
+PowerShell cannot read them as the argument of a method, data for the server contains no
+values of cmdlets (`New-Object`, `Join-Path`, `Get-Date` wrap them in a PSObject the
+serialiser does not know), contents of files are compared with `-ceq` (`-eq` ignores upper and
+lower case; an edit from `true` to `True` therefore counted as "nothing to change" until
+2026-11-18), variable names are case-insensitive (`$n` is the same as a parameter `$N`, so a
+local variable can overwrite a parameter), and child processes start through
+`Start-ChildProcess` (`lib\Machine.ps1`), because .NET otherwise writes a byte order mark into
+their input on a UTF-8 console.
 
-## Grenzen
+## Limits
 
-- **Die Bedienung im Terminal** (Tasten, Eingabezeile, Fragen) prüfen die Testskripte nur
-  bis zur Ausgabe; Tastendrücke kann kein Skript nachstellen. Gemessen sind Einmal-Läufe
-  und der Benchmark.
-- **Während das Modell arbeitet,** liest Unzensiert die Tastatur nach Esc ab; was man in
-  dieser Zeit tippt, geht verloren.
-- Keine Subagenten, keine Websuche, keine MCP-Server: der Werkzeugsatz ist der schlanke von
-  `claude-local`.
-- **Bilder** gehen nur an Modelle mit Bild-Encoder (`mmproj`); sonst ersetzt Unzensiert sie
-  durch einen Vermerk und fragt erneut.
-- **Ohne PSReadLine** (sehr alte Systeme) gibt es nur eine einfache Eingabezeile ohne
-  Verlauf und ohne Shift+Enter.
-- **Breite Zeichen** (chinesische Schrift, Emoji) zählt die Oberfläche als eine Spalte. In
-  solchen Zeilen kann das Ersetzen der rohen Zeile durch die fertige Reste lassen.
-- **Tabellen** werden mit jeder neuen Zeile ganz neu gezeichnet; wird eine Tabelle höher als
-  das Fenster, kommen die weiteren Zeilen nur noch darunter.
-- **Titel und Fortschritt des Tabs** gibt es nur in Windows Terminal (der Titel auch in
-  anderen Konsolen); geprüft ist die Ausgabe, nicht die Anzeige im Fenster.
+- **Operation in the terminal** (keys, input line, questions) is only checked by the test
+  scripts up to the output; no script can simulate key presses. One-off runs and the
+  benchmark are measured.
+- **While the model works,** Unzensiert reads the keyboard for Esc; whatever you type during
+  that time is lost.
+- No subagents, no web search, no MCP servers: the tool set is the lean one of `claude-local`.
+- **Images** only go to models with an image encoder (`mmproj`); otherwise Unzensiert replaces
+  them by a note and asks again.
+- **Without PSReadLine** (very old systems) there is only a simple input line without history
+  and without Shift+Enter.
+- **Wide characters** (Chinese script, emoji) count as one column in the terminal. In such
+  lines replacing the raw line by the finished one can leave remnants.
+- **Tables** are redrawn completely with every new row; if a table gets taller than the
+  window, further rows only come below it.
+- **Title and progress of the tab** exist only in Windows Terminal (the title also in other
+  consoles); checked is the output, not the display in the window.

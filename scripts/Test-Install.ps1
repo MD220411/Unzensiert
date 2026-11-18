@@ -135,7 +135,7 @@ try {
     # The stand-in follows the rules of llama.cpp: the first layers stay on the host, the
     # offloaded ones go to the cards in --device order, the output layer is one more unit and
     # goes to the last card only when every layer is offloaded, the experts of the first N
-    # layers stay on the host (--n-cpu-moe). Sizes like the real models (docs\planer.md).
+    # layers stay on the host (--n-cpu-moe). Sizes like the real models (docs\planner.md).
     $script:FakeSpec = $null
     $script:FitEstimator = {
         param($Model, $Ctx, $Order, $Counts, $Ncmoe)

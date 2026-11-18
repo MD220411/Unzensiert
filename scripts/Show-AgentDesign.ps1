@@ -2,7 +2,7 @@
 # tests\agent-design.json: the welcome, the status line, the answer with Markdown and code,
 # tool calls with their results, a diff, the questions before a call, notes, the end of a
 # request, the overviews of /status, /help and /model, the activity line and the farewell.
-# Needs no model and no server and changes nothing. The look: docs\stil.md.
+# Needs no model and no server and changes nothing. The look: docs\style.md.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1
 #   ... -Style nightshift        another style of config\styles\, without switching to it

@@ -40,7 +40,7 @@ if ((Get-ModelProfile $Model).args.Contains('mmproj')) {
     if ($image.ok) { $word = 'OK' }
     Out-Result "image input: $word  ($($image.detail))"
 } else {
-    Out-Result 'image input: not configured  (profile has no mmproj, see docs\modelle.md)'
+    Out-Result 'image input: not configured  (profile has no mmproj, see docs\models.md)'
 }
 
 Out-Result "GPU memory used (MiB): $(Get-GpuMemory)"

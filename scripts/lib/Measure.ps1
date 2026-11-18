@@ -100,7 +100,7 @@ function Test-ImageInput([string]$Model) {
     # result of a Read tool call on the Anthropic endpoint (/v1/messages), followed by a
     # text block in the same message. Claude Code adds reminders there; llama-server puts
     # that text in front of the tool result, which a chat template without the "agent fix"
-    # rejects or renders in the wrong order (docs\modelle.md).
+    # rejects or renders in the wrong order (docs\models.md).
     # Returns ok ($true/$false) and a short detail text.
     $number = [string](Get-Random -Minimum 1000 -Maximum 9999)
     $tools = @(@{

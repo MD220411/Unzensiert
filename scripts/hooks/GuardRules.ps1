@@ -2,7 +2,7 @@
 # do. Shared by the hook for Claude Code (Guard-Tool.ps1, a process per call) and by the
 # agent Unzensiert (scripts\lib\AgentLoop.ps1), which calls Invoke-GuardCheck in its own
 # process. Needs $script:ProjectRoot and the folders of HookEnvironment.ps1 (or _common.ps1).
-# Description: docs\sicherheit.md. Keep this file ASCII-only.
+# Description: docs\security.md. Keep this file ASCII-only.
 
 $script:Rank = @{ none = 0; ask = 1; deny = 2 }
 $script:Verdict = @{ decision = 'none'; rule = ''; reason = '' }

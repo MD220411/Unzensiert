@@ -255,7 +255,7 @@ $absent = @($wanted | Select-Object -Unique | Where-Object {
 Assert-That ($absent.Count -eq 0) "unzensiert-texts.json: all $(@($wanted | Select-Object -Unique).Count) texts of the terminal exist $($absent -join ', ')"
 
 # --- 8. look ---------------------------------------------------------------------------
-# config\style.json picks one of config\styles\ (docs\stil.md).
+# config\style.json picks one of config\styles\ (docs\style.md).
 $selection = Get-StyleSelection
 Assert-That (Test-Path (Get-StyleFile ([string]$selection.active))) "style.json: active style '$($selection.active)' has a file in config\styles"
 $known = @(Get-KnownStyles)

@@ -1,22 +1,54 @@
-# Lokaler Coding-Agent
+<div align="center">
 
-**Unzensiert** is a coding agent that runs an open, uncensored model on your own graphics
-card: no cloud, no token limit, and your code never leaves your machine.
-[llama.cpp](https://github.com/ggml-org/llama.cpp) runs the model. The agent is this
-project's own program; it works like Claude Code (same tools, keys and look) and needs
-nothing else to be installed. For comparison the same models also run in
-[Claude Code](https://code.claude.com) (`claude-local`). New releases install themselves,
-unless you switch that off.
+# Unzensiert
 
-*Deutsch: ein eigener Coding-Agent mit einem lokalen, unzensierten Modell auf der eigenen
-Grafikkarte, zum Vergleich auch in Claude Code. Die ausführliche Dokumentation ist deutsch
-und beginnt bei [Benutzen](#benutzen).*
+**A coding agent that runs an uncensored model on your own graphics card.**<br>
+No cloud · no token limit · your code never leaves your machine.
+
+[![Release](https://img.shields.io/github/v/release/MD220411/Unzensiert?style=flat-square&color=FF3D9A)](https://github.com/MD220411/Unzensiert/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/MD220411/Unzensiert?style=flat-square&color=8CFF3D)](LICENSE)
+![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-4D8DFF?style=flat-square)
+![PowerShell 5.1](https://img.shields.io/badge/PowerShell-5.1-2EE6E6?style=flat-square)
+[![llama.cpp](https://img.shields.io/badge/backend-llama.cpp-FF8A1F?style=flat-square)](https://github.com/ggml-org/llama.cpp)
+![Model: Qwen 3.6 27B](https://img.shields.io/badge/model-Qwen%203.6%2027B%20uncensored-B45CFF?style=flat-square)
+
+[Quick start](#quick-start) · [What it looks like](#what-it-looks-like) · [Compared with Claude Code](#compared-with-claude-code) · [Documentation](#documentation)
+
+</div>
+
+![The terminal of Unzensiert: welcome, status line, thinking, an answer with Markdown and code](docs/images/unzensiert-breakout.png)
+
+**Unzensiert** works in your project folder like a coding assistant from the cloud: it reads
+and changes files, runs commands and tests, and checks its own work. The model runs locally
+through [llama.cpp](https://github.com/ggml-org/llama.cpp), the agent is this project's own
+program, written in the PowerShell every Windows already has. Nothing else needs to be
+installed, and no account is needed.
+
+## Highlights
+
+- **Local and private.** Model, server and agent run on your computer. After the install
+  everything works offline.
+- **Uncensored models** (Qwen 3.6 27B and 35B-A3B, Qwen 3.8 27B, "Heretic" variants) with
+  128k context and speculative decoding (MTP): 66–71 tokens/s on an RTX 5070 Ti + RTX 3060.
+- **Faster than Claude Code with the same model:** in the benchmark Unzensiert finished all
+  eleven tasks quicker, with a third fewer rounds ([details](#compared-with-claude-code)).
+- **Fits your hardware.** The installer measures your graphics cards and computes how to
+  spread the model over them and the main memory, instead of guessing
+  ([planner](docs/planner.md)).
+- **A guard instead of a censor.** The model refuses nothing; a guard protects your machine
+  from destructive commands and asks before sensitive ones ([security](docs/security.md)).
+- **Checks its own work.** Before it reports a task as done, a closing check runs the
+  project's tests, reminds it of tests, README and settings, and after larger changes a
+  second local model reviews the diff ([agent](docs/agent.md)).
+- **A terminal that is fun to look at:** pictures made of characters, Markdown with tables,
+  code in colour, diffs with marked characters, two styles ([look](docs/style.md)).
+- **Updates itself** from the releases on GitHub, unless you switch that off.
 
 ## Quick start
 
 **You need** 64-bit Windows 10 (1809) or 11, a graphics card with 12 GB or more (NVIDIA;
-AMD and Intel are experimental), 32 GB of main memory, about 25 GB of free disk space and
-an internet connection for the install.
+AMD and Intel are experimental), 32 GB of main memory, about 25 GB of free disk space and an
+internet connection for the install.
 
 **Install.** Open PowerShell (Start menu, type "PowerShell") and paste:
 
@@ -34,9 +66,9 @@ The installer looks at your machine and asks before it installs or downloads any
 |---|---|
 | 1 | checks Windows, graphics cards and main memory |
 | 2 | picks an install folder for llama.cpp, models and logs (the drive with the most free space) |
-| 3 | installs Git for Windows, if it is missing; Claude Code only if you want the comparison command (the question defaults to no) |
+| 3 | installs Git for Windows if it is missing; Claude Code only if you want the comparison command (the question defaults to no) |
 | 4 | installs llama.cpp in the build that fits your graphics card |
-| 5 | downloads the model that fits your graphics memory (17 to 22 GB from Hugging Face, checked by SHA-256), then measures your cards and computes how to spread the model over them and the main memory, and tests that (one to two minutes) |
+| 5 | downloads the model that fits your graphics memory (17 to 22 GB from Hugging Face, checked by SHA-256), then measures your cards, computes the layout and tests it (one to two minutes) |
 | 6 | sets up the commands `unzensiert` and `claude-local` and asks whether new releases may install themselves |
 | 7 | runs a short test |
 
@@ -46,23 +78,66 @@ The installer looks at your machine and asks before it installs or downloads any
 unzensiert
 ```
 
-Type what you want; Enter sends, Shift+Enter starts a new line, Esc stops the model.
-`/help` lists the commands, `/model` switches between the models you have installed,
-Shift+Tab switches how much the agent may do without asking (`ask`, `edits`, `all`).
-`unzensiert -p "question"` answers once without a session. No account is needed. The
-terminal of the agent speaks German; its texts are in `config\unzensiert-texte.json`.
-More models: `scripts\Get-Model.ps1 -List`. The same models in Claude Code, for
-comparison: `claude-local` ([docs/agent.md](docs/agent.md)).
+Type what you want; Enter sends, Shift+Enter starts a new line, Esc stops the model. `/help`
+lists the commands, `/model` switches between the models you have installed, Shift+Tab
+switches how much the agent may do without asking (`ask`, `edits`, `all`).
+`unzensiert -p "question"` answers once without a session.
 
 **Updates.** `unzensiert` looks for a new release at most once a day and installs it (only
 published releases, never work in progress). Switch it off with `unzensiert --updates off`,
-look now with `unzensiert --update`.
+look right now with `unzensiert --update`. **Update by hand:** run the install line again.
+**Remove:** double-click **Uninstall.cmd**; it asks before deleting anything and leaves
+Claude Code and Git in place.
 
-**Which model you get** depends on the graphics memory (all cards added up,
-`config\setups.json`). **How it is spread** over your cards and main memory is not taken
-from a table: the installer measures how fast each card and the main memory are, asks
-llama.cpp how much memory each layout needs, and computes the fastest layout and the
-largest context that costs at most 15 % speed ([docs/planer.md](docs/planer.md)).
+## What it looks like
+
+Every tool call shows its sign, a tick or cross and its duration; changes appear as a diff
+with line numbers, and inside a changed line only the changed characters are marked.
+
+![Edit with a diff, Write with the new file, a failing test run](docs/images/unzensiert-tools.png)
+
+Questions stand in a frame with the keys as badges; when the guard asks, the frame turns
+pink. Answers are Markdown with aligned tables.
+
+![A permission question, a question of the guard, notes and a final answer with a table](docs/images/unzensiert-questions.png)
+
+<details>
+<summary>The calmer style "Night Shift"</summary>
+
+![The terminal of Unzensiert in the style Night Shift](docs/images/unzensiert-nightshift.png)
+
+</details>
+
+All of it without a model: `powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1`
+(`-Style nightshift` for the other style). Every element is described in
+[docs/style.md](docs/style.md#the-terminal-of-unzensiert).
+
+## Compared with Claude Code
+
+The same model (`local-coder`) and server, the same tools, rules and closing check, all eleven
+benchmark tasks three times each with both agents (run `vergleich2`, 2026-11-18):
+
+| | **Unzensiert** | Claude Code (`claude-local`) |
+|---|---|---|
+| Time, sum of the medians per task | **1,629 s** | 2,160 s |
+| Rounds (requests to the model) | **268** | 418 |
+| Tokens written by the model | **98,591** | 122,004 |
+| First request of a task | **about 2,800 tokens** | about 26,000 tokens |
+| Passed | 27 / 33 | 29 / 33 |
+| Working rules followed | 88 / 96 | 86 / 96 |
+
+Unzensiert was faster on every one of the eleven tasks. The difference in passing is within
+chance (Fisher's exact test, p = 0.73); every failure with a wrong result is a mistake of the
+model that also happened with Claude Code. Per task and assessment:
+[docs/model-choice.md](docs/model-choice.md).
+
+## Which model you get
+
+The model depends on the graphics memory (all cards added up, `config\setups.json`). How it is
+spread over your cards and main memory is not taken from a table: the installer measures how
+fast each card and the main memory are, asks llama.cpp how much memory each layout needs, and
+computes the fastest layout and the largest context that costs at most 15 % speed
+([docs/planner.md](docs/planner.md)).
 
 | Graphics memory | Model | Measured on | Layout by llama.cpp alone | Computed layout |
 |---|---|---|---|---|
@@ -73,208 +148,185 @@ largest context that costs at most 15 % speed ([docs/planer.md](docs/planer.md))
 | 7 GB or more | `local-fast`, experts mostly in main memory | RTX 3060 with 4 GB kept free | 57 tokens/s, 64k | 54 tokens/s at 128k |
 | no usable card | `local-fast` on the processor | Core i9-14900K | 26 tokens/s, 32k | |
 
-Speeds are answer speeds with the model guessing ahead (MTP); they vary by a few percent
-from run to run. Unzensiert sends about 2,800 tokens with the first request of a task;
-Claude Code sends about 26,000, which take 30 s to read on the two cards and up to 2 min on
-small cards. `local-fast` answers faster but solves hard
-tasks less reliably (`-Model local-fast` when installing). The single cards were measured by
-hiding the others from llama.cpp; a real card of that size can be faster or slower.
+Speeds are generation speeds with the model drafting ahead (MTP); they vary by a few percent
+from run to run. `local-fast` answers faster but solves hard tasks less reliably
+(`-Model local-fast` when installing). The single cards were measured by hiding the others
+from llama.cpp; a real card of that size can be faster or slower. More models:
+`scripts\Get-Model.ps1 -List`.
 
-**Update by hand:** run the install line again. **Remove:** double-click
-**Uninstall.cmd**; it asks before deleting anything and leaves Claude Code and Git in place.
+## Using it
 
-**Good to know**
+In a terminal (also the one in VS Code) in your project folder. All details:
+[docs/unzensiert.md](docs/unzensiert.md).
 
-- Unzensiert is written in PowerShell, which every Windows has. Claude Code is
-  Anthropic's program, comes from Anthropic's own installer and is only needed for the
-  comparison command `claude-local`, which starts it with a local model.
-- The models are uncensored: they do not refuse requests. A guard protects your machine
-  instead: it blocks commands that would destroy data (formatting a drive, deleting your
-  user folder) and asks you before sensitive ones ([docs/sicherheit.md](docs/sicherheit.md)).
-- A local 27B model is much weaker than Claude. Small features, changes across a few
-  files and bug hunting go well; see [Grenzen](#grenzen).
-- Tested on Windows 11 with an RTX 5070 Ti and an RTX 3060. On other hardware it has not
-  run yet: please open an issue and tell what worked and what did not.
-
-## Benutzen
-
-In einem Terminal (auch im VS-Code-Terminal) im gewünschten Projektordner:
-
-```
-unzensiert
-```
-
-Das startet den eigenen Agenten mit dem Standardmodell dieses Rechners (vom Installer
-passend zum Grafikspeicher gewählt, auf großen Karten `local-coder`). Der Server wird bei
-Bedarf mitgestartet; das Modell lädt bei der ersten Anfrage (etwa 10 bis 60 Sekunden). Endet
-die letzte Sitzung, wird das Modell entladen und der GPU-Speicher ist wieder frei.
-Alles zur Bedienung: [docs/unzensiert.md](docs/unzensiert.md).
-
-| Befehl | Wirkung |
+| Command | Effect |
 |---|---|
-| `unzensiert` | Sitzung mit dem Standardmodell (`local-coder`, unzensiert) |
-| `unzensiert "Aufgabe"` | Sitzung, die gleich mit dieser Aufgabe beginnt |
-| `unzensiert -Model schnell` | `local-fast` (Qwen 3.6 35B-A3B, unzensiert): etwa doppelt so viele Tokens pro Sekunde, bei schwereren Aufgaben weniger zuverlässig |
-| `unzensiert -Model qwen38` | `local-qwen38` (Qwen 3.8 27B, unzensiert): früheres Standardmodell, zum Vergleich |
-| `/model` in einer Sitzung | zwischen „Unzensiert“, „Schnell“ und „Qwen 3.8“ wechseln, ohne die Sitzung zu beenden |
-| `unzensiert -p "Frage"` | einmalige Antwort ohne Sitzung (`--output-format json` für Skripte) |
-| `unzensiert -c` | letzte Sitzung in diesem Ordner fortsetzen (`--resume` zum Auswählen) |
-| `unzensiert --updates off` | automatische Updates aus (`on` wieder an, `--update` sofort nachsehen) |
-| `claude-local` | dieselben Modelle in Claude Code, zum Vergleich ([agent.md](docs/agent.md)) |
-| `claude` | wie bisher: Anthropic-Cloud |
+| `unzensiert` | session with the default model of this computer (chosen by the installer) |
+| `unzensiert "task"` | a session that starts right away with this task |
+| `unzensiert -Model fast` | `local-fast` (Qwen 3.6 35B-A3B): about twice the tokens per second, less reliable on harder tasks |
+| `unzensiert -Model qwen38` | `local-qwen38` (Qwen 3.8 27B): the earlier default model, for comparison |
+| `unzensiert -p "question"` | a single answer without a session (`--output-format json` for scripts) |
+| `unzensiert -c` | continue the last session in this folder (`--resume` to choose one) |
+| `unzensiert --updates off` | automatic updates off (`on` back on, `--update` look now) |
+| `claude-local` | the same models in Claude Code, for comparison ([docs/agent.md](docs/agent.md)) |
+| `claude` | as before: Anthropic's cloud |
 
-| In der Sitzung | Wirkung |
+| In the session | Effect |
 |---|---|
-| Enter, Shift+Enter | senden, neue Zeile |
-| Esc | Modell anhalten, laufenden Befehl beenden |
-| Shift+Tab, `/mode` | Rechte: `ask` (Änderungen und Befehle fragen), `edits` (Dateien ohne Frage), `all` (alles ohne Frage); der Wächter entscheidet immer zuerst |
-| Alt+V | Bild aus der Zwischenablage einfügen |
-| `!befehl` | selbst einen Befehl ausführen, das Modell sieht ihn |
-| `/compact`, `/clear`, `/resume`, `/status`, `/think`, `/init`, `/help`, `/exit` | zusammenfassen, neu anfangen, fortsetzen, Stand, Denken zeigen, `AGENTS.md` schreiben lassen, Hilfe, beenden |
+| Enter, Shift+Enter | send, new line |
+| Esc | stop the model, end a running command |
+| Shift+Tab, `/mode` | rights: `ask` (changes and commands ask), `edits` (files without asking), `all` (everything without asking); the guard always decides first |
+| Alt+V | paste an image from the clipboard; the model reads screenshots and sketches |
+| `!command` | run a command yourself, the model sees it |
+| `/model` | switch between "Unzensiert", "Fast" and "Qwen 3.8" without ending the session |
+| `/compact`, `/clear`, `/resume`, `/status`, `/think`, `/init`, `/help`, `/exit` | summarise, start over, continue, state, show thinking, let it write an `AGENTS.md`, help, quit |
 
-Das lokale Modell bekommt in jeder Sitzung feste Arbeitsregeln für pflegbare Software
-(Struktur vor Code, Module, Dokumentation, Tests): `config\entwicklungsregeln.md`.
+Workflows with fixed steps:
 
-Bevor das Modell eine Aufgabe als erledigt meldet, läuft eine Abschlussprüfung: der
-Prüfbefehl des Projekts, falls es einen hat, eine Erinnerung an Test, README und
-Einstellungen und nach größeren Änderungen in einem Git-Projekt ein zweiter Blick:
-`local-qwen38` prüft den Diff in frischem Kontext, gefundene Fehler gehen an das Modell
-zurück ([docs/agent.md](docs/agent.md)).
-
-| Befehl in der Sitzung | Ablauf |
+| Command | Procedure |
 |---|---|
-| `/feature <Beschreibung>` | neue Funktion: Abnahmekriterien, Plan, Tests, Code, Prüfung, Dokumentation |
-| `/bugfix <Fehler>` | erst ein Test, der den Fehler zeigt, dann die Korrektur |
-| `/pruefen` | die letzten Änderungen prüfen, ohne etwas zu ändern |
+| `/feature <description>` | new feature: acceptance criteria, plan, tests, code, check, documentation |
+| `/bugfix <error>` | first a test that shows the bug, then the fix |
+| `/review` | review the latest changes without changing anything |
 
-In `claude-local` heißen sie `/lokal:feature`, `/lokal:bugfix`, `/lokal:pruefen`; Unzensiert
-versteht beide Schreibweisen.
+In `claude-local` they are called `/local:feature`, `/local:bugfix`, `/local:review`;
+Unzensiert understands both spellings.
 
-Ein neues Projekt mit fester Struktur (README, `CLAUDE.md`, Tests, Konfiguration,
-Prüfbefehl, Git) legt `scripts\New-Project.ps1 -Name <name>` an
-([docs/projekte.md](docs/projekte.md)). Fakten von außen (Pins, Spannungen, fremde
-Schnittstellen) stehen dort einmal mit Quelle in `facts\facts.json`; der Prüfbefehl meldet
-jede Stelle in Doku und Code, die davon abweicht.
+The model gets fixed working rules for maintainable software in every session (structure
+before code, modules, documentation, tests): `config\coding-rules.md`. A new project with a
+fixed structure (README, `CLAUDE.md`, tests, configuration, check command, git) is created by
+`scripts\New-Project.ps1 -Name <name>` ([docs/projects.md](docs/projects.md)). Facts from
+outside (pins, voltages, other interfaces) are recorded there once with their source in
+`facts\facts.json`; the check command reports every place in documentation and code that
+differs.
 
-Ein Wächter prüft jeden Befehl des Modells, bevor er läuft: Was den Rechner oder die
-eigenen Daten zerstören würde, ist gesperrt, bei Heiklem wirst du gefragt, normale Arbeit
-im Projektordner bleibt frei ([docs/sicherheit.md](docs/sicherheit.md)).
+**Autocomplete and chat in the editor:** the VS Code extension **Continue** suggests code while
+you type (Tab accepts) and offers a chat with `local-coder` or `local-fast` in the side bar.
+Set up with `scripts\Install-Continue.ps1`; the server must be running
+(`scripts\Start-Server.ps1`).
 
-Bilder (Screenshots, Skizzen) liest das Modell ebenfalls: mit Alt+V einfügen oder den Pfad
-nennen.
+## Safety
 
-### Autocomplete und Chat im Editor
+The models are uncensored: they do not refuse requests, not even instructions hidden in a file
+the model reads. So the protection lies outside the model and serves only your computer and
+your data:
 
-Die VS-Code-Erweiterung **Continue** schlägt beim Tippen Code vor (Tab übernimmt) und bietet
-in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
-`scripts\Install-Continue.ps1`. Der Server muss dafür laufen: `scripts\Start-Server.ps1`.
+- the **server** only listens on `127.0.0.1` and requires a key, so web pages in your browser
+  cannot use it;
+- a **guard** checks every tool call before it runs: what would destroy data (formatting a
+  drive, deleting your user folder) is blocked, sensitive things (`git reset --hard`, the
+  registry, your SSH keys) ask you, normal work in the project folder stays free;
+- a **git note** at start warns when your work is not committed.
 
-## Stand
+It is no sandbox; see [docs/security.md](docs/security.md) for the rules and their limits.
+
+## Status
 
 | | |
 |---|---|
-| Modell | `local-coder` = Qwen 3.6 27B, unzensiert (Heretic v2), mit MTP, 128k Kontext |
-| Tempo | `local-coder` 66 bis 71 Tokens/s mit der berechneten Verteilung (vorher etwa 60 von Hand, 44 mit `--fit`), `local-fast` 171 (vorher 83 bis 140), `local-qwen38` 70; alle mit 128k Kontext (RTX 5070 Ti + RTX 3060) ([planer.md](docs/planer.md)) |
-| Benchmark | `local-coder`: alle 24 Läufe der vier älteren Aufgaben bestanden, 14 von 15 der fünf schwereren, 89 % der Arbeitsregeln eingehalten, mit Projektvorlage 91 % (gemessen mit 64k); die zwei Aufgaben zu Faktentreue und Konsistenz über Dateien 6 von 6. `local-fast` (Stand vor der Abschlussprüfung): 3 von 15, 52 % ([modellwahl.md](docs/modellwahl.md)) |
-| Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle im Installationsordner (`config\machine.json`) |
-| Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme, misst die Karten und berechnet die Verteilung auf Karten und Hauptspeicher ([einrichtung.md](docs/einrichtung.md), [planer.md](docs/planer.md)); erprobt nur auf diesem Rechner |
-| Agent | Unzensiert, eigenes Programm (PowerShell 5.1, OpenAI-kompatible Schnittstelle von `llama-server`), Version in `VERSION`, automatische Updates aus den Releases, eigene Oberfläche im Stil des Projekts ([stil.md](docs/stil.md#die-oberfläche-von-unzensiert)); zum Vergleich Claude Code über die Anthropic-kompatible Schnittstelle ([unzensiert.md](docs/unzensiert.md)) |
-| Vergleich | Unzensiert gegen Claude Code, alle elf Aufgaben je dreimal mit `local-coder`: Unzensiert bei allen elf schneller (Summe der Mediane 1.629 s statt 2.160 s, 36 % weniger Runden); bestanden 27 statt 29 von 33, ein Unterschied im Rahmen des Zufalls (alle Fehlschläge sind Fehler des Modells, die auch bei Claude Code vorkamen); Arbeitsregeln 88 statt 86 von 96 ([modellwahl.md](docs/modellwahl.md)) |
+| Model | `local-coder` = Qwen 3.6 27B, uncensored (Heretic v2), with MTP, 128k context |
+| Speed | `local-coder` 66 to 71 tokens/s with the computed layout (about 60 by hand, 44 with `--fit`), `local-fast` 171, `local-qwen38` 70; all with 128k context (RTX 5070 Ti + RTX 3060) ([planner.md](docs/planner.md)) |
+| Benchmark | `local-coder`: all 24 runs of the four older tasks passed, 14 of 15 of the five harder ones, 89 % of the working rules followed, 91 % with the project template (measured with 64k); the two tasks on faithfulness to facts and consistency across files 6 of 6 ([model-choice.md](docs/model-choice.md)) |
+| Backend | llama.cpp build b12433 (`llama-server` in router mode), programs and models in the install folder (`config\machine.json`) |
+| Install | installer for any Windows computer: chooses llama.cpp package and model by graphics card, downloads with checksums, measures the cards and computes the layout ([setup.md](docs/setup.md), [planner.md](docs/planner.md)); tried only on the development computer so far |
+| Agent | Unzensiert, its own program (PowerShell 5.1, OpenAI-compatible interface of `llama-server`), version in `VERSION`, automatic updates from the releases, its own terminal in the look of the project ([style.md](docs/style.md#the-terminal-of-unzensiert)); for comparison Claude Code through the Anthropic-compatible interface ([unzensiert.md](docs/unzensiert.md)) |
+| Comparison | Unzensiert against Claude Code, all eleven tasks three times each with `local-coder`: Unzensiert faster on all eleven (sum of the medians 1,629 s instead of 2,160 s, 36 % fewer rounds); passed 27 instead of 29 of 33, a difference within chance (every failure is a mistake of the model that also happened with Claude Code); working rules 88 instead of 86 of 96 ([model-choice.md](docs/model-choice.md)) |
 
-## Grenzen
+## Limits
 
-- Ein lokales 27B-Modell ist deutlich schwächer als Claude. Kleine Features, Erweiterungen,
-  Umbauten über einige Dateien, Fehlersuche und PowerShell-Skripte gehen gut. README und
-  Tests entstehen zuverlässig erst durch die Abschlussprüfung; sie kostet etwa ein Viertel
-  mehr Zeit je Aufgabe (gemessen, [modellwahl.md](docs/modellwahl.md)).
-- Auch 128k Kontext werden voll. Unzensiert kürzt dann alte Werkzeugergebnisse und fasst
-  die Unterhaltung zusammen, Claude Code komprimiert sie. Für neue Aufgaben besser eine neue
-  Sitzung starten (`/clear`). Claude Code kann bei einer Aufgabe, die viele Dateien auf
-  einmal braucht, mit „Autocompact is thrashing“ abbrechen; dann in Teilen beauftragen.
-- Die Bedienung von Unzensiert im Terminal (Tasten, Fragen) prüfen die Testskripte nur bis
-  zur Ausgabe; gemessen sind Einmal-Läufe und der Benchmark.
-- Connectors von claude.ai und Cloud-Funktionen sind im lokalen Modus aus.
+- A local 27B model is much weaker than Claude. Small features, extensions, refactoring
+  across a few files, bug hunting and PowerShell scripts go well. README and tests only come
+  reliably through the closing check; it costs about a quarter more time per task (measured,
+  [model-choice.md](docs/model-choice.md)).
+- Even 128k context fills up. Unzensiert then shortens old tool results and summarises the
+  conversation, Claude Code compacts it. For a new task better start a new session
+  (`/clear`). Claude Code can break off with "Autocompact is thrashing" on a task that needs
+  many files at once; then hand it out in parts.
+- The test scripts check the terminal of Unzensiert (keys, questions) only up to its output;
+  one-off runs and the benchmark are measured.
+- Tested on Windows 11 with an RTX 5070 Ti and an RTX 3060. It has not run on other hardware
+  yet: please [open an issue](https://github.com/MD220411/Unzensiert/issues) and tell what
+  worked and what did not.
 
-## Aufbau
+## Project layout
 
 ```
-Install.cmd   Installieren oder reparieren (Doppelklick), Uninstall.cmd entfernt wieder
-install.ps1   Einzeiler-Installation: holt das neueste Release und startet scripts\Install.ps1
-VERSION       Version des Programms (Releases auf GitHub: Tag vX.Y.Z)
-bin\          Befehle unzensiert und claude-local für den PATH
-config\       alle Einstellungen: server.json, models.json, agent.json, unzensiert.json, updates.json, setups.json, Regeln, Vorlagen;
-              machine.json = Werte dieses Rechners (vom Installer, nicht im Repository)
-scripts\      ein Skript je Aufgabe; gemeinsame Bausteine in scripts\lib\
-benchmark\    Aufgaben für den Agenten-Benchmark
-templates\    Vorlagen für neue Projekte
-tests\        Prüffälle für die Skripte
-docs\         Dokumentation
-logs\         Messergebnisse
+Install.cmd   install or repair (double-click), Uninstall.cmd removes it again
+install.ps1   one-line install: gets the newest release and starts scripts\Install.ps1
+VERSION       version of the program (releases on GitHub: tag vX.Y.Z)
+bin\          the commands unzensiert and claude-local for the PATH
+config\       all settings: server.json, models.json, agent.json, unzensiert.json, updates.json, setups.json, rules, templates, styles;
+              machine.json = values of this computer (from the installer, not in the repository)
+scripts\      one script per job; shared building blocks in scripts\lib\
+benchmark\    tasks for the agent benchmark
+templates\    templates for new projects
+tests\        test cases for the scripts
+docs\         documentation
+logs\         measurements
 ```
 
-Programme, Modelldateien und das Server-Protokoll liegen außerhalb des Repositorys im
-Installationsordner, den der Installer wählt (Vorschlag: `claude-local` auf dem Laufwerk
-mit dem meisten Platz).
+Programs, model files and the server log are outside the repository in the install folder the
+installer chooses (suggestion: `claude-local` on the drive with the most room).
 
-## Dokumentation
+## Documentation
 
-| Datei | Inhalt |
+| File | Content |
 |---|---|
-| [docs/architektur.md](docs/architektur.md) | Schichten, Ordner, Grundsätze, Begründungen |
-| [docs/einrichtung.md](docs/einrichtung.md) | Installer Schritt für Schritt, Hardware-Stufen, Aktualisieren, Deinstallieren, Werte des Rechners (`machine.json`), Überblick der Konfigurationsdateien |
-| [docs/planer.md](docs/planer.md) | Planer: Speicher- und Tempo-Rechnung, Kalibrierung, Suche nach der schnellsten Verteilung, Messwerte, Grenzen |
-| [docs/backend.md](docs/backend.md) | llama-server: bedienen, einstellen, aktualisieren, Fehlersuche |
-| [docs/modelle.md](docs/modelle.md) | Modellprofile, MTP, Chat-Vorlage, neues Modell aufnehmen |
-| [docs/unzensiert.md](docs/unzensiert.md) | der eigene Agent: Bedienung, Tasten, Befehle, Rechte, Werkzeuge, Kontext, gespeicherte Unterhaltungen, Einmal-Lauf, automatische Updates, Releases |
-| [docs/agent.md](docs/agent.md) | Einstellungen beider Agenten, Arbeitsregeln, Abschlussprüfung, zweiter Blick, Befehle für feste Abläufe; `claude-local` (Claude Code zum Vergleich) |
-| [docs/projekte.md](docs/projekte.md) | neues Projekt aus der Vorlage, Prüfbefehl, Fakten mit Quelle und Abgleich gegen Doku und Code, Arbeitsweise in einem Projekt |
-| [docs/stil.md](docs/stil.md) | Erscheinungsbild: „Ausbruch“ (bunt, Bilder und Wand aus Zeichen) oder „Nachtschicht“ (ruhig); Shell, Oberfläche von Unzensiert, Statuszeile, Farbthemen für `claude` und `claude-local`, Stil wechseln |
-| [docs/erweitern.md](docs/erweitern.md) | Wegweiser für Änderungen, Benchmark, neue Skripte |
-| [docs/modellwahl.md](docs/modellwahl.md) | Bewertung der Messwerte und Empfehlung |
-| [docs/benchmark.md](docs/benchmark.md) | Messwerte aller getesteten Modelle (automatisch erzeugt) |
-| [docs/gpu-tuning.md](docs/gpu-tuning.md) | Aufteilung auf die beiden Grafikkarten, Rolle von PCIe x4 |
-| [docs/gpu-setups.md](docs/gpu-setups.md) | Messwerte je GPU-Aufteilung (Stand Ollama, 2026-11-13) |
-| [docs/sicherheit.md](docs/sicherheit.md) | Schutz des eigenen Rechners: Schlüssel für den Server, Wächter vor jedem Werkzeug-Aufruf, Git-Hinweis, Prüfskripte |
-| [docs/roadmap.md](docs/roadmap.md) | Zukunftsplan: Vorschläge zu Sicherheit, Qualität, nachhaltiger Entwicklung, Effizienz und Tempo, mit Reihenfolge |
-| [docs/protokoll.md](docs/protokoll.md) | Was wann gemacht und gemessen wurde, offene Punkte |
+| [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, context, saved conversations, one-off runs, automatic updates, releases |
+| [docs/style.md](docs/style.md) | the look: "Breakout" (colourful, pictures and a wall of characters) or "Night Shift" (calm); shell, terminal of Unzensiert, status line, colour themes for `claude` and `claude-local`, switching the style |
+| [docs/setup.md](docs/setup.md) | the installer step by step, hardware tiers, updating, uninstalling, values of the computer (`machine.json`), overview of the configuration files |
+| [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, measurements, limits |
+| [docs/security.md](docs/security.md) | protecting your own computer: key for the server, guard before every tool call, git note, check scripts |
+| [docs/agent.md](docs/agent.md) | settings of both agents, working rules, closing check, second look, workflows; `claude-local` (Claude Code for comparison) |
+| [docs/projects.md](docs/projects.md) | a new project from the template, check command, facts with sources compared against documentation and code, way of working |
+| [docs/models.md](docs/models.md) | model profiles, MTP, chat templates, adding a new model |
+| [docs/backend.md](docs/backend.md) | llama-server: operating, settings, updating, troubleshooting |
+| [docs/architecture.md](docs/architecture.md) | layers, folders, principles, reasons |
+| [docs/extending.md](docs/extending.md) | signposts for changes, benchmark, new scripts |
+| [docs/model-choice.md](docs/model-choice.md) | assessment of the measurements and the choice of models |
+| [docs/benchmark.md](docs/benchmark.md) | measurements of all tested models (generated) |
+| [docs/gpu-tuning.md](docs/gpu-tuning.md) | splitting a model over two graphics cards, the role of PCIe x4 |
+| [docs/gpu-setups.md](docs/gpu-setups.md) | measurements per GPU split (Ollama, 2026-11-13) |
+| [docs/roadmap.md](docs/roadmap.md) | roadmap: proposals on security, quality, sustainable development, efficiency and speed, in order |
+| [docs/devlog.md](docs/devlog.md) | development log: what was done and measured when, open points |
 
-## Skripte
+## Scripts
 
-Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
+Each one is called with `powershell -ExecutionPolicy Bypass -File scripts\<name>`.
 
-| Skript | Zweck |
+| Script | Purpose |
 |---|---|
-| `Install.ps1` | Installer: Rechner prüfen, Git (Claude Code nur auf Wunsch), llama.cpp, passendes Modell, PATH, automatische Updates, Test; `-Plan` zeigt nur, was passieren würde (auch über `Install.cmd`) |
-| `Uninstall.ps1` | wieder entfernen, mit Rückfragen; löscht nur, was der Installer angelegt hat (auch über `Uninstall.cmd`) |
-| `Install-LlamaCpp.ps1` | llama.cpp in der Version aus `config\server.json` laden, prüfen, entpacken; Paket passend zur Grafikkarte |
-| `Get-Model.ps1` | Dateien eines Modellprofils von Hugging Face laden (fortsetzbar, mit SHA-256), `-List` zeigt alle Profile |
-| `Plan-Models.ps1` | Verteilung jedes Modells auf Karten und Hauptspeicher berechnen (Kalibrierung mit `llama-bench`, Speicher von `llama-fit-params`), in `config\machine.json` schreiben; `-Verify` lädt und testet |
-| `Add-Model.ps1` | eigene GGUF-Datei in den Modellordner legen (Hardlink oder Kopie) |
-| `Start-Server.ps1` | Server starten, Modellprofile anzeigen |
-| `Stop-Server.ps1` | Server und alle Modelle beenden |
-| `Restart-Server.ps1` | Neustart, nötig nach Änderungen an `server.json` oder `models.json` |
-| `Test-Model.ps1` | Tempo, Tool-Calls, Bild-Eingabe und GPU-Speicher eines Profils prüfen |
-| `Test-Setup.ps1` | Konfiguration und Skripte prüfen, ohne ein Modell zu laden (wenige Sekunden) |
-| `Test-Install.ps1` | Logik des Installers prüfen, ohne Download und ohne Grafikkarte: `machine.json`, Geräteliste, Wahl der Stufe, Download-Einträge, Probelauf `-Plan`, Planer mit einem nachgebildeten Speichermodell |
-| `Test-Guard.ps1` | Schutzregeln gegen die Fälle in `tests\guard-cases.json` prüfen |
-| `Test-Agent.ps1` | Agent Unzensiert prüfen, ohne Modell: JSON, Antwortstrom, Werkzeuge, Rechte, Wiederholungen und Änderungen ohne Wirkung, Sitzungen, Befehle, Abschlussprüfung, Updates, Oberfläche (Markdown, Umbruch, Diff, Farben von Code, Vorschau); `-WithModel` löst eine kleine Aufgabe |
-| `Test-Tasks.ps1` | Benchmark-Aufgaben prüfen, ohne ein Modell: Vorlage fällt durch, Musterlösung besteht |
-| `Test-Templates.ps1` | Projektvorlagen prüfen: neues Projekt besteht seinen Prüfbefehl, eingebaute Fehler (Widerspruch zu `facts\facts.json`, Fakt ohne Quelle, scheiternder Test) lassen ihn scheitern |
-| `New-Project.ps1` | neues Projekt aus der Vorlage anlegen (Python oder PowerShell), mit Prüfbefehl und erstem Commit |
-| `Invoke-Review.ps1` | zweiter Blick: ein zweites lokales Modell prüft die nicht committete Änderung eines Projekts (läuft auch in der Abschlussprüfung) |
-| `Benchmark-Models.ps1` | Profile vergleichen: Rohwerte, Agenten-Aufgaben und eingehaltene Arbeitsregeln; `-Agent unzensiert` oder `claude-local` |
-| `Measure-Setup.ps1` | eine Hardware-Stufe auf diesem Rechner nachstellen und messen (nur bestimmte Karten sichtbar, Verteilung durch llama.cpp oder mit `-Planned` durch den Planer), für `measured` in `config\setups.json` |
-| `Install-Path.ps1` | `bin\` in den PATH aufnehmen |
-| `Install-Continue.ps1` | Continue installieren und Konfiguration kopieren |
-| `Install-Font.ps1` | Schrift des Erscheinungsbilds (IBM Plex Mono) für den Benutzer installieren |
-| `Install-Style.ps1` | den in `config\style.json` gewählten Stil (`config\styles\`) auf Windows Terminal und Claude Code anwenden, auch nach einem Wechsel (`-Remove` nimmt es zurück) |
-| `Show-AgentDesign.ps1` | jedes Element der Oberfläche von Unzensiert mit einer Beispielsitzung zeigen, ohne Modell; `-Style nachtschicht` zeigt einen anderen Stil, ohne zu wechseln |
-| `unzensiert.ps1` | Starter hinter dem Befehl `unzensiert` |
-| `claude-local.ps1` | Starter hinter dem Befehl `claude-local` (Claude Code zum Vergleich) |
-| `New-Release.ps1` | neue Version veröffentlichen: Prüfungen, `VERSION`, Tag, Release auf GitHub (nur für die Pflege des Repositorys) |
+| `Install.ps1` | installer: check the computer, Git (Claude Code only on request), llama.cpp, fitting model, PATH, automatic updates, test; `-Plan` only shows what would happen (also through `Install.cmd`) |
+| `Uninstall.ps1` | remove again, with questions; deletes only what the installer created (also through `Uninstall.cmd`) |
+| `Install-LlamaCpp.ps1` | download, check and unpack llama.cpp in the version from `config\server.json`; package fitting the graphics card |
+| `Get-Model.ps1` | download the files of a model profile from Hugging Face (resumable, with SHA-256), `-List` shows all profiles |
+| `Plan-Models.ps1` | compute the layout of every model over cards and main memory (calibration with `llama-bench`, memory from `llama-fit-params`), write it into `config\machine.json`; `-Verify` loads and tests |
+| `Add-Model.ps1` | put your own GGUF file into the model folder (hard link or copy) |
+| `Start-Server.ps1` | start the server, show the model profiles |
+| `Stop-Server.ps1` | stop the server and all models |
+| `Restart-Server.ps1` | restart, needed after changes to `server.json` or `models.json` |
+| `Test-Model.ps1` | check speed, tool calls, image input and GPU memory of a profile |
+| `Test-Setup.ps1` | check configuration and scripts without loading a model (a few seconds) |
+| `Test-Install.ps1` | check the logic of the installer, without download and without a graphics card: `machine.json`, device list, choice of the tier, download entries, dry run `-Plan`, planner with a simulated memory model |
+| `Test-Guard.ps1` | check the guard rules against the cases in `tests\guard-cases.json` |
+| `Test-Agent.ps1` | check the agent Unzensiert without a model: JSON, streamed answer, tools, rights, repetitions and changes without effect, sessions, commands, closing check, updates, terminal (Markdown, wrapping, diff, colours of code, preview); `-WithModel` solves a small task |
+| `Test-Tasks.ps1` | check the benchmark tasks without a model: the template fails, the reference solution passes |
+| `Test-Templates.ps1` | check the project templates: a new project passes its check command, built-in errors (contradiction to `facts\facts.json`, fact without source, failing test) make it fail |
+| `New-Project.ps1` | create a new project from the template (Python or PowerShell), with check command and first commit |
+| `Invoke-Review.ps1` | second look: a second local model reviews the uncommitted change of a project (also runs in the closing check) |
+| `Benchmark-Models.ps1` | compare profiles: raw values, agent tasks and working rules followed; `-Agent unzensiert` or `claude-local` |
+| `Measure-Setup.ps1` | simulate and measure a hardware tier on this computer (only certain cards visible, layout by llama.cpp or with `-Planned` by the planner), for `measured` in `config\setups.json` |
+| `Install-Path.ps1` | add `bin\` to the PATH |
+| `Install-Continue.ps1` | install Continue and copy its configuration |
+| `Install-Font.ps1` | install the font of the look (IBM Plex Mono) for the user |
+| `Install-Style.ps1` | apply the style chosen in `config\style.json` (`config\styles\`) to Windows Terminal and Claude Code, also after a switch (`-Remove` takes it back) |
+| `Show-AgentDesign.ps1` | show every element of the terminal of Unzensiert with a sample session, without a model; `-Style nightshift` shows another style without switching |
+| `unzensiert.ps1` | starter behind the command `unzensiert` |
+| `claude-local.ps1` | starter behind the command `claude-local` (Claude Code for comparison) |
+| `New-Release.ps1` | publish a new version: checks, `VERSION`, tag, release on GitHub (only for maintaining the repository) |
 
-## Lizenz
+## License
 
-MIT, siehe [LICENSE](LICENSE). Die Chat-Vorlagen in `config\templates\` sind angepasste
-Fassungen der Vorlagen aus den Modelldateien und stehen unter der Lizenz des jeweiligen
-Modells.
+MIT, see [LICENSE](LICENSE). The chat templates in `config\templates\` are adapted versions of
+the templates from the model files and are under the licence of the respective model. The
+font IBM Plex Mono, which `Install-Font.ps1` downloads, is under the SIL Open Font License.

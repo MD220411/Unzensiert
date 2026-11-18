@@ -6,7 +6,7 @@
 # Started by the Windows Terminal profile that scripts\Install-Style.ps1 creates:
 #   powershell -NoLogo -NoExit -ExecutionPolicy RemoteSigned -File scripts\style\Shell.ps1
 # It can also be dot-sourced from a PowerShell profile. Colours, glyphs and texts come
-# from the active style in config\styles\ (docs\stil.md).
+# from the active style in config\styles\ (docs\style.md).
 
 . "$PSScriptRoot\..\lib\Style.ps1"
 

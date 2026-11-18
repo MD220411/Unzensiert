@@ -6,7 +6,7 @@
 #   input   the hook JSON of Claude Code on stdin (tool_name, tool_input, cwd)
 #   output  nothing = no objection, or a JSON decision "deny" / "ask" with the reason
 #   rules   config\guard.json           log   <installRoot>\logs\guard.log
-#   check   scripts\Test-Guard.ps1      docs  docs\sicherheit.md
+#   check   scripts\Test-Guard.ps1      docs  docs\security.md
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\hooks\Guard-Tool.ps1 < call.json
 #

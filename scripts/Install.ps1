@@ -6,7 +6,7 @@
 #   4. llama.cpp in the package that fits the graphics card
 #   5. the model that fits the graphics memory (config\setups.json) - after asking; then
 #      the best distribution over cards and main memory is computed from measurements and
-#      tested (Plan-Models.ps1, docs\planer.md)
+#      tested (Plan-Models.ps1, docs\planner.md)
 #   6. the commands unzensiert and claude-local on the PATH, and whether new releases are
 #      installed automatically (config\updates.json, asked once)
 #   7. a test: the settings (and the model once, if planning did not test it already)
@@ -165,7 +165,7 @@ try {
     }
     if (-not $chosen) {
         $least = (Get-Setups | Measure-Object -Property minRamGiB -Minimum).Minimum
-        throw "This machine has too little memory for the models of Unzensiert (at least $least GB main memory). See docs\einrichtung.md."
+        throw "This machine has too little memory for the models of Unzensiert (at least $least GB main memory). See docs\setup.md."
     }
     $prof = Get-ModelProfile $chosen
     Write-Note "model: $chosen - $($prof.description)"
@@ -202,7 +202,7 @@ try {
     Set-MachineSetup $chosen $setup
 
     # how the model is best spread over the cards and main memory of this machine, computed
-    # from measurements (Plan-Models.ps1, docs\planer.md); a plan from an earlier run stays
+    # from measurements (Plan-Models.ps1, docs\planner.md); a plan from an earlier run stays
     $verified = $false
     if ($haveModel -or $Plan) {
         $plans = (Get-MachineConfig).PSObject.Properties['plans']
