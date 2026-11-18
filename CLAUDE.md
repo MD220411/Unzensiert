@@ -25,7 +25,9 @@ auf einem Rechner mit zwei Grafikkarten. Überblick: `README.md`, Aufbau: `docs\
   unterscheiden nicht Groß/Klein (`$ui` ist `$script:Ui`, `$agent` ist ein Parameter
   `-Agent`); eine Liste mit einem Element kommt aus einer Funktion als dieses Element
   zurück (`@(...)` beim Aufruf oder `return , $liste`); Werte von `New-Object`,
-  `Join-Path`, `Get-Date` sind PSObjects und gehören nicht in JSON für den Server.
+  `Join-Path`, `Get-Date` sind PSObjects und gehören nicht in JSON für den Server; `-eq`,
+  `-ne`, `-replace` und Schlüssel von `@{}` unterscheiden nicht Groß/Klein, für Inhalte
+  `-ceq`, `-creplace` oder .NET-Methoden nehmen.
 - **Dokumentation auf Deutsch** in `docs\`. Bei jeder Änderung im selben Schritt anpassen:
   die Beschreibung der Schicht (`backend.md`, `modelle.md`, `agent.md`), die Tabellen der
   `README.md` und ein Eintrag oben in `docs\protokoll.md`.

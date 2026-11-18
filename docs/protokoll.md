@@ -22,7 +22,9 @@ Vergleich mit Wiederholungen“). Änderungen in `scripts\lib\AgentLoop.ps1` und
   Hinweis ab der dritten, Abbruch bei der sechsten (`maxRepeats`, Text `notes.noEffect`).
 - **Fehler behoben:** Edit verglich `old_string` und `new_string` mit `-eq`, also ohne Rücksicht
   auf Groß/Klein. Ein Edit, der nur die Schreibweise ändert (`true` zu `True`), wurde als
-  „nichts zu ändern“ abgelehnt. Jetzt vergleicht es mit `-ceq`.
+  „nichts zu ändern“ abgelehnt. Jetzt vergleicht es mit `-ceq`. Die Falle steht jetzt bei
+  den Fallen von PowerShell 5.1 in `CLAUDE.md` und im Abschnitt „Aufbau“ von
+  `docs\unzensiert.md`.
 
 Nachgerechnet an den 33 aufgezeichneten Unterhaltungen von Unzensiert aus `vergleich2`:
 Dieselben Aufrufe liefen offline einmal durch die alte und einmal durch die neue Regel. Die

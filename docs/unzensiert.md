@@ -309,9 +309,11 @@ Aufruf steht dann nicht noch in `@(...)`, das gäbe eine Liste in einer Liste), 
 zweidimensionalen Felds mit Ausdrücken (`$t[($i + 1), $j]`) kommen vorher in Variablen, weil
 PowerShell sie als Argument einer Methode nicht lesen kann,
 Daten für den Server enthalten keine Werte von Cmdlets (`New-Object`, `Join-Path`,
-`Get-Date` verpacken sie in ein PSObject, das der Serialisierer nicht kennt), und Kinder-
-prozesse starten über `Start-ChildProcess` (`lib\Machine.ps1`), weil .NET sonst auf einer
-UTF-8-Konsole ein Byte-Order-Mark in ihre Eingabe schreibt.
+`Get-Date` verpacken sie in ein PSObject, das der Serialisierer nicht kennt), Inhalte von
+Dateien werden mit `-ceq` verglichen (`-eq` übersieht Groß/Klein; ein Edit von `true` zu
+`True` galt deshalb bis 2026-11-18 als „nichts zu ändern“), und Kinderprozesse starten über
+`Start-ChildProcess` (`lib\Machine.ps1`), weil .NET sonst auf einer UTF-8-Konsole ein
+Byte-Order-Mark in ihre Eingabe schreibt.
 
 ## Grenzen
 
