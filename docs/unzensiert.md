@@ -154,7 +154,7 @@ Wächter beide Agenten.
 | `Bash` | Befehl in Git Bash, `PowerShell` in Windows PowerShell 5.1; immer im Projektordner. Der Befehl kommt in eine Skriptdatei (kein Ärger mit Anführungszeichen), läuft ohne Eingabe, höchstens `commandTimeoutSeconds` (bis `commandMaxSeconds`, wenn das Modell mehr verlangt) und wird mit allen Unterprozessen beendet. Lange Ausgaben behalten Anfang und Ende, denn dort steht meist der Fehler. Python schreibt dabei UTF-8 (`PYTHONIOENCODING`). |
 | `Read` | Datei mit Zeilennummern, Teile mit `offset`/`limit`; Bilder sieht das Modell als Bild |
 | `Edit` | Text ersetzen; nur nach `Read` und nur, wenn die Datei seitdem nicht geändert wurde. Der Text muss genau einmal vorkommen (oder `replace_all`). Zeilenenden (CR LF), Kodierung und Byte-Order-Mark der Datei bleiben, wie sie waren. Findet es den Text nicht, sagt es, ob nur Einrückung oder Zeilenumbrüche abweichen. |
-| `Write` | neue Datei, oder eine gelesene ganz ersetzen |
+| `Write` | neue Datei, oder eine gelesene ganz ersetzen. Hat die Datei schon genau diesen Inhalt, schreibt es nichts und meldet das. |
 | `Glob` | Dateien nach Muster (`**/*.py`, `src/*.{ts,tsx}`), neueste zuerst, ohne `.git`, `node_modules`, `__pycache__`, `.venv` |
 | `Grep` | Inhalt nach regulärem Ausdruck (.NET), Ausgabe `Pfad:Zeile:Text`, mit `glob`, `ignore_case`, `files_only` |
 
@@ -220,8 +220,17 @@ enthält nur das Ergebnis.
 ## Eingebaute Hilfen gegen Schleifen
 
 - **Wiederholung:** Macht das Modell denselben Aufruf mit demselben Ergebnis zum dritten
-  Mal, ohne dass sich dazwischen eine Datei geändert hat, steht ein Hinweis im Ergebnis; beim
-  sechsten Mal endet die Anfrage (`maxRepeats`).
+  Mal, während die geänderten Dateien denselben Inhalt haben, steht ein Hinweis im Ergebnis;
+  beim sechsten Mal endet die Anfrage (`maxRepeats`). Eine Datei, die geändert und wieder
+  zurückgeändert wurde, zählt als unverändert. Laufzeiten und Speicheradressen in Ergebnissen
+  (`Ran 7 tests in 0.507s`, `0x1F2A`) zählen nicht als Unterschied, ganze Zahlen schon.
+- **Änderungen ohne Wirkung:** Ein Edit mit gleichem `old_string` und `new_string` oder ein
+  Write mit dem Inhalt, den die Datei schon hat, ändert nichts. Ab der dritten solchen
+  Änderung in einer Anfrage, mit welchen Argumenten auch immer, steht ein Hinweis im
+  Ergebnis, bei der sechsten endet die Anfrage. Anlass war eine Schleife im Lauf
+  `vergleich2`: Das Modell schrieb dieselbe Datei viermal unverändert und versuchte 16 Edits
+  ohne Wirkung; weil jede Änderung den Zähler für Wiederholungen löschte, lief es bis zum
+  Zeitlimit.
 - **Abgelehnte Aufrufe:** siehe Rechte.
 - **Abgeschnittene Aufrufe:** Endet eine Antwort an der Token-Grenze mitten in einem
   Werkzeugaufruf, erfährt das Modell, dass es kleinere Stücke schreiben soll.
@@ -237,7 +246,7 @@ enthält nur das Ergebnis.
 | `readOnlyCommands`, `readOnlyGit` | Liste | Befehle, die ohne Frage laufen |
 | `fileCommands` | Liste | Befehle, die in `edits` als Dateiänderung zählen |
 | `maxToolRounds` | `200` | Runden je Anfrage |
-| `maxRepeats` | `3` | Schwelle für Wiederholungen und Ablehnungen |
+| `maxRepeats` | `3` | Schwelle für Wiederholungen, Änderungen ohne Wirkung und Ablehnungen |
 | `compactAt`, `keepRecentRounds`, `oldToolResultChars` | `0.80`, `6`, `1500` | Kontext, siehe oben |
 | `toolResultChars` | `30000` | längste Ausgabe eines Befehls |
 | `readLines` | `2000` | Zeilen, die `Read` ohne `limit` liefert |

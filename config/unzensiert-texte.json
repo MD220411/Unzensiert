@@ -107,6 +107,7 @@
     "error": "Fehler: {0}",
     "refused": "{0} Aufrufe wurden abgelehnt; die Anfrage endet.",
     "repeating": "Das Modell wiederholt denselben Aufruf ({0}); die Anfrage endet.",
+    "noEffect": "Das Modell schreibt immer wieder, was schon in den Dateien steht ({0}-mal); die Anfrage endet.",
     "checkFailed": "Die Abschlussprüfung ging schief: {0}",
     "checkStopped": "Abschlussprüfung angehalten",
     "checkSays": "Abschlussprüfung: {0}",

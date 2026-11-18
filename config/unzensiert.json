@@ -18,7 +18,7 @@
 
   "maxToolRounds": 200,
   "maxRepeats": 3,
-  "_maxRepeats": "The same tool call with the same result this often, with no file changed in between: the model gets a note to change its approach; twice as often: the request is stopped.",
+  "_maxRepeats": "The same tool call with the same result this often while the changed files hold the same content (a file changed and changed back counts as unchanged; run times like 0.507s and 0x addresses in results do not count): the model gets a note to change its approach; twice as often: the request is stopped. The same for edits and writes in one request that change nothing, whatever their arguments, and for refused calls (stop at three times as many).",
 
   "compactAt": 0.80,
   "keepRecentRounds": 6,

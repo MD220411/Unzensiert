@@ -1,7 +1,7 @@
 ﻿# Benchmark-Ergebnisse
 
 Automatisch erzeugt von `scripts\Benchmark-Models.ps1`. Nicht von Hand bearbeiten.
-Stand: 2026-11-18 10:03. Rohdaten: `logs\benchmark\results.jsonl`.
+Stand: 2026-11-18 10:47. Rohdaten: `logs\benchmark\results.jsonl`.
 Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bis 2026-11-14).
 
 ## Rohwerte
@@ -23,6 +23,7 @@ Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bi
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | h3-probe | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 6.7 s | 61.8 Tok./s | 63 % | 1509.4 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | h3-qwen38 | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 6.7 s | 59.9 Tok./s | 59 % | 1495.8 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | h4 | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 7.2 s | 66.0 Tok./s | 69 % | 1503.8 Tok./s | OK |
+| llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | schleife1 | RTX 5070 Ti 14640, RTX 3060 10181 MiB | 5.7 s | 68.8 Tok./s | 61 % | 987.6 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | stufe4 | RTX 5070 Ti 15582, RTX 3060 10371 MiB | 7.4 s | 61.0 Tok./s | 64 % | 1306.0 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | stufe4-128k | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 7.2 s | 57.5 Tok./s | 57 % | 1314.2 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | vergleich1 | RTX 5070 Ti 14640, RTX 3060 10181 MiB | 5.8 s | 69.8 Tok./s | 62 % | 974.6 Tok./s | OK |
@@ -79,6 +80,7 @@ Runden = Anfragen an das Modell, Tokens = vom Modell geschriebene Tokens, beides
 | llama.cpp | claude-local | `local-coder` | h3-probe | 1 / 1 | 205 s | 28 | 7260 | 5 / 5 (100 %) |
 | llama.cpp | claude-local | `local-coder` | h3-qwen38 | 8 / 9 | 4448 s | 473 | 171761 | 34 / 42 (81 %) |
 | llama.cpp | claude-local | `local-coder` | h4 | 6 / 6 | 786 s | 170 | 42816 | 27 / 30 (90 %) |
+| llama.cpp | unzensiert | `local-coder` | schleife1 | 3 / 6 | 1553 s | 233 | 89739 | 24 / 26 (92 %) |
 | llama.cpp | claude-local | `local-coder` | stufe4 | 14 / 15 | 4903 s | 756 | 250511 | 59 / 66 (89 %) |
 | llama.cpp | claude-local | `local-coder` | stufe4-128k | 1 / 3 | 42290 s | 237 | 57491 | 12 / 12 (100 %) |
 | llama.cpp | claude-local | `local-coder` | vergleich1 | 5 / 5 | 829 s | 159 | 48858 | 21 / 23 (91 %) |
@@ -161,6 +163,9 @@ Runden = Anfragen an das Modell, Tokens = vom Modell geschriebene Tokens, beides
 | llama.cpp | claude-local | `local-coder` | h3-qwen38 | psscript | 2 / 3 | ja (580 s), ja (742 s), nein (734 s) | 12 / 15 (80 %) |
 | llama.cpp | claude-local | `local-coder` | h4 | datenblatt | 3 / 3 | ja (129 s), ja (198 s), ja (121 s) | 12 / 15 (80 %) |
 | llama.cpp | claude-local | `local-coder` | h4 | pinwechsel | 3 / 3 | ja (103 s), ja (105 s), ja (130 s) | 15 / 15 (100 %) |
+| llama.cpp | unzensiert | `local-coder` | schleife1 | refactor | 1 / 2 | ja (208 s), nein (216 s) | 8 / 8 (100 %) |
+| llama.cpp | unzensiert | `local-coder` | schleife1 | psscript | 1 / 2 | ja (324 s), nein (228 s) | 8 / 10 (80 %) |
+| llama.cpp | unzensiert | `local-coder` | schleife1 | longcontext | 1 / 2 | nein (308 s), ja (269 s) | 8 / 8 (100 %) |
 | llama.cpp | claude-local | `local-coder` | stufe4 | extend | 3 / 3 | ja (334 s), ja (245 s), ja (241 s) | 12 / 15 (80 %) |
 | llama.cpp | claude-local | `local-coder` | stufe4 | refactor | 3 / 3 | ja (264 s), ja (248 s), ja (244 s) | 12 / 12 (100 %) |
 | llama.cpp | claude-local | `local-coder` | stufe4 | psscript | 3 / 3 | ja (446 s), ja (636 s), ja (566 s) | 12 / 15 (80 %) |
@@ -296,6 +301,7 @@ Gezaehlt ueber alle Laeufe der Aufgaben, die die Regel pruefen (auch ueber nicht
 | llama.cpp | claude-local | `local-coder` | h3-probe | 1 / 1 | 1 / 1 | - | 1 / 1 | - | 1 / 1 | 1 / 1 |
 | llama.cpp | claude-local | `local-coder` | h3-qwen38 | 9 / 9 | 7 / 9 | 0 / 6 | 6 / 6 | 3 / 3 | 9 / 9 | - |
 | llama.cpp | claude-local | `local-coder` | h4 | 6 / 6 | 6 / 6 | - | 6 / 6 | - | 3 / 6 | 6 / 6 |
+| llama.cpp | unzensiert | `local-coder` | schleife1 | 6 / 6 | 6 / 6 | 0 / 2 | 4 / 4 | 2 / 2 | 6 / 6 | - |
 | llama.cpp | claude-local | `local-coder` | stufe4 | 15 / 15 | 15 / 15 | 0 / 6 | 11 / 12 | 3 / 3 | 15 / 15 | - |
 | llama.cpp | claude-local | `local-coder` | stufe4-128k | 3 / 3 | 3 / 3 | - | 3 / 3 | - | 3 / 3 | - |
 | llama.cpp | claude-local | `local-coder` | vergleich1 | 5 / 5 | 5 / 5 | 0 / 1 | 4 / 5 | - | 5 / 5 | 2 / 2 |

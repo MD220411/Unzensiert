@@ -257,7 +257,7 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 | `Test-Setup.ps1` | Konfiguration und Skripte prüfen, ohne ein Modell zu laden (wenige Sekunden) |
 | `Test-Install.ps1` | Logik des Installers prüfen, ohne Download und ohne Grafikkarte: `machine.json`, Geräteliste, Wahl der Stufe, Download-Einträge, Probelauf `-Plan`, Planer mit einem nachgebildeten Speichermodell |
 | `Test-Guard.ps1` | Schutzregeln gegen die Fälle in `tests\guard-cases.json` prüfen |
-| `Test-Agent.ps1` | Agent Unzensiert prüfen, ohne Modell: JSON, Antwortstrom, Werkzeuge, Rechte, Wiederholungen, Sitzungen, Befehle, Abschlussprüfung, Updates, Oberfläche (Markdown, Umbruch, Diff, Farben von Code, Vorschau); `-WithModel` löst eine kleine Aufgabe |
+| `Test-Agent.ps1` | Agent Unzensiert prüfen, ohne Modell: JSON, Antwortstrom, Werkzeuge, Rechte, Wiederholungen und Änderungen ohne Wirkung, Sitzungen, Befehle, Abschlussprüfung, Updates, Oberfläche (Markdown, Umbruch, Diff, Farben von Code, Vorschau); `-WithModel` löst eine kleine Aufgabe |
 | `Test-Tasks.ps1` | Benchmark-Aufgaben prüfen, ohne ein Modell: Vorlage fällt durch, Musterlösung besteht |
 | `Test-Templates.ps1` | Projektvorlagen prüfen: neues Projekt besteht seinen Prüfbefehl, eingebaute Fehler (Widerspruch zu `facts\facts.json`, Fakt ohne Quelle, scheiternder Test) lassen ihn scheitern |
 | `New-Project.ps1` | neues Projekt aus der Vorlage anlegen (Python oder PowerShell), mit Prüfbefehl und erstem Commit |

@@ -51,6 +51,32 @@ function Get-TextHash([string]$Text) {
     return [Convert]::ToBase64String($bytes)
 }
 
+function Get-ResultShape([string]$Text) {
+    # A result as compared for repeats: run times and memory addresses differ between two runs
+    # of the same failing test ("Ran 7 tests in 0.507s"), so decimal numbers and 0x addresses
+    # count as equal. Whole numbers (line numbers, counts) still count.
+    return [regex]::Replace([regex]::Replace($Text, '0x[0-9a-fA-F]+', '0x#'), '\d+\.\d+', '#')
+}
+
+function Get-ChangedFilesState($Session) {
+    # A hash over the current content of the files changed in this session. Two calls with
+    # the same state saw the same files, also when a file was changed and changed back, or
+    # changed by a command. A file over 4 MB counts by size and time.
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($path in @($Session.changed)) {
+        $null = $sb.Append($path).Append('=')
+        try {
+            $item = Get-Item -LiteralPath $path -ErrorAction Stop
+            if ($item.Length -gt 4MB) { $null = $sb.Append("$($item.Length)/$($item.LastWriteTimeUtc.Ticks)") }
+            else { $null = $sb.Append([Convert]::ToBase64String($script:Md5.ComputeHash([System.IO.File]::ReadAllBytes($path)))) }
+        } catch {
+            $null = $sb.Append('missing')
+        }
+        $null = $sb.Append(';')
+    }
+    return (Get-TextHash $sb.ToString())
+}
+
 function Get-SessionContextSize($Session) {
     # Context window of the session model in tokens, read once per model.
     if (-not $Session.ctxModel -or $Session.ctxModel -ne $Session.model) {
@@ -407,16 +433,24 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
             $Session.answerEdits++
             if (-not $Session.changed.Contains($result.changed)) { $null = $Session.changed.Add($result.changed) }
             Add-HookTranscript $Session $c.name $result.changed $c.id
-            $Session.fingerprints = @{}
         }
-        # the same call with the same result again and again, with nothing changed in between
-        $fp = Get-TextHash ($c.name + "`n" + $argText + "`n" + $result.text)
+        # the same call with the same result while the changed files hold the same content: a
+        # repeat. The content is part of the print (instead of forgetting all prints on every
+        # change), so changing a file back and forth does not hide a loop.
+        $fp = Get-TextHash ($c.name + "`n" + $argText + "`n" + (Get-ResultShape ([string]$result.text)) + "`n" + (Get-ChangedFilesState $Session))
         $count = 1
         if ($Session.fingerprints.ContainsKey($fp)) { $count = $Session.fingerprints[$fp] + 1 }
         $Session.fingerprints[$fp] = $count
         $text = [string]$result.text
         if ($count -ge $limit) {
-            $text += "`n[Note from Unzensiert: you made exactly this call $count times with the same result and nothing changed in between. Repeating it will not help: change your approach, or end your answer and say what blocks you.]"
+            $text += "`n[Note from Unzensiert: you made exactly this call $count times with the same result and the files unchanged in between. Repeating it will not help: change your approach, or end your answer and say what blocks you.]"
+        }
+        if ($result.noop) {
+            # Edit or Write that leave the file as it is, whatever their arguments
+            $Session.noEffect++
+            if ($Session.noEffect -ge $limit) {
+                $text += "`n[Note from Unzensiert: $($Session.noEffect) of your edits in this request changed nothing; the files already hold that text. Stop editing this place: if a check still fails, read its error message again and look for the cause elsewhere, or end your answer and say what blocks you.]"
+            }
         }
         Write-UiToolResult $result $c.name
         Add-ToolMessage $Session $c.id $text
@@ -424,6 +458,9 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
         if ($result.userStop) { $outcome = 'stopped' }
         elseif ($count -ge 2 * $limit) {
             Write-UiNote (Get-UiText 'notes.repeating' $c.name) 'warn'
+            $outcome = 'loop'
+        } elseif ($result.noop -and $Session.noEffect -ge 2 * $limit) {
+            Write-UiNote (Get-UiText 'notes.noEffect' $Session.noEffect) 'warn'
             $outcome = 'loop'
         }
     }
@@ -474,6 +511,7 @@ function Invoke-AgentTurn($Session, $Content) {
     $Session.stopActive = $false
     $Session.fingerprints = @{}
     $Session.denials = 0
+    $Session.noEffect = 0
     $Session.answerEdits = 0
     $Session.lastAnswer = ''
     $maxRounds = [int]$cfg.maxToolRounds

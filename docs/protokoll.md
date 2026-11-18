@@ -3,6 +3,54 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-18 mittags: Schutz gegen Schleifen verbessert
+
+Anlass war die Schleife bei Unzensiert in `vergleich2`, `refactor` #1 (Eintrag „vormittags:
+Vergleich mit Wiederholungen“). Änderungen in `scripts\lib\AgentLoop.ps1` und
+`AgentTools.ps1`:
+
+- **Dateistand im Fingerabdruck:** Ein Aufruf zählt als Wiederholung, wenn Name, Argumente
+  und Ergebnis gleich sind und die in der Sitzung geänderten Dateien denselben Inhalt haben
+  (`Get-ChangedFilesState`). Früher löschte jede Änderung alle Fingerabdrücke, und wer eine
+  Datei hin und her änderte, verbarg damit jede Schleife.
+- **Ergebnisse ohne Laufzeiten:** Dezimalzahlen und `0x`-Adressen zählen beim Vergleich
+  nicht (`Get-ResultShape`). `Ran 7 tests in 0.507s` gilt also als dasselbe Ergebnis wie
+  `0.493s`; ganze Zahlen wie Zeilennummern zählen weiter.
+- **Änderungen ohne Wirkung:** Ein Write mit dem Inhalt, den die Datei schon hat, schreibt
+  nichts mehr, meldet das und zählt nicht als Änderung. Solche Writes und Edits mit gleichem
+  `old_string` und `new_string` werden je Anfrage gezählt, gleich mit welchen Argumenten:
+  Hinweis ab der dritten, Abbruch bei der sechsten (`maxRepeats`, Text `notes.noEffect`).
+- **Fehler behoben:** Edit verglich `old_string` und `new_string` mit `-eq`, also ohne Rücksicht
+  auf Groß/Klein. Ein Edit, der nur die Schreibweise ändert (`true` zu `True`), wurde als
+  „nichts zu ändern“ abgelehnt. Jetzt vergleicht es mit `-ceq`.
+
+Nachgerechnet an den 33 aufgezeichneten Unterhaltungen von Unzensiert aus `vergleich2`:
+Dieselben Aufrufe liefen offline einmal durch die alte und einmal durch die neue Regel. Die
+alte Regel ergab dabei genau den Ablauf des echten Laufs.
+
+| Lauf | alte Regel | neue Regel |
+|---|---|---|
+| `refactor` #1 | ein Hinweis (Aufruf 49), kein Abbruch; Ende erst am Zeitlimit nach 600 s | Hinweis beim 3. Edit ohne Wirkung (Aufruf 48), Abbruch beim 6. (Aufruf 54, nach 13 der 42 Aufrufe der Schleife) |
+| die übrigen 32 | kein Hinweis | kein Hinweis, kein Abbruch |
+
+Prüfungen: Test-Setup; Test-Agent mit neuen Fällen (Datei hin und her geschrieben,
+Laufzeiten im Ergebnis, Write mit gleichem Inhalt, Groß/Klein bei Write und Edit, Edits ohne
+Wirkung); Test-Agent `-WithModel` (11 Runden, 27 s, wie vorher).
+
+Lauf `schleife1` mit dem neuen Code (Unzensiert, `refactor`, `psscript` und `longcontext` je
+zweimal): 3 von 6 bestanden, Zeiten im Rahmen von `vergleich2` (`refactor` 208 und 216 s,
+`psscript` 324 und 228 s, `longcontext` 308 und 269 s). Die neue Regel meldete sich nur in
+`psscript` #2, früh in der Sitzung. Beim 3. Edit ohne Wirkung kamen zwei Hinweise: der auf
+die Wiederholung (den hätte die alte Regel genauso gegeben) und der auf Änderungen ohne
+Wirkung. Beim 4. kam der zweite noch einmal. Danach schrieb das Modell die Datei neu und
+arbeitete normal weiter: 24 von 24 eigenen Tests grün, Abschlussprüfung. Abgebrochen wurde
+nichts. Die Fehlschläge sind Fehler des Modells, an denen die neue Regel nicht beteiligt war:
+- `refactor` #2: ließ nach einem fehlgeschlagenen Speichern eine Temp-Datei liegen (Zeile 65
+  der Prüfung); in dieser Sitzung gab es keinen Hinweis und keine Änderung ohne Wirkung.
+- `psscript` #2: gab bei `-Since` mit `-Source` `"total": null` aus; das deckten seine Tests
+  nicht ab.
+- `longcontext` #1: der bekannte Fehler bei Irland.
+
 ## 2026-11-18: Oberfläche von Unzensiert ausgearbeitet
 
 Wunsch des Nutzers: das Design von Unzensiert weiter ausarbeiten und detaillierter machen,

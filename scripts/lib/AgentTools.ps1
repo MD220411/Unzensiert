@@ -3,10 +3,11 @@
 # know from other agents. Used by lib\AgentLoop.ps1. Needs lib\Config.ps1, lib\Machine.ps1.
 # Keep this file ASCII-only.
 #
-# A tool returns @{ text; error; image = @{ mime; data } or $null; changed = path or ''; diff }
+# A tool returns @{ text; error; image = @{ mime; data } or $null; changed = path or ''; diff; noop }
 #   text     what the model gets back
 #   changed  a file the tool wrote (for the closing check)
 #   diff     old and new text of an edit, for the terminal
+#   noop     an Edit or Write that would leave the file as it is (lib\AgentLoop.ps1 counts them)
 
 $script:ImageTypes = @{ '.png' = 'image/png'; '.jpg' = 'image/jpeg'; '.jpeg' = 'image/jpeg'; '.gif' = 'image/gif'; '.webp' = 'image/webp'; '.bmp' = 'image/bmp' }
 $script:SkipFolders = @('.git', 'node_modules', '__pycache__', '.venv', 'venv', '.mypy_cache', '.pytest_cache', '.idea', '.vs')
@@ -50,7 +51,7 @@ function Get-AgentToolSchemas([string]$GitBash) {
 
 function New-ToolResult([string]$Text, [bool]$IsError = $false) {
     # info: facts for the terminal (lines, files, exit code ...); the model reads only text
-    return @{ text = $Text; error = $IsError; image = $null; changed = ''; diff = $null; summary = ''; userStop = $false; info = $null }
+    return @{ text = $Text; error = $IsError; image = $null; changed = ''; diff = $null; summary = ''; userStop = $false; info = $null; noop = $false }
 }
 
 function Resolve-AgentPath([string]$Path, [string]$Cwd) {
@@ -185,7 +186,12 @@ function Invoke-ToolEdit($Session, $A) {
     $old = [string](Get-DictValue $A 'old_string')
     $new = [string](Get-DictValue $A 'new_string')
     if ($old -eq '') { return (New-ToolResult 'old_string is empty. To create a file use Write.' $true) }
-    if ($old -eq $new) { return (New-ToolResult 'old_string and new_string are the same; nothing to change.' $true) }
+    # -ceq: -eq ignores case, and an edit from true to True is a real change
+    if ($old -ceq $new) {
+        $r = New-ToolResult 'old_string and new_string are the same, so this edit changes nothing. If the file already holds the text you want, that part is done; if a check still fails, the cause is elsewhere: read its error message again.' $true
+        $r.noop = $true
+        return $r
+    }
     if ($file.crlf) {
         # the model writes line breaks as \n; the file keeps its own
         $old = $old.Replace("`r`n", "`n").Replace("`n", "`r`n")
@@ -229,9 +235,17 @@ function Invoke-ToolWrite($Session, $A) {
         $like = Read-TextFile $path
         if ($like.crlf) { $content = $content.Replace("`r`n", "`n").Replace("`n", "`r`n") }
     }
+    $count = ($content.TrimEnd("`r", "`n").Split("`n")).Count
+    if ($existed -and -not $like.binary -and $like.text -ceq $content) {
+        # the same text again: the file stays untouched and nothing counts as changed
+        $r = New-ToolResult "$(Get-DisplayPath $path $Session.cwd) already has exactly this content ($count lines); nothing was written."
+        $r.noop = $true
+        $r.summary = "$count lines"
+        $r.info = @{ lines = $count; created = $false }
+        return $r
+    }
     Write-TextFile $path $content $like
     $Session.reads[$path] = (Get-Item -LiteralPath $path).LastWriteTimeUtc.Ticks
-    $count = ($content.TrimEnd("`r", "`n").Split("`n")).Count
     $verb = 'Created'
     if ($existed) { $verb = 'Replaced' }
     $r = New-ToolResult "$verb $(Get-DisplayPath $path $Session.cwd) ($count lines)."

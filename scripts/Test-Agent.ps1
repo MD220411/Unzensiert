@@ -219,6 +219,38 @@ try {
         if ($outcome -ne 'ok') { break }
     }
     Assert-That ($notes -eq 4 -and $outcome -eq 'loop' -and $i -eq 6) 'repeats: a note from the 3rd same call and result, stop at the 6th'
+
+    # loops the old rule missed (vergleich2, refactor #1): a file written back and forth, run
+    # times in a test output, edits and writes that change nothing
+    Assert-That ((Get-ResultShape 'Ran 7 tests in 0.507s, <f at 0x1F2A>') -eq (Get-ResultShape 'Ran 7 tests in 0.493s, <f at 0x7FFE>')) 'repeats: run times and addresses in a result do not count'
+    Assert-That ((Get-ResultShape 'line 12') -ne (Get-ResultShape 'line 13')) 'repeats: whole numbers in a result still count'
+    $t = New-TestSession $proj 'all'
+    $flip = Join-Path $proj 'src\flip.txt'
+    $seen = @()
+    for ($i = 1; $i -le 3; $i++) {
+        $null = Invoke-ToolCalls $t @(@{ id = "fa$i"; name = 'Write'; arguments = '{"file_path":"src/flip.txt","content":"A\n"}' }) $guard
+        $null = Invoke-ToolCalls $t @(@{ id = "fg$i"; name = 'Grep'; arguments = '{"pattern":"NOT_THERE_4711"}' }) $guard
+        $seen += [bool]($t.messages[$t.messages.Count - 1]['content'] -match 'Note from Unzensiert')
+        $null = Invoke-ToolCalls $t @(@{ id = "fb$i"; name = 'Write'; arguments = '{"file_path":"src/flip.txt","content":"B\n"}' }) $guard
+    }
+    Assert-That (-not $seen[0] -and -not $seen[1] -and $seen[2]) 'repeats: a file changed and changed back hides no loop (note at the 3rd same call in the same state)'
+    $before = (Get-Item -LiteralPath $flip).LastWriteTimeUtc
+    $res = Invoke-AgentTool $t 'Write' @{ file_path = 'src\flip.txt'; content = "B`n" }
+    Assert-That ($res.noop -and -not $res.changed -and -not $res.error -and $res.text -match 'already has exactly this content' -and (Get-Item -LiteralPath $flip).LastWriteTimeUtc -eq $before) 'write: the same content again writes nothing and counts as no change'
+    $res = Invoke-AgentTool $t 'Write' @{ file_path = 'src\flip.txt'; content = "b`n" }
+    Assert-That ([bool]$res.changed -and -not $res.noop -and ([System.IO.File]::ReadAllText($flip)) -ceq "b`n") 'write: a change of upper and lower case is a change'
+    $res = Invoke-AgentTool $t 'Edit' @{ file_path = 'src\flip.txt'; old_string = 'b'; new_string = 'B' }
+    Assert-That ([bool]$res.changed -and ([System.IO.File]::ReadAllText($flip)) -ceq "B`n") 'edit: a change of upper and lower case is a change (true to True)'
+    $t = New-TestSession $proj 'all'
+    $null = Invoke-AgentTool $t 'Read' @{ file_path = 'src\flip.txt' }
+    $notes = 0
+    $outcome = 'ok'
+    for ($i = 1; $i -le 6; $i++) {
+        $outcome = Invoke-ToolCalls $t @(@{ id = "ne$i"; name = 'Edit'; arguments = ('{"file_path":"src/flip.txt","old_string":"word' + $i + '","new_string":"word' + $i + '"}') }) $guard
+        if ($t.messages[$t.messages.Count - 1]['content'] -match 'Note from Unzensiert') { $notes++ }
+        if ($outcome -ne 'ok') { break }
+    }
+    Assert-That ($notes -eq 4 -and $outcome -eq 'loop' -and $i -eq 6) 'no effect: different edits that change nothing, a note from the 3rd, stop at the 6th'
     $outcome = Invoke-ToolCalls $t @(@{ id = 'img'; name = 'Read'; arguments = '{"file_path":"pic.png"}' }) $guard
     $last = $t.messages[$t.messages.Count - 1]
     Assert-That ($last['role'] -eq 'user' -and @($last['content'])[1].type -eq 'image_url') 'images: sent to the model as a user message after the results'

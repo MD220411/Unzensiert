@@ -31,7 +31,7 @@ function New-AgentSession([string]$Cwd, [string]$Model) {
         ctx = 0; ctxModel = ''; lastBudget = 0; lastFinish = ''
         promptTokens = 0; charsAtPrompt = 0; tokensPerSecond = 0.0; cachedTokens = 0
         inputTokens = 0; outputTokens = 0; turns = 0; maxTurns = 0
-        stopActive = $false; answerEdits = 0; fingerprints = @{}; denials = 0
+        stopActive = $false; answerEdits = 0; fingerprints = @{}; denials = 0; noEffect = 0
         lastPrompt = ''; lastAnswer = ''; pending = ''
         instructionFiles = @(); started = [datetime]::Now
     }
