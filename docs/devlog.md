@@ -5,6 +5,39 @@ New entries go at the top. Measurements from `scripts\Test-Model.ps1` are also i
 translated; names of runs, task ids and file names of the time are kept as they were (what
 they are called today is noted where it helps).
 
+## 2026-11-18 afternoon: where the time goes, speculative decoding measured
+
+The user's wish: look for further improvements of any kind, as long as the result gets better
+for the user. First question: where does the time of a task go?
+
+### Measured
+
+- **Time:** from the server log of `vergleich2`, the model's time was 97 % of the task time of
+  Unzensiert (92 % for Claude Code); of that, 86 % writing and 14 % reading the prompt. Tools,
+  the guard and the agent itself hardly count; `unzensiert` itself starts in 0.5 s (bare
+  PowerShell 0.13 s). The guard denied or asked nothing in the 33 runs of Unzensiert.
+- **Output of the model** (33 sessions, characters): 27 % thinking, 8 % text, 65 % tool
+  arguments. 41 % repeats a passage of at least 32 characters from earlier in the conversation
+  (`old_string` 88 %); 62 full rewrites of existing files with Write.
+- **Speculative decoding**, replay of 33 points of the sessions against a separate
+  `llama-server` (port 8099) with the settings of `local-coder`: MTP with 4 tokens (today)
+  73.1 tok/s; n-gram drafts plus MTP 71.7 (−2 %, ±0 % where the answer was the same); MTP with
+  6 tokens and `spec-draft-p-min 0.5` 68.2 (−6 %). Details and the per-task figures:
+  [model-choice.md](model-choice.md).
+
+### Decision
+
+`local-coder` stays as it is (MTP, 4 tokens); no change in `config\`. Noted in
+[models.md](models.md) (MTP) and for Q4 in the [roadmap](roadmap.md): thinking is a quarter of
+the output, a thinking budget would save little time.
+
+### Next
+
+The failures of `vergleich2` that were not timeouts were requirements of the task the model
+overlooked (`extend`: names normalised like item names; `longcontext`: rules of single
+countries). Next step: a point in the closing check that has the model go through the task
+once more, requirement by requirement, measured against the run `english1`.
+
 ## 2026-11-18 afternoon: everything in English, a new GitHub page
 
 The user's wish: everything in English, because the project is meant for international use,

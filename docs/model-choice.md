@@ -4,6 +4,43 @@ Assessment of the measurements in [benchmark.md](benchmark.md). The latest measu
 the first section, the choice of models in the section "Current choice". The sections below
 are older and stay as the reasoning.
 
+## Speculative decoding in agent work: n-gram drafts, longer MTP drafts (2026-11-18)
+
+**Where the time goes** (server log of `vergleich2`, `local-coder`): the model's time was 97 %
+of the task time of Unzensiert (5,371 of 5,528 s) and 92 % of Claude Code's (6,050 of
+6,541 s); of the model's time 86 % went to writing tokens and 14 % to reading the prompt
+(74 tok/s writing with MTP, 79 % of its drafts accepted). What Unzensiert wrote, counted in
+characters over the 33 sessions: 27 % thinking, 8 % text, 65 % tool arguments (file contents of
+Write and Edit, commands). 41 % of the output repeats a passage of at least 32 characters from
+earlier in the conversation, 61 % of the tool arguments and 88 % of `old_string`: the model
+copies code it has read. Part of that is rewriting: 62 times in 33 runs the model wrote an
+existing file in full with Write, about 90,000 characters of it unchanged.
+
+**Measured:** n-gram drafts guess such copied passages from the text so far
+(`--spec-type ngram-mod`; llama.cpp prefers them to MTP when both are on). Replay instead of
+a benchmark run, so that every setting writes at the same points: 33 points of the
+`vergleich2` sessions (three per task, spread over the session), each time the conversation up
+to that point sent again with the system prompt and tools of Unzensiert to a separate
+`llama-server` with the settings of `local-coder`, the model writes the turn anew (same seed,
+at most 1,500 tokens).
+
+| Setting | Writing | Drafts accepted | Against today |
+|---|---|---|---|
+| MTP, 4 tokens (today) | 73.1 tok/s | 77 % | |
+| n-gram drafts (`ngram-mod`, match 24, 16 to 32 tokens) plus MTP 4 | 71.7 tok/s | 67 % | −2 %; at the 26 points with the same answer ±0 % |
+| MTP 6 tokens, only while the guess is at least 50 % likely (`spec-draft-p-min 0.5`) | 68.2 tok/s | 78 % | −6 % (25 points, stopped then) |
+
+The n-gram drafts gain where the model copies long passages (`refactor` +9 %, `psscript`
++6 %) and lose elsewhere (`datenblatt` −18.5 %, `planner` −13 %, `longcontext` −8 %): their
+drafts are long and fail more often than those of MTP, which guesses copied code well on its
+own. A first try with the default lengths (48 to 64 tokens) at 9 points: +1 %, within the
+spread. **Decision:** `local-coder` stays with MTP and 4 tokens.
+
+Little to gain from limiting thinking (Q4 of the [roadmap](roadmap.md)), estimated from the same
+sessions: half of all turns think less than 100 characters, and a budget of 2,048 tokens
+(taken as 3.6 characters per token) would have cut 14.5 % of the thinking (7 of 859 turns),
+that is 4 % of the output.
+
 ## Agent: Unzensiert against Claude Code, all tasks three times (2026-11-18)
 
 Run `vergleich2`: all eleven tasks, each three times, `local-coder`, without the second look,

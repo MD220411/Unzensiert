@@ -93,6 +93,11 @@ decoding, which about doubles the speed. It requires a GGUF file **with** MTP he
 `Test-Model.ps1` shows whether MTP runs in the line `speed` (`MTP on, 76 % of drafted tokens
 accepted`). Models without an MTP head do not get the option.
 
+Measured and left out: n-gram drafts in addition to MTP (`spec-type ngram-mod,draft-mtp`), which
+guess passages the model copies from the conversation, and longer MTP drafts (6 tokens with
+`spec-draft-p-min`); in agent work neither was faster than MTP with 4 tokens
+([model-choice.md](model-choice.md), 2026-11-18).
+
 ## Images
 
 The three agent models can read images (screenshots, sketches, photos of error messages).
