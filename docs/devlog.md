@@ -5,6 +5,66 @@ New entries go at the top. Measurements from `scripts\Test-Model.ps1` are also i
 translated; names of runs, task ids and file names of the time are kept as they were (what
 they are called today is noted where it helps).
 
+## 2026-11-18 afternoon: everything in English, a new GitHub page
+
+The user's wish: everything in English, because the project is meant for international use,
+and a nicer GitHub page.
+
+### Done
+
+1. **Terminal of Unzensiert:** texts in `config\unzensiert-texts.json` (before German in
+   `unzensiert-texte.json`), numbers and dates in English (`1,873 tokens`,
+   `Wednesday, November 18`), sample session `tests\agent-design.json` in English. The
+   permission question shows the keys `y` and `a`; `j` and `i` still work.
+2. **Styles renamed:** `ausbruch` → `breakout` ("Breakout", moods street/free/cloud),
+   `nachtschicht` → `nightshift` ("Night Shift", moods workbench/ember/highbeam); quotes
+   (`texts.quotes`, before `sprueche`), activity and done words, labels and pictures (FREE,
+   CLOUD) in English. `formerNames` and `formerThemes` in `config\style.json` let
+   `Install-Style.ps1` replace the entries of the German names; applied on the development
+   computer (Windows Terminal profile, scheme and theme "Breakout", Claude Code themes
+   `breakout-free`, `breakout-cloud`; the old theme files were removed by the script).
+3. **What the model reads:** `config\coding-rules.md` (before `entwicklungsregeln.md`),
+   `closing-check.md` (before `abschluss.md`, points `[docs]`, `[settings]`, `[cleanup]`),
+   `second-look.md` (before `zweiter-blick.md`, answer words `ERROR`, `HINT`, `NO FINDINGS`; the
+   parser still understands `FEHLER` and `HINWEIS`), workflows in `config\workflows\` (before
+   `befehle\`, plugin `local` instead of `lokal`, `/review` instead of `/pruefen`), the reasons of
+   the guard and the messages of the closing check and the second look.
+4. **Project templates** in `templates\project\` (`shared\`, `__PACKAGE__`, placeholders
+   `{{PACKAGE}}`, `{{PURPOSE}}`, `{{DATE}}`, `docs\decisions\`); fact status `confirmed` and
+   `assumption` (the German `belegt` and `annahme` still accepted), the copy in the task
+   `pinwechsel` updated (Test-Tasks requires the template version).
+5. **Benchmark report** in English. The task ids `datenblatt` and `pinwechsel` and their German
+   material stay, so that earlier results stay comparable; the rule `fakten` keeps its key in the
+   results and is shown as `facts`.
+6. **Documentation** in English with English file names (`architecture.md`, `setup.md`,
+   `extending.md`, `models.md`, `model-choice.md`, `planner.md`, `projects.md`, `security.md`,
+   `style.md`; this log was `protokoll.md`); all earlier log entries translated. `CLAUDE.md` in
+   English with the rule "everything in English".
+7. **GitHub page:** README rebuilt (badges, screenshots, highlights, comparison with Claude Code,
+   quick start, usage, safety, status, limits); screenshots in `docs\images\`, rendered from
+   `Show-AgentDesign.ps1` in a neutral sample folder; `docs\images\social-preview.png` for the
+   social preview of the repository (set by hand in the settings of the repository); repository
+   description and topics in English.
+
+Found and fixed on the way: `Install-Style.ps1` wrote the profile in Windows Terminal with
+`"guid": null` (the variable `$entryGuid` did not exist), so it never recognised its own profile.
+It now uses the fixed GUID from `config\style.json`, and a profile named after a style (also a
+former one) counts as its own.
+
+### Checked
+
+- `Test-Setup.ps1`, `Test-Agent.ps1`, `Test-Guard.ps1` (95 of 95), `Test-Templates.ps1`,
+  `Test-Tasks.ps1` pass.
+- All relative links and anchors in the Markdown files checked with a small script (only the
+  links inside the project templates point to files that exist once a project is created).
+- The design preview rendered again in both styles and looked at.
+
+### Not measured yet
+
+Whether the English working rules, closing check and second look work as well as the German
+ones: the benchmark run `english1` (Unzensiert, all eleven tasks once) follows as soon as the
+graphics cards are free; its result will be added here.
+
 ## 2026-11-18 midday: better protection against loops
 
 The reason was the loop of Unzensiert in `vergleich2`, `refactor` #1 (entry "morning:
