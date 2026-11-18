@@ -144,7 +144,7 @@ agents.
 
 | Tool | What it does |
 |---|---|
-| `Bash` | command in Git Bash, `PowerShell` in Windows PowerShell 5.1; always in the project folder. The command goes into a script file (no trouble with quotes), runs without input, at most `commandTimeoutSeconds` (up to `commandMaxSeconds` when the model asks for more) and is ended with all its child processes. Long output keeps its beginning and end, because that is usually where the error is. Python writes UTF-8 (`PYTHONIOENCODING`). |
+| `Bash` | command in Git Bash, `PowerShell` in Windows PowerShell 5.1; always in the project folder. The command goes into a script file (no trouble with quotes), runs without input, at most `commandTimeoutSeconds` (up to `commandMaxSeconds` when the model asks for more) and is ended with all its child processes. Long output keeps its beginning and end, because that is usually where the error is. Python writes UTF-8 (`PYTHONIOENCODING`); a line that is not UTF-8, such as the localised messages of a `powershell.exe` started from Git Bash, is read in the code page of the console. |
 | `Read` | file with line numbers, parts with `offset`/`limit`; the model sees images as images |
 | `Edit` | replace text; only after `Read` and only if the file has not changed since. The text must appear exactly once (or `replace_all`). Line endings (CR LF), encoding and byte order mark of the file stay as they were. If it does not find the text, it says whether only indentation or line breaks differ. |
 | `Write` | new file, or replace a file that was read completely. If the file already has exactly this content, it writes nothing and says so. |

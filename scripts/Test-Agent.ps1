@@ -140,9 +140,25 @@ try {
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $res = Invoke-AgentTool $s2 'PowerShell' @{ command = 'Start-Sleep -Seconds 20'; timeout = 1 }
     Assert-That ($res.error -and $res.text -match 'time limit' -and $watch.Elapsed.TotalSeconds -lt 10) 'PowerShell: stopped at its time limit'
+    # output that is not UTF-8: each such line is read in the OEM code page
+    $oem = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    $uUml = [string][char]0xFC
+    $aUml = [string][char]0xE4
+    Assert-That ((ConvertFrom-OutputBytes ([System.Text.Encoding]::UTF8.GetBytes("a${aUml}`n"))) -ceq "a${aUml}`n") 'output: UTF-8 stays as it is'
+    $oemLine = [byte[]](0x46, 0x81, 0x72, 0x0A)
+    Assert-That ((ConvertFrom-OutputBytes $oemLine) -ceq $oem.GetString($oemLine)) 'output: a line in the console code page is read in the OEM code page'
+    $mixed = [byte[]](@(0x61, 0xC3, 0xA4, 0x0A) + @(0x46, 0x81, 0x72, 0x0A))
+    Assert-That ((ConvertFrom-OutputBytes $mixed) -ceq ("a${aUml}`n" + $oem.GetString($oemLine))) 'output: UTF-8 and code page lines mixed, each read on its own'
+    Assert-That ((ConvertFrom-OutputBytes ([byte[]](0xEF, 0xBB, 0xBF, 0x68, 0x69))) -ceq 'hi') 'output: byte order mark of UTF-8 left out'
+    Assert-That ((ConvertFrom-OutputBytes ([byte[]](0xFF, 0xFE, 0x68, 0x00, 0x69, 0x00))) -ceq 'hi') 'output: UTF-16 with byte order mark'
     if ($s2.gitBash) {
         $res = Invoke-AgentTool $s2 'Bash' @{ command = "echo hi && pwd && exit 2" }
         Assert-That ($res.text -match 'hi' -and $res.text -match '\[exit code 2\]') 'Bash: output and exit code'
+        if ($oem.GetString($oem.GetBytes($uUml)) -ceq $uUml) {
+            # the real case: powershell.exe from Git Bash writes in the code page of the console
+            $res = Invoke-AgentTool $s2 'Bash' @{ command = "printf 'a\xc3\xa4\n'; powershell -NoProfile -Command `"Write-Output ('F' + [char]0xFC + 'r')`"" }
+            Assert-That ($res.text -cmatch "a${aUml}" -and $res.text -cmatch "F${uUml}r") 'Bash: umlauts of UTF-8 and of powershell.exe (console code page) both readable'
+        }
     } else {
         'note  Git Bash is not installed, Bash tool not checked'
     }

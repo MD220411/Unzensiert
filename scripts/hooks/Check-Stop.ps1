@@ -258,7 +258,7 @@ try {
         Remove-Item -Force -ErrorAction SilentlyContinue
 
     if ($checkFailed -or $remind -or $reviewBlock) {
-        Write-HookAnswer @{ decision = 'block'; reason = "Abschlusspruefung von $($script:AgentName). " + ($parts -join "`n`n") }
+        Write-HookAnswer @{ decision = 'block'; reason = "Closing check of $($script:AgentName). " + ($parts -join "`n`n") }
     } elseif ($warning) {
         Write-HookAnswer @{ systemMessage = $warning }
     }

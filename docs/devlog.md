@@ -5,6 +5,32 @@ New entries go at the top. Measurements from `scripts\Test-Model.ps1` are also i
 translated; names of runs, task ids and file names of the time are kept as they were (what
 they are called today is noted where it helps).
 
+## 2026-11-18 evening: umlauts in the output of commands
+
+Found in the sessions of `vergleich2` and `schleife1`: 13 tool results contained `�` instead of
+an umlaut, all German error messages of a `powershell.exe` the model had started through the
+Bash tool (`F�r "TryParseExact" und die folgende ...`). Unzensiert read the output of a command
+as UTF-8; a `powershell.exe` started from Git Bash writes in the code page of the console (850,
+`ü` is the byte 0x81). Under the PowerShell tool this does not happen, its prefix sets the
+console to UTF-8 (checked: `46 C3 BC 72`).
+
+### Done
+
+- `scripts\lib\AgentTools.ps1`: `Invoke-ToolShell` takes the bytes of standard output and error
+  (`BaseStream.CopyToAsync`), the new `ConvertFrom-OutputBytes` decodes them: a byte order mark
+  decides first (as the StreamReader did before), otherwise UTF-8, and only if that fails line by
+  line, each line that is not valid UTF-8 in the OEM code page.
+- `scripts\hooks\Check-Stop.ps1`: the reason of the closing check began with the German
+  "Abschlusspruefung von"; now "Closing check of" (the last German text the model read; the run
+  `english1` still had it).
+
+### Checked
+
+- `Test-Agent.ps1` with five new cases (UTF-8 stays, a code page line, mixed lines, byte order
+  mark of UTF-8 and UTF-16) and the real case: `printf` with UTF-8 plus `powershell.exe` with
+  `ü` from Git Bash, both readable. Before the change the same command gave `F�r`.
+- `Test-Agent.ps1 -WithModel` and `Test-Setup.ps1` pass.
+
 ## 2026-11-18 afternoon: disclaimer
 
 The user's wish: a disclaimer on GitHub in case people use the program for illegal things.

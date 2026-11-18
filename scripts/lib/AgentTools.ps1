@@ -80,6 +80,32 @@ function Limit-Text([string]$Text, [int]$Max) {
     return $Text.Substring(0, $head) + "`n... [$($Text.Length - $Max) characters left out] ...`n" + $Text.Substring($Text.Length - $tail)
 }
 
+function ConvertFrom-OutputBytes([byte[]]$Bytes) {
+    # Output of a command as text. Most programs here write UTF-8 (PowerShell and Python are
+    # set up for it), but some still write in the code page of the console: powershell.exe
+    # started from Git Bash prints its localised messages that way (German "Fuer" with the
+    # byte 0x81 in code page 850). A line that is not valid UTF-8 is therefore read in the
+    # OEM code page; a byte order mark decides first, as it did for the StreamReader before.
+    if (-not $Bytes -or $Bytes.Length -eq 0) { return '' }
+    if ($Bytes.Length -ge 2 -and $Bytes[0] -eq 0xFF -and $Bytes[1] -eq 0xFE) { return [System.Text.Encoding]::Unicode.GetString($Bytes, 2, $Bytes.Length - 2) }
+    if ($Bytes.Length -ge 2 -and $Bytes[0] -eq 0xFE -and $Bytes[1] -eq 0xFF) { return [System.Text.Encoding]::BigEndianUnicode.GetString($Bytes, 2, $Bytes.Length - 2) }
+    $start = 0
+    if ($Bytes.Length -ge 3 -and $Bytes[0] -eq 0xEF -and $Bytes[1] -eq 0xBB -and $Bytes[2] -eq 0xBF) { $start = 3 }
+    $strict = New-Object System.Text.UTF8Encoding($false, $true)
+    try { return $strict.GetString($Bytes, $start, $Bytes.Length - $start) } catch {}
+    $oem = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    $sb = New-Object System.Text.StringBuilder
+    while ($start -lt $Bytes.Length) {
+        $end = [Array]::IndexOf($Bytes, [byte]10, $start)
+        if ($end -lt 0) { $end = $Bytes.Length - 1 }
+        $count = $end - $start + 1
+        try { $null = $sb.Append($strict.GetString($Bytes, $start, $count)) }
+        catch { $null = $sb.Append($oem.GetString($Bytes, $start, $count)) }
+        $start = $end + 1
+    }
+    return $sb.ToString()
+}
+
 function Read-TextFile([string]$Path) {
     # Content of a text file and how to write it back: @{ text; encoding; bom; crlf; binary }.
     $bytes = [System.IO.File]::ReadAllBytes($Path)
@@ -414,15 +440,16 @@ function Invoke-ToolShell($Session, [string]$Kind, $A, [scriptblock]$ShouldStop)
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.RedirectStandardInput = $true
-    $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
-    $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $stopped = ''
     try {
         $proc = Start-ChildProcess $psi
         $proc.StandardInput.Close()
-        $outTask = $proc.StandardOutput.ReadToEndAsync()
-        $errTask = $proc.StandardError.ReadToEndAsync()
+        # the bytes as they come; decoded line by line below (ConvertFrom-OutputBytes)
+        $outBytes = New-Object System.IO.MemoryStream
+        $errBytes = New-Object System.IO.MemoryStream
+        $outTask = $proc.StandardOutput.BaseStream.CopyToAsync($outBytes)
+        $errTask = $proc.StandardError.BaseStream.CopyToAsync($errBytes)
         while (-not $proc.WaitForExit(100)) {
             if ($watch.Elapsed.TotalSeconds -ge $timeout) { $stopped = "[stopped after $timeout s: time limit]"; break }
             if ($ShouldStop -and (& $ShouldStop)) { $stopped = '[stopped by the user]'; break }
@@ -432,8 +459,8 @@ function Invoke-ToolShell($Session, [string]$Kind, $A, [scriptblock]$ShouldStop)
             $null = $proc.WaitForExit(5000)
         }
         $null = $outTask.Wait(5000); $null = $errTask.Wait(5000)
-        $output = [string]$outTask.Result
-        $errors = [string]$errTask.Result
+        $output = ConvertFrom-OutputBytes $outBytes.ToArray()
+        $errors = ConvertFrom-OutputBytes $errBytes.ToArray()
         $code = 0
         if (-not $stopped) { $code = $proc.ExitCode }
     } finally {
