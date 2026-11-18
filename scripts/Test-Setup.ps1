@@ -164,12 +164,21 @@ if ($agent.stopCheck -and $agent.stopCheck.enabled) {
                 Add-Content -Path $transcript -Encoding ASCII -Value ('{"type":"tool_use","name":"Edit","input":{"file_path":"' + $file + '"}}')
             }
             $answer = Invoke-StopHook $session $transcript $scratch $false
-            Assert-That ($answer.decision -eq 'block' -and $answer.reason -match 'Test:' -and $answer.reason -notmatch 'Dokumentation:') 'closing check: reminder leaves out the point that is done (README edited)'
+            Assert-That ($answer.decision -eq 'block' -and $answer.reason -match 'Test:' -and $answer.reason -notmatch 'Documentation:') 'closing check: reminder leaves out the point that is done (README edited)'
+            $named = @($agent.stopCheck.reminderPoints | ForEach-Object { [string]$_.name })
             foreach ($file in 'src/app.py', 'README.md', 'tests/test_app.py', 'config/settings.json') {
                 Add-Content -Path $transcript -Encoding ASCII -Value ('{"type":"tool_use","name":"Write","input":{"file_path":"' + $file + '"}}')
             }
             $answer = Invoke-StopHook $session $transcript $scratch $false
-            Assert-That ($answer.decision -eq '') 'closing check: no reminder when code, test, README and settings were edited'
+            if ($named -contains 'task') {
+                # the point on the task has no file that settles it: it stays whenever code changed
+                Assert-That ($answer.decision -eq 'block' -and $answer.reason -match 'Task:' -and $answer.reason -notmatch 'Test:|Documentation:|Settings:') 'closing check: code, test, README and settings edited, only the task is left'
+            } else {
+                Assert-That ($answer.decision -eq '') 'closing check: no reminder when code, test, README and settings were edited'
+            }
+            Add-Content -Path $transcript -Encoding ASCII -Value '{"type":"tool_use","name":"Edit","input":{"file_path":"docs/usage.md"}}'
+            $answer = Invoke-StopHook $session $transcript $scratch $false
+            Assert-That ($answer.decision -eq '') 'closing check: no reminder when only documentation was edited'
         }
         Set-Content -Path (Join-Path $scratch 'scripts\Check.ps1') -Encoding ASCII -Value "'planted failure'; exit 1"
         Add-Content -Path $transcript -Encoding ASCII -Value '{"type":"tool_use","name":"Write"}'
