@@ -3,6 +3,31 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-18: erstes Release v1.0.0
+
+Auf Wunsch des Nutzers veröffentlicht, mit `scripts\New-Release.ps1 -Version 1.0.0` und einem
+eigenen Text: Tag `v1.0.0` auf dem Commit `aa4438a`, Release
+<https://github.com/MD220411/Unzensiert/releases/tag/v1.0.0>. Vorher liefen alle sechs
+Prüfungen des Skripts durch (Test-Setup, Test-Guard 95 von 95, Test-Agent, Test-Install,
+Test-Templates, Test-Tasks). Ab jetzt holt der Einzeiler dieses Release statt `main`, und
+Installationen mit automatischen Updates spielen neuere Releases ein.
+
+Das Update wurde gegen das echte Release geprüft, an zwei Kopien im Temp-Ordner, die als
+Version 0.9.0 markiert waren. Jede Kopie lief mit ihren eigenen Skripten
+(`Get-LatestRelease`, `Get-UpdateBlocker`, `Update-ProgramFiles`):
+
+| Installation | gefunden | Ergebnis |
+|---|---|---|
+| ZIP (entpackt, eine Datei gelöscht) | `v1.0.0`, neuer, kein Hindernis | ZIP geladen und darübergelegt, `VERSION` 1.0.0, gelöschte Datei wieder da |
+| git (flach geklont wie vom Installer, ohne Tag) | `v1.0.0`, neuer, kein Hindernis | Tag von GitHub geholt und darauf gewechselt, `VERSION` 1.0.0, keine Änderungen |
+
+Nicht geprüft: der Neustart von `unzensiert` nach dem Update und `Install-LlamaCpp` im
+Anschluss (`Complete-ProgramUpdate`). Das geht erst mit einem zweiten Release auf einer
+echten Installation.
+
+Doku: Der ZIP-Link in `README.md` und `docs\einrichtung.md` zeigt jetzt wie der Einzeiler auf
+das neueste Release statt auf `main`.
+
 ## 2026-11-17 nachts: Unzensiert – eigener Agent statt Claude Code, automatische Updates
 
 Wunsch des Nutzers: Claude Code im lokalen Betrieb durch ein eigenes Programm ersetzen, um

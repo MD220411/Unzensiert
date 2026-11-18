@@ -25,7 +25,7 @@ Schnellstart für Nutzer steht oben in der [README](../README.md).
 | Weg | Vorgehen |
 |---|---|
 | Einzeiler | in PowerShell `irm https://raw.githubusercontent.com/MD220411/Unzensiert/main/install.ps1 \| iex` |
-| ZIP | [ZIP laden](https://github.com/MD220411/Unzensiert/archive/refs/heads/main.zip), entpacken, Doppelklick auf `Install.cmd` |
+| ZIP | beim [neuesten Release](https://github.com/MD220411/Unzensiert/releases/latest) „Source code (zip)“ laden, entpacken, Doppelklick auf `Install.cmd` |
 | Git | `git clone https://github.com/MD220411/Unzensiert`, dann `Install.cmd` |
 
 Der Einzeiler (`install.ps1`) legt das Programm nach `%LOCALAPPDATA%\Programs\claude-local`.

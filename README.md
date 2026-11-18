@@ -24,7 +24,7 @@ an internet connection for the install.
 irm https://raw.githubusercontent.com/MD220411/Unzensiert/main/install.ps1 | iex
 ```
 
-Or download the [ZIP](https://github.com/MD220411/Unzensiert/archive/refs/heads/main.zip),
+Or download *Source code (zip)* of the [latest release](https://github.com/MD220411/Unzensiert/releases/latest),
 unpack it and double-click **Install.cmd**. If Windows says "Windows protected your PC",
 click "More info", then "Run anyway".
 
