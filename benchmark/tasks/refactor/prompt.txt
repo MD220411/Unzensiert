@@ -1,3 +1,0 @@
-This folder contains the tracker tool, see README.md. Carry out the restructuring described in docs/storage.md completely.
-
-The existing tests (python -m unittest discover -s tests) must keep passing. They do not cover the new module, so verify it yourself before you finish.

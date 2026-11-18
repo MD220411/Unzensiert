@@ -1,6 +1,0 @@
-{
-  "_comment": "Overlay for the benchmark: what a project made with New-Project.ps1 has and the plain tasks lack. shared: files copied into every task (from: relative to the repository, to: relative to the work folder). Each subfolder <task> is copied over the files of that task.",
-  "shared": [
-    { "from": "templates\\project\\shared\\scripts\\Check.ps1", "to": "scripts\\Check.ps1" }
-  ]
-}

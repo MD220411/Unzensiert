@@ -1,9 +1,0 @@
-{
-  "facts": [
-    { "id": "hx5.address", "value": "0x44", "source": "docs/datenblatt-hx5.md, Schnittstelle" },
-    { "id": "hx5.chip_id", "value": "0x55", "source": "docs/datenblatt-hx5.md, Register 0xFE" },
-    { "id": "hx5.byte_order", "value": "big-endian", "source": "docs/datenblatt-hx5.md, Register" },
-    { "id": "hx5.temperature", "value": "T = raw * 0.01 - 40", "source": "docs/datenblatt-hx5.md, Umrechnung" },
-    { "id": "hx5.humidity", "value": "RH = raw * 0.01, max 100", "source": "docs/datenblatt-hx5.md, Umrechnung" }
-  ]
-}

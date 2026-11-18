@@ -1,6 +1,0 @@
-{
-  "steps": [
-    { "name": "Tests", "command": "python -B -m unittest discover -s tests -t ." },
-    { "name": "Fakten (facts\\facts.json gegen Doku und Code)", "command": "python -B scripts\\check_facts.py" }
-  ]
-}

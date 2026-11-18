@@ -104,9 +104,12 @@ if (Test-Path $server.exe) {
     foreach ($tool in 'llama-fit-params', 'llama-bench') { Assert-That (Test-Path (Get-LlamaTool $tool)) "llama.cpp brings $tool.exe (needed by the planner)" }
 }
 
-$bench = Get-BenchmarkConfig
-foreach ($name in $bench.models) { Assert-That ($profiles -contains [string]$name) "benchmark.json: model '$name' is a profile" }
-foreach ($task in $bench.tasks) { Assert-That (Test-Path (Join-Path $script:ProjectRoot "benchmark\tasks\$task\check.py")) "benchmark.json: task '$task' has a check.py" }
+# the benchmark is part of the development repository only (config\publish.json)
+if (Test-Path (Join-Path $script:ConfigDir 'benchmark.json')) {
+    $bench = Get-BenchmarkConfig
+    foreach ($name in $bench.models) { Assert-That ($profiles -contains [string]$name) "benchmark.json: model '$name' is a profile" }
+    foreach ($task in $bench.tasks) { Assert-That (Test-Path (Join-Path $script:ProjectRoot "benchmark\tasks\$task\check.py")) "benchmark.json: task '$task' has a check.py" }
+}
 
 $continue = Get-Content -Raw -Path (Join-Path $script:ConfigDir 'continue.config.yaml')
 foreach ($m in [regex]::Matches($continue, '(?m)^\s+model:\s*(\S+)\s*$')) {
@@ -318,4 +321,5 @@ $line = $sample | & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Pa
 Assert-That (($line -join '') -match 'probe-model' -and ($line -join '') -match '42 %') 'status line: shows model and context from the JSON on stdin'
 
 if ($script:Failures -gt 0) { "setup: $script:Failures check(s) failed."; exit 1 }
-'setup: all checks passed. (Full guard cases: scripts\Test-Guard.ps1, a model: scripts\Test-Model.ps1)'
+if (Test-Path (Join-Path $PSScriptRoot 'Test-Guard.ps1')) { 'setup: all checks passed. (Full guard cases: scripts\Test-Guard.ps1, a model: scripts\Test-Model.ps1)' }
+else { 'setup: all checks passed. (A model: scripts\Test-Model.ps1)' }

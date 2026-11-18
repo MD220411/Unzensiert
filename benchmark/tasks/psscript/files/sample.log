@@ -1,6 +1,0 @@
-2026-11-01 12:00:00 INFO [web] Server started
-2026-11-01 12:00:03 ERROR [db] Connection lost
-2026-11-01 12:00:04 WARN [db] Reconnecting
-2026-11-01 12:00:09 INFO [db] Connected
-2026-11-01 12:01:15 DEBUG [cache] 12 entries evicted
-2026-11-01 12:02:00 INFO [web] GET /health 200

@@ -1,8 +1,0 @@
-Add coupon support to the shop package in this folder. Read the existing code first.
-
-1. In shop/pricing.py add a dict COUPONS that maps a coupon code to a discount percent, with the entries SAVE10 (10 percent) and HALF (50 percent). Add a function apply_discount(net_cents, percent) that returns net_cents * (100 - percent) // 100.
-2. In shop/cart.py add the method Cart.apply_coupon(code). An unknown code raises ValueError and leaves the cart unchanged. A later valid coupon replaces the earlier one.
-3. Cart.total_cents() must first apply the discount to the subtotal and then add tax. Cart.subtotal_cents() stays undiscounted.
-4. In main.py print an extra line with the total after applying the coupon SAVE10.
-
-Run main.py with python to verify your change.

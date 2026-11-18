@@ -1,6 +1,0 @@
-[
-  {"room": "A", "start": "09:00", "end": "10:30", "title": "Standup"},
-  {"room": "B", "start": "09:00", "end": "12:00", "title": "Workshop"},
-  {"room": "A", "start": "13:00", "end": "14:00", "title": "Review"},
-  {"room": "A", "start": "10:30", "end": "11:00", "title": "Sync"}
-]

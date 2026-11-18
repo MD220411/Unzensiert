@@ -1,3 +1,0 @@
-This folder contains the tool timesum.py, see README.md. A user sent the screenshot error.png in this folder. It shows two calls of the tool that go wrong.
-
-Look at the screenshot and change the tool so that both calls, and other inputs written in the same way, give the result the user obviously expects. Everything README.md describes must keep working.

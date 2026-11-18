@@ -1,3 +1,0 @@
-This folder contains a small PowerShell tool, see README.md. Implement the change described in docs/filters.md completely.
-
-The tool must run with Windows PowerShell 5.1. Run scripts with: powershell -NoProfile -ExecutionPolicy Bypass -File <script> <arguments>. Verify the new behaviour yourself with log files of your own before you finish.
