@@ -14,6 +14,8 @@ No cloud · no token limit · your code never leaves your machine.
 
 [Quick start](#quick-start) · [What it looks like](#what-it-looks-like) · [Compared with Claude Code](#compared-with-claude-code) · [Documentation](#documentation)
 
+<sub>Free hobby project · for lawful use only · no warranty, use at your own risk · [Disclaimer](DISCLAIMER.md)</sub>
+
 </div>
 
 ![The terminal of Unzensiert: welcome, status line, thinking, an answer with Markdown and code](docs/images/unzensiert-breakout.png)
@@ -324,6 +326,15 @@ Each one is called with `powershell -ExecutionPolicy Bypass -File scripts\<name>
 | `unzensiert.ps1` | starter behind the command `unzensiert` |
 | `claude-local.ps1` | starter behind the command `claude-local` (Claude Code for comparison) |
 | `New-Release.ps1` | publish a new version: checks, `VERSION`, tag, release on GitHub (only for maintaining the repository) |
+
+## Disclaimer
+
+Unzensiert is a free, non-commercial hobby project for software development, learning and
+research. Use it only for lawful purposes and within the licences of the models. You alone are
+responsible for what you ask the model, for what it writes and runs on your computer and for
+what you do with the result; the author has no control over that and does not support any
+illegal use. The software comes without any warranty, and to the extent the law allows, the
+author is not liable for damage or misuse. Full text: [DISCLAIMER.md](DISCLAIMER.md).
 
 ## License
 

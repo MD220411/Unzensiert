@@ -5,6 +5,22 @@ New entries go at the top. Measurements from `scripts\Test-Model.ps1` are also i
 translated; names of runs, task ids and file names of the time are kept as they were (what
 they are called today is noted where it helps).
 
+## 2026-11-18 afternoon: disclaimer
+
+The user's wish: a disclaimer on GitHub in case people use the program for illegal things.
+
+- New `DISCLAIMER.md`: free, non-commercial hobby project; lawful use only, within the
+  licences of the models; the user alone is responsible for requests, output, commands run and
+  their consequences; the author operates no service and has no control over the use; the
+  models are uncensored and their output is unchecked; llama.cpp and the models come from
+  third parties; no warranty and no liability as far as the law allows (MIT License); the guard
+  is no sandbox.
+- `README.md`: a line under the links at the top and a section "Disclaimer" before "License",
+  both pointing to `DISCLAIMER.md`.
+
+Not legal advice: a disclaimer does not exclude every liability (in Germany, for example, not
+for intent and gross negligence).
+
 ## 2026-11-18 afternoon: where the time goes, speculative decoding measured
 
 The user's wish: look for further improvements of any kind, as long as the result gets better
