@@ -1,0 +1,189 @@
+{
+  "_comment": "Texts of the terminal of Unzensiert (scripts\\lib\\AgentUi*.ps1, AgentLoop.ps1, AgentRepl.ps1), the same for every style. {0}, {1} ... are placeholders; a list of two entries under count means singular and plural. What the model reads stays in the code. Colours, glyphs and the words that belong to a style (activity verbs, done words) are in the section agent of the style file (config\\styles\\). Description: docs\\style.md.",
+
+  "count": {
+    "lines": ["1 line", "{0} lines"],
+    "files": ["1 file", "{0} files"],
+    "rounds": ["1 round", "{0} rounds"],
+    "requests": ["1 request", "{0} requests"],
+    "tokens": ["1 token", "{0} tokens"],
+    "matches": ["1 match", "{0} matches"],
+    "changed": ["1 file changed", "{0} files changed"],
+    "messages": ["1 message", "{0} messages"]
+  },
+
+  "welcome": {
+    "model": "Model",
+    "context": "Context",
+    "contextValue": "{0} tokens · compacts at {1} %",
+    "project": "Project",
+    "cards": "GPUs",
+    "rights": "Rights",
+    "rules": "Rules",
+    "noRules": "no AGENTS.md or CLAUDE.md – /init writes one",
+    "server": "Server",
+    "serverUp": "running",
+    "serverDown": "starts with the first request",
+    "keys": "Enter send · Shift+Enter new line · Esc stop · Shift+Tab rights · /help everything",
+    "continued": "Continued: conversation of {0}, {1}"
+  },
+
+  "modes": {
+    "ask": "asks before commands and changes",
+    "edits": "changes files without asking, commands ask",
+    "all": "everything without asking – the guard decides first",
+    "switched": "Rights {0}: {1}",
+    "unknown": "Unknown mode {0} (ask, edits, all)"
+  },
+
+  "activity": {
+    "think": "thinking",
+    "call": "writing {0}",
+    "tool": "running",
+    "check": "closing check",
+    "compact": "summarising the conversation",
+    "server": "llama-server is starting",
+    "stop": "Esc stops",
+    "thought": "thought for {0} · {1}",
+    "thinkingLive": "thinking aloud"
+  },
+
+  "tools": {
+    "exit": "exit {0}",
+    "stopped": "stopped",
+    "timeLimit": "time limit",
+    "noOutput": "no output",
+    "more": "+{0}",
+    "range": "lines {0}–{1}",
+    "from": "from line {0}",
+    "in": "in {0}",
+    "created": "new",
+    "replaced": "replaced",
+    "at": "line {0}",
+    "image": "image",
+    "nothing": "nothing found"
+  },
+
+  "permission": {
+    "title": "Allow?",
+    "guard": "The guard asks",
+    "why": "Reason",
+    "yes": "yes",
+    "always": "always",
+    "alwaysFor": "always in this session: {0}",
+    "no": "no",
+    "allowed": "allowed",
+    "allowedAlways": "allowed, also from now on in this session",
+    "denied": "denied – the model waits for you",
+    "outside": "file outside the project folder"
+  },
+
+  "turn": {
+    "done": "{0} in {1}",
+    "stopped": "stopped after {0}",
+    "loop": "stopped after {0}: the model was going in circles",
+    "limit": "round limit reached after {0}",
+    "error": "stopped after {0}",
+    "speed": "{0} tok/s"
+  },
+
+  "status": {
+    "context": "context",
+    "rights": "rights"
+  },
+
+  "farewell": {
+    "default": "Session over after {0}.",
+    "stats": "{0} · {1} · {2} read ({3} from cache) · {4} written",
+    "file": "Conversation: {0}"
+  },
+
+  "notes": {
+    "intro": "Enter send · Shift+Enter new line · Esc stop · /help commands · /exit quit",
+    "draft": "Your text is in the history: Up arrow brings it back.",
+    "serverStarting": "llama-server is not running, starting it now …",
+    "contextFull": "The conversation no longer fits into the context.",
+    "noImages": "The model takes no images; they are left out.",
+    "error": "Error: {0}",
+    "refused": "{0} calls were refused; the request ends.",
+    "repeating": "The model repeats the same call ({0}); the request ends.",
+    "noEffect": "The model keeps writing what is already in the files ({0} times); the request ends.",
+    "checkFailed": "The closing check went wrong: {0}",
+    "checkStopped": "Closing check stopped",
+    "checkSays": "Closing check: {0}",
+    "stopped": "stopped",
+    "cutOff": "The answer was cut off at the limit of {0} tokens.",
+    "maxRounds": "Stopped after {0} rounds with tools (maxToolRounds in config\\unzensiert.json or --max-turns).",
+    "shortened": "Context: older tool results shortened by {0} characters",
+    "nothingToSummarise": "Nothing to summarise yet.",
+    "summaryFailed": "The summary went wrong: {0}",
+    "noSummary": "No summary; the conversation stays as it is.",
+    "summarised": "Context summarised, now about {0}",
+    "newConversation": "New conversation",
+    "continuing": "Continuing the conversation of {0} ({1})",
+    "noEarlier": "There is no earlier conversation in this folder.",
+    "chooseNumber": "Number (Enter = cancel)",
+    "chooseModel": "Number or name (Enter = keep)",
+    "unknownModel": "Unknown or not installed: {0}",
+    "modelSwitched": "Model {0} · {1} tokens of context; it loads with the next request",
+    "thinkingShown": "The model's thinking is now shown.",
+    "thinkingHidden": "The model's thinking is now hidden.",
+    "unknownCommand": "Unknown command /{0} – /help shows them all.",
+    "userCommand": "Your command"
+  },
+
+  "help": {
+    "keysTitle": "Keys",
+    "commandsTitle": "Commands",
+    "flowsTitle": "Workflows",
+    "keys": [
+      ["Enter", "send"],
+      ["Shift+Enter", "new line (also Ctrl+Enter)"],
+      ["Esc, Ctrl+C", "stop the model, also a running command"],
+      ["Up arrow", "earlier input"],
+      ["Shift+Tab", "switch rights: ask → edits → all"],
+      ["Alt+V", "paste an image from the clipboard"],
+      ["!command", "run a command yourself; the model sees it with your next message"]
+    ],
+    "commands": [
+      ["/model", "switch model"],
+      ["/mode", "set rights: ask, edits, all"],
+      ["/compact", "summarise the conversation (after it: what to keep)"],
+      ["/clear", "new conversation"],
+      ["/resume", "continue an earlier conversation of this folder"],
+      ["/status", "model, context, tokens, rights, files"],
+      ["/think", "show or hide the model's thinking"],
+      ["/init", "the model writes an AGENTS.md for the project"],
+      ["/exit", "quit"]
+    ]
+  },
+
+  "statusPanel": {
+    "title": "Status",
+    "version": "Version",
+    "model": "Model",
+    "context": "Context",
+    "contextValue": "about {0} of {1} tokens · compacts at {2} %",
+    "session": "Session",
+    "sessionValue": "{0} · {1} read, {2} from cache · {3} written",
+    "speed": "Speed",
+    "rights": "Rights",
+    "allowed": "Allowed",
+    "nothingAllowed": "nothing extra",
+    "rules": "Rules",
+    "changed": "Changed",
+    "file": "File"
+  },
+
+  "modelPanel": {
+    "title": "Choose a model"
+  },
+
+  "resumePanel": {
+    "title": "Earlier conversations"
+  },
+
+  "demo": {
+    "activity": "The activity line while something runs"
+  }
+}

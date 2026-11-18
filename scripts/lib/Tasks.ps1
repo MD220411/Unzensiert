@@ -34,7 +34,7 @@ function New-TaskWorkCopy([string]$TaskDir, [string]$WorkDir, [switch]$WithSolut
         $null = Invoke-Git $WorkDir @('init', '-q')
         [System.IO.File]::WriteAllText((Join-Path $WorkDir '.git\info\exclude'), "__pycache__/`n*.pyc`n_check_*`n")
         $null = Invoke-Git $WorkDir @('add', '-A')
-        $commit = Invoke-Git $WorkDir @('-c', 'user.name=benchmark', '-c', 'user.email=benchmark@localhost', '-c', 'core.autocrlf=false', 'commit', '-q', '-m', 'Ausgangsstand der Aufgabe')
+        $commit = Invoke-Git $WorkDir @('-c', 'user.name=benchmark', '-c', 'user.email=benchmark@localhost', '-c', 'core.autocrlf=false', 'commit', '-q', '-m', 'Initial state of the task')
         if ($commit.code -ne 0) { throw "git commit in $WorkDir failed" }
     }
 }

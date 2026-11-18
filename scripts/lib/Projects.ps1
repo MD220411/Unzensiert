@@ -1,6 +1,6 @@
-# New projects from the templates in templates\projekt\ (settings: config\projects.json).
+# New projects from the templates in templates\project\ (settings: config\projects.json).
 # Used by New-Project.ps1 and Test-Templates.ps1. Needs lib\Config.ps1. ASCII-only.
-# Description: docs\projekte.md.
+# Description: docs\projects.md.
 
 function Get-ProjectsConfig {
     # config\projects.json with the values of this machine (config\machine.json)
@@ -21,7 +21,7 @@ function ConvertTo-PackageName([string]$Name) {
 
 function New-ProjectFromTemplate([string]$Name, [string]$Language, [string]$Target, [string]$Purpose) {
     # Copies the shared and the language template to $Target and fills in the
-    # placeholders {{NAME}}, {{PAKET}}, {{ZWECK}}, {{DATUM}}. Folders named __PAKET__ get
+    # placeholders {{NAME}}, {{PACKAGE}}, {{PURPOSE}}, {{DATE}}. Folders named __PACKAGE__ get
     # the package name. $Target must not exist yet.
     if (Test-Path $Target) { throw "Folder already exists: $Target" }
     $cfg = Get-ProjectsConfig
@@ -35,9 +35,9 @@ function New-ProjectFromTemplate([string]$Name, [string]$Language, [string]$Targ
         # -Force also copies files and folders whose names start with a dot
         Get-ChildItem -Path $source -Force | Copy-Item -Destination $Target -Recurse -Force
     }
-    Get-ChildItem -Path $Target -Recurse -Directory -Filter '__PAKET__' | Rename-Item -NewName $package
+    Get-ChildItem -Path $Target -Recurse -Directory -Filter '__PACKAGE__' | Rename-Item -NewName $package
 
-    $values = [ordered]@{ '{{NAME}}' = $Name; '{{PAKET}}' = $package; '{{ZWECK}}' = $Purpose; '{{DATUM}}' = (Get-Date -Format 'yyyy-MM-dd') }
+    $values = [ordered]@{ '{{NAME}}' = $Name; '{{PACKAGE}}' = $package; '{{PURPOSE}}' = $Purpose; '{{DATE}}' = (Get-Date -Format 'yyyy-MM-dd') }
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     foreach ($file in @(Get-ChildItem -Path $Target -Recurse -File -Force)) {
         $text = [System.IO.File]::ReadAllText($file.FullName, $utf8)

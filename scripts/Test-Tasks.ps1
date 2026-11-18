@@ -3,11 +3,11 @@
 # task has a reference solution (benchmark\tasks\<name>\solution\), pass on it with every
 # working rule kept. Copies of the project tools in a task (check_facts.py, Check.ps1) must
 # equal the project template. Run it after changing a task, benchmark\lib\rulecheck.py or
-# the scripts in templates\projekt\gemeinsam\scripts\.
+# the scripts in templates\project\shared\scripts\.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\Test-Tasks.ps1
 #   ... -Only "ext*"     only tasks whose name matches
-#   ... -Overlay projekt  with an overlay from benchmark\overlays\ laid over the task files
+#   ... -Overlay project  with an overlay from benchmark\overlays\ laid over the task files
 #
 # Exit code 0 = all tasks are sound, 1 = at least one is not.
 
@@ -65,12 +65,12 @@ foreach ($task in $cfg.tasks) {
 
 # Tasks that carry the project tools (check command, facts check) must carry the current
 # version from the project template, or they measure an old one.
-$shared = Join-Path $script:ProjectRoot 'templates\projekt\gemeinsam\scripts'
+$shared = Join-Path $script:ProjectRoot 'templates\project\shared\scripts'
 foreach ($copy in @(Get-ChildItem -Path $tasksRoot -Recurse -File -Include 'check_facts.py', 'Check.ps1' | Where-Object { $_.FullName -match '\\(files|solution)\\scripts\\' })) {
     $source = Join-Path $shared $copy.Name
     $same = (Test-Path $source) -and ((Get-FileHash $source).Hash -eq (Get-FileHash $copy.FullName).Hash)
     $relative = $copy.FullName.Substring($tasksRoot.Length + 1)
-    if ($same) { "ok    $relative is the template version" } else { $failures++; "FAIL  $relative differs from templates\projekt\gemeinsam\scripts\$($copy.Name)" }
+    if ($same) { "ok    $relative is the template version" } else { $failures++; "FAIL  $relative differs from templates\project\shared\scripts\$($copy.Name)" }
 }
 
 if (Test-Path $workRoot) { Remove-Item -Path $workRoot -Recurse -Force -Confirm:$false }

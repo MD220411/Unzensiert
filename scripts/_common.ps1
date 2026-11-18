@@ -10,10 +10,10 @@
 #   lib\Measure.ps1  speed, tool-call and GPU-memory measurements
 #   lib\Session.ps1  running claude-local sessions; frees the GPU memory after the last one
 #   lib\Safety.ps1   safety guard for tool calls of the local model, git as the way back
-#   lib\Quality.ps1 closing check (Stop hook) and the commands /feature, /bugfix, /pruefen
+#   lib\Quality.ps1 closing check (Stop hook) and the commands /feature, /bugfix, /review
 #   lib\Review.ps1   second look: a second local model checks the uncommitted change
 #   lib\Tasks.ps1    benchmark tasks: work copies and the hidden check
-#   lib\Projects.ps1 new projects from the templates in templates\projekt\
+#   lib\Projects.ps1 new projects from the templates in templates\project\
 #   lib\Style.ps1    the look (config\style.json, config\styles\): colours, terminal tint,
 #                    readings for prompt and status line; pictures made of characters in
 #                    lib\CharArt.ps1 (both read their config themselves, see the header)

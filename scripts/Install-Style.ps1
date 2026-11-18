@@ -28,7 +28,8 @@ $selection = Get-StyleSelection
 $backupSuffix = [string]$selection.backupSuffix
 $profileGuid = [string]$selection.profileGuid
 $knownStyles = Get-KnownStyles
-$knownNames = @($knownStyles | ForEach-Object { [string]$_.name })
+# names of earlier versions count as known, so their entries are replaced as well
+$knownNames = @($knownStyles | ForEach-Object { [string]$_.name }) + @($selection.formerNames | Where-Object { $_ })
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 
 # keys this script owns in the settings files (written on install, removed on -Remove)
@@ -203,7 +204,7 @@ function New-WallImage {
     $dir = Join-Path $env:LOCALAPPDATA $styleName
     if ($PreviewDir) { $dir = $PreviewDir }
     $null = New-Item -ItemType Directory -Force -Path $dir
-    $file = Join-Path $dir 'wand.png'
+    $file = Join-Path $dir 'wall.png'
     $face = [string]$style.font.fallback
     if (Test-FontInstalled ([string]$style.font.face)) { $face = [string]$style.font.face }
     $wall = New-CharWall ([int]$w.cols) ([int]$w.rows) ([string]$w.text) ([string](Get-StyleMode (Get-ShellModeName)).background)
@@ -214,7 +215,7 @@ function New-WallImage {
 function Get-TerminalProfile([string]$IconPath, [string]$WallPath) {
     $shell = Join-Path $PSScriptRoot 'style\Shell.ps1'
     $entry = [ordered]@{
-        guid        = $entryGuid
+        guid        = $profileGuid
         name        = $styleName
         commandline = '%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoExit -ExecutionPolicy RemoteSigned -File "{0}"' -f $shell
         icon        = $IconPath
@@ -242,7 +243,9 @@ function Update-TerminalSettings([string]$Path) {
     # entries of every known style go first; the active one is added back below
     $schemes = @(@($wt.schemes) | Where-Object { $_ -and $knownNames -notcontains $_.name })
     $themes = @(@($wt.themes) | Where-Object { $_ -and $knownNames -notcontains $_.name })
-    $profiles = @(@($wt.profiles.list) | Where-Object { $_ -and $_.guid -ne $guid })
+    # our profile has the fixed GUID; versions before 2026-11-18 wrote it without one, so a
+    # profile named like a style (also a former one) counts as ours as well
+    $profiles = @(@($wt.profiles.list) | Where-Object { $_ -and $_.guid -ne $guid -and $knownNames -notcontains $_.name })
     $defaults = $wt.profiles.defaults
 
     if ($Remove) {
@@ -301,6 +304,11 @@ function Update-ClaudeThemes {
                 if ((Test-Path $file) -and $keep -notcontains $file) { Remove-Item $file; "removed: $file" }
             }
         }
+        # theme files this script wrote under the names of earlier versions
+        foreach ($slug in @($selection.formerThemes | Where-Object { $_ })) {
+            $file = Join-Path $env:USERPROFILE (".claude\themes\{0}.json" -f $slug)
+            if (Test-Path $file) { Remove-Item $file; "removed: $file" }
+        }
     }
     if ($Remove) { return }
     foreach ($entry in $style.claude.themes.PSObject.Properties) {
@@ -328,6 +336,7 @@ function Update-ClaudeSettings {
     if ($Remove) {
         foreach ($key in $claudeKeys) { Remove-Prop $settings $key }
         $ours = @($knownStyles | ForEach-Object { $k = $_; $k.claude.themes.PSObject.Properties | ForEach-Object { 'custom:' + (Get-ClaudeThemeSlug $_.Name $k) } })
+        $ours += @($selection.formerThemes | Where-Object { $_ } | ForEach-Object { 'custom:' + $_ })
         if ($ours -contains $settings.theme) {
             $previous = $null
             $backup = $path + $backupSuffix

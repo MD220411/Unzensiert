@@ -291,9 +291,9 @@ try {
     Assert-That ($prompt -notmatch '\{\{' -and $prompt.Contains($proj)) 'system prompt: all facts filled in'
     Assert-That ($prompt.IndexOf('outer rule') -ge 0 -and $prompt.IndexOf('outer rule') -lt $prompt.IndexOf('inner rule')) 'system prompt: instructions of the folders above first, the project last'
     $commands = Get-AgentCommands
-    Assert-That ($commands.ContainsKey('feature') -and $commands.ContainsKey('bugfix') -and $commands.ContainsKey('pruefen')) 'commands: /feature, /bugfix, /pruefen from config\befehle'
-    $r = Invoke-SlashCommand $sp '/lokal:feature a login form'
-    Assert-That ($r.prompt.Contains('a login form') -and -not $r.prompt.Contains('$ARGUMENTS') -and -not $r.exit) 'commands: /lokal:feature puts the arguments in'
+    Assert-That ($commands.ContainsKey('feature') -and $commands.ContainsKey('bugfix') -and $commands.ContainsKey('review')) 'commands: /feature, /bugfix, /pruefen from config\befehle'
+    $r = Invoke-SlashCommand $sp '/local:feature a login form'
+    Assert-That ($r.prompt.Contains('a login form') -and -not $r.prompt.Contains('$ARGUMENTS') -and -not $r.exit) 'commands: /local:feature puts the arguments in'
     $r = Invoke-SlashCommand $sp '/mode edits'
     Assert-That ($sp.mode -eq 'edits' -and -not $r.prompt) 'commands: /mode edits'
     $r = Invoke-SlashCommand $sp '/mode'
@@ -366,7 +366,7 @@ try {
 
     # wrapping, diffs and the colours of code (lib\AgentUiMarkdown.ps1, lib\AgentUiTools.ps1)
     $script:Ui.on = $true
-    $long = ConvertTo-UiInlineSpans ('Ein Absatz mit **fett** und `code`, ' * 6) '#FFFFFF'
+    $long = ConvertTo-UiInlineSpans ('A paragraph with **bold** and `code`, ' * 6) '#FFFFFF'
     $wrapped = Format-UiWrapped $long '  ' '  ' 2 40
     Assert-That ($wrapped.Count -ge 4 -and @($wrapped | Where-Object { (Measure-UiText $_) -gt 40 }).Count -eq 0) "terminal: a long paragraph is wrapped into $($wrapped.Count) lines of at most 40 columns"
     $steps = Get-UiLineDiff @('a', 'b', 'c', 'd') @('a', 'x', 'c', 'd')

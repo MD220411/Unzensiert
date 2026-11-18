@@ -173,10 +173,10 @@ function Show-StyleGreeting {
     }
 
     $saying = ''
-    if ($cfg.texts.PSObject.Properties['sprueche']) { $saying = Get-StyleText 'sprueche' }
+    if ($cfg.texts.PSObject.Properties['quotes']) { $saying = Get-StyleText 'quotes' }
     if ($saying) {
         ''
-        '  ' + (Format-Trail 3 $mode) + ' ' + (Format-Rainbow ([char]0x201E + $saying + [char]0x201C) $script:StyleRandom.NextDouble() 0.5 -Bold)
+        '  ' + (Format-Trail 3 $mode) + ' ' + (Format-Rainbow ([char]0x201C + $saying + [char]0x201D) $script:StyleRandom.NextDouble() 0.5 -Bold)
     }
 }
 

@@ -186,9 +186,9 @@ if ($agent.stopCheck -and $agent.stopCheck.enabled) {
         $review = $agent.review
         Assert-That ((Get-ModelNames) -contains (Resolve-ModelName ([string]$review.model))) "review: reviewer $($review.model) is a profile in models.json"
         Assert-That (Test-Path (Join-Path $script:ConfigDir ([string]$review.instructionsFile))) "review: instructions $($review.instructionsFile) exist"
-        $found = ConvertFrom-ReviewAnswer "1. **FEHLER** | a.c:3 | off by one`nHINWEIS: b.md:1 | unclear`nsome prose`n- FEHLER | c.h:9 | wrong pin"
-        Assert-That ($found.errors.Count -eq 2 -and $found.hints.Count -eq 1) 'review: answer split into 2 errors and 1 hint'
-        Assert-That ((ConvertFrom-ReviewAnswer 'KEINE BEFUNDE').errors.Count -eq 0) 'review: KEINE BEFUNDE means no finding'
+        $found = ConvertFrom-ReviewAnswer "1. **ERROR** | a.c:3 | off by one`nHINT: b.md:1 | unclear`nsome prose`n- FEHLER | c.h:9 | wrong pin"
+        Assert-That ($found.errors.Count -eq 2 -and $found.hints.Count -eq 1) 'review: answer split into 2 errors and 1 hint (FEHLER of earlier versions too)'
+        Assert-That ((ConvertFrom-ReviewAnswer 'NO FINDINGS').errors.Count -eq 0) 'review: NO FINDINGS means no finding'
 
         $repo = Join-Path $env:TEMP "claude-local-review-$PID"
         New-Item -ItemType Directory -Force -Path $repo | Out-Null
@@ -199,18 +199,18 @@ if ($agent.stopCheck -and $agent.stopCheck.enabled) {
             $null = Invoke-Git $repo @('add', 'a.txt')
             $null = Invoke-Git $repo @('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base')
             Set-Content -Path (Join-Path $repo 'a.txt') -Value @('one', 'TWO', 'three') -Encoding ASCII
-            Set-Content -Path (Join-Path $repo 'neu.txt') -Value @('x', 'y') -Encoding ASCII
+            Set-Content -Path (Join-Path $repo 'new.txt') -Value @('x', 'y') -Encoding ASCII
             $change = Get-ChangeForReview $repo 100000
             Assert-That ($change.ok -and $change.lines -eq 4 -and @($change.files).Count -eq 2 -and $change.diff -match '\+TWO' -and $change.diff -match '\+y') 'review: change = diff against HEAD plus new files (4 lines, 2 files)'
-            $request = New-ReviewRequest $repo 'Aufgabe X' $change 100000
-            Assert-That ($request -match 'Aufgabe X' -and $request -match '### neu\.txt') 'review: request has the task and the changed files in full'
+            $request = New-ReviewRequest $repo 'Task X' $change 100000
+            Assert-That ($request -match 'Task X' -and $request -match '### new\.txt') 'review: request has the task and the changed files in full'
             $fake = Join-Path $repo 'transcript.jsonl'
             Set-Content -Path $fake -Encoding ASCII -Value @(
-                '{"type":"user","message":{"role":"user","content":"erste Aufgabe"}}',
-                '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"zweite Aufgabe"}]}}',
+                '{"type":"user","message":{"role":"user","content":"first task"}}',
+                '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"second task"}]}}',
                 '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"output"}]}}',
                 '{"type":"user","isMeta":true,"message":{"role":"user","content":"hook text"}}')
-            Assert-That ((Get-LastUserPrompt $fake) -eq 'zweite Aufgabe') 'review: task = last prompt typed by the user'
+            Assert-That ((Get-LastUserPrompt $fake) -eq 'second task') 'review: task = last prompt typed by the user'
         } finally {
             Remove-Item -Recurse -Force -Path $repo -ErrorAction SilentlyContinue
         }
@@ -235,8 +235,8 @@ Assert-That (Test-Path (Join-Path $script:ProjectRoot 'bin\unzensiert.cmd')) 'co
 Assert-That ((Get-ProgramVersion) -match '^\d+\.\d+\.\d+$') "VERSION holds a version ($(Get-ProgramVersion))"
 $upd = Get-UpdateConfig
 Assert-That ([string]$upd.repository -match '^[\w.-]+/[\w.-]+$' -and [int]$upd.checkHours -ge 1) 'updates.json: repository owner/name and checkHours'
-# every text the terminal of Unzensiert asks for exists in config\unzensiert-texte.json
-$uiTexts = Read-JsonFile (Join-Path $script:ConfigDir 'unzensiert-texte.json')
+# every text the terminal of Unzensiert asks for exists in config\unzensiert-texts.json
+$uiTexts = Read-JsonFile (Join-Path $script:ConfigDir 'unzensiert-texts.json')
 $wanted = @('modes.ask', 'modes.edits', 'modes.all')
 foreach ($f in @(Get-ChildItem -Path (Join-Path $script:ProjectRoot 'scripts') -Recurse -Filter '*.ps1')) {
     $code = [System.IO.File]::ReadAllText($f.FullName)
@@ -252,7 +252,7 @@ $absent = @($wanted | Select-Object -Unique | Where-Object {
     }
     $null -eq $node
 })
-Assert-That ($absent.Count -eq 0) "unzensiert-texte.json: all $(@($wanted | Select-Object -Unique).Count) texts of the terminal exist $($absent -join ', ')"
+Assert-That ($absent.Count -eq 0) "unzensiert-texts.json: all $(@($wanted | Select-Object -Unique).Count) texts of the terminal exist $($absent -join ', ')"
 
 # --- 8. look ---------------------------------------------------------------------------
 # config\style.json picks one of config\styles\ (docs\stil.md).
@@ -264,7 +264,7 @@ Assert-That (@($known | ForEach-Object { $_.claude.themePrefix } | Select-Object
 foreach ($s in $known) {
     $modeNames = @($s.modes.PSObject.Properties | Where-Object { $_.Name -notlike '_*' } | ForEach-Object { $_.Name })
     $shellMode = [string]$s.shell.mode
-    if (-not $shellMode) { $shellMode = 'werkbank' }
+    if (-not $shellMode) { $shellMode = 'workbench' }
     $needed = @($shellMode, [string]$s.claude.localMode, [string]$s.claude.cloudMode)
     Assert-That (@($needed | Where-Object { $modeNames -notcontains $_ }).Count -eq 0) "style $($s.name): modes for shell, local and cloud ($($needed -join ', '))"
     Assert-That ($s.claude.themes.PSObject.Properties[[string]$s.claude.localMode] -and $s.claude.themes.PSObject.Properties[[string]$s.claude.cloudMode]) "style $($s.name): Claude Code themes for local and cloud"

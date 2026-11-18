@@ -4,7 +4,7 @@
 # by hand. Changes nothing in the project. Description: docs\agent.md.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\Invoke-Review.ps1 -Folder E:\Projekte\mein-tool
-#   ... -Task "Was die Aenderung leisten sollte"     (otherwise taken from -Transcript)
+#   ... -Task "What the change was meant to do"     (otherwise taken from -Transcript)
 #   ... -Model local-coder                           (another reviewer)
 #   ... -Json                                        (one JSON object, for the hook)
 #
@@ -40,8 +40,8 @@ if ($Json) {
 } else {
     "review    $($result.status)  ($($result.model), $($result.lines) changed lines, $($result.seconds) s)"
     if ($result.reason) { "reason    $($result.reason)" }
-    foreach ($e in $result.errors) { "FEHLER    $e" }
-    foreach ($h in $result.hints) { "HINWEIS   $h" }
+    foreach ($e in $result.errors) { "ERROR     $e" }
+    foreach ($h in $result.hints) { "HINT      $h" }
 }
 
 if ($result.status -eq 'error') { exit 2 }

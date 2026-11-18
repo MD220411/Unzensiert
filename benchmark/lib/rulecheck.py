@@ -1,7 +1,7 @@
 """Helpers for the rule checks of the benchmark tasks.
 
 A task check uses them to measure whether the agent kept the working rules
-(config/entwicklungsregeln.md) that the task prompt does not mention: documentation
+(config/coding-rules.md) that the task prompt does not mention: documentation
 updated, tests written, no settings in code, no dead code. The result does not decide
 pass or fail; it is printed as one line "RULES {json}" that Benchmark-Models.ps1 stores.
 """

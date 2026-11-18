@@ -1,4 +1,4 @@
-# Pictures made of characters instead of pixels (look "Ausbruch", docs\stil.md): a word is
+# Pictures made of characters instead of pixels (look "Breakout", docs\stil.md): a word is
 # set in the block font of "art.font", every block is filled with a random character and
 # coloured along the colour wheel, lit from above and darker towards the bottom. Behind
 # the letters lies a shadow, paint runs down from their lower edges, spray settles around

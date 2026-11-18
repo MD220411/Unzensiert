@@ -1,0 +1,5 @@
+{
+  "name": "local",
+  "description": "Fixed workflows for claude-local: /feature, /bugfix, /review",
+  "version": "1.0.0"
+}

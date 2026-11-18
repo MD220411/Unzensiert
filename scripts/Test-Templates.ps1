@@ -28,11 +28,11 @@ $scratch = Join-Path $env:TEMP "claude-local-templates-$PID"
 New-Item -ItemType Directory -Force -Path $scratch | Out-Null
 try {
     foreach ($language in @($cfg.languages.PSObject.Properties | ForEach-Object { $_.Name })) {
-        $target = Join-Path $scratch "Probe-$language"
-        New-ProjectFromTemplate "Probe-$language" $language $target 'Probe der Vorlage.'
-        $left = @(Get-ChildItem -Path $target -Recurse -File -Force | Where-Object { (Get-Content -Raw -Path $_.FullName) -match '\{\{[A-Z]+\}\}' -or $_.FullName -match '__PAKET__' })
+        $target = Join-Path $scratch "Sample-$language"
+        New-ProjectFromTemplate "Sample-$language" $language $target 'Sample of the template.'
+        $left = @(Get-ChildItem -Path $target -Recurse -File -Force | Where-Object { (Get-Content -Raw -Path $_.FullName) -match '\{\{[A-Z]+\}\}' -or $_.FullName -match '__PACKAGE__' })
         Assert-That ($left.Count -eq 0) "$language`: all placeholders filled in $($left.Name -join ', ')"
-        foreach ($needed in 'README.md', 'CLAUDE.md', 'CHANGELOG.md', '.gitignore', 'docs\architektur.md', 'docs\entscheidungen\0000-vorlage.md', 'config\check.json', 'scripts\Check.ps1', '.githooks\pre-commit', 'facts\facts.json', 'facts\README.md', 'facts\boards\esp32.json', 'scripts\check_facts.py') {
+        foreach ($needed in 'README.md', 'CLAUDE.md', 'CHANGELOG.md', '.gitignore', 'docs\architecture.md', 'docs\decisions\0000-template.md', 'config\check.json', 'scripts\Check.ps1', '.githooks\pre-commit', 'facts\facts.json', 'facts\README.md', 'facts\boards\esp32.json', 'scripts\check_facts.py') {
             Assert-That (Test-Path (Join-Path $target $needed)) "$language`: has $needed"
         }
         $check = Invoke-ProjectCheck $target
@@ -56,7 +56,7 @@ try {
         Assert-That $check.ok "$language`: the check passes once the copy agrees with the fact"
         [System.IO.File]::WriteAllText($factsFile, '{ "facts": [ { "id": "probe.guess", "value": 3 } ] }', $utf8)
         $check = Invoke-ProjectCheck $target
-        Assert-That (-not $check.ok) "$language`: a fact without source and without status annahme makes the check fail"
+        Assert-That (-not $check.ok) "$language`: a fact without source and without status assumption makes the check fail"
         [System.IO.File]::WriteAllText($factsFile, $factsBefore, $utf8)
         Remove-Item -Path $copyFile -Force
 

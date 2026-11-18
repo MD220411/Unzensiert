@@ -133,7 +133,7 @@ if ($agent.rulesFile) {
 }
 
 # --- fixed procedures ---------------------------------------------------------------------
-# /feature, /bugfix and /pruefen: commands in config\befehle, loaded for this launch only
+# /feature, /bugfix and /review: commands in config\workflows, loaded for this launch only
 # so that the normal `claude` does not get them (docs\agent.md).
 $pluginDir = Get-PluginDir
 if ($pluginDir) { $extraArgs += @('--plugin-dir', $pluginDir) }

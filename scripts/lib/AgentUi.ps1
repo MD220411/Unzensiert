@@ -1,6 +1,6 @@
 # The terminal of the agent Unzensiert, in the look of the active style (config\style.json,
 # section "agent" of the style file, lib\Style.ps1) and with the texts of
-# config\unzensiert-texte.json: the welcome, the activity line while the model or a tool
+# config\unzensiert-texts.json: the welcome, the activity line while the model or a tool
 # works (spinner, time so far, window title, the progress mark of Windows Terminal), notes,
 # the input line with the status line above it, the overviews of /help, /status and /model,
 # the line after every request and the farewell. The answer with its Markdown lives in
@@ -10,7 +10,7 @@
 # Text is built from spans (New-UiSpan: text, colour, background, attributes, link) and
 # turned into escape sequences by Format-UiSpans, so lines can be measured, wrapped and
 # given a background. Needs lib\Style.ps1. Keep this file ASCII-only: every glyph and
-# every German text lives in the style file or in config\unzensiert-texte.json.
+# every text lives in the style file or in config\unzensiert-texts.json.
 
 $script:Ui = @{ on = $false }
 $script:Esc = [string][char]27
@@ -42,13 +42,13 @@ function Get-UiMark([string]$Name, [string]$Default) {
 function Get-UiTexts {
     if ($null -eq $script:UiTextCache) {
         $script:UiTextCache = New-Object PSObject
-        try { $script:UiTextCache = Read-StyleJson (Join-Path $script:StyleProjectRoot 'config\unzensiert-texte.json') } catch {}
+        try { $script:UiTextCache = Read-StyleJson (Join-Path $script:StyleProjectRoot 'config\unzensiert-texts.json') } catch {}
     }
     return $script:UiTextCache
 }
 
 function Get-UiText([string]$Key) {
-    # A text of config\unzensiert-texte.json by its path ("notes.stopped"); further arguments
+    # A text of config\unzensiert-texts.json by its path ("notes.stopped"); further arguments
     # fill {0}, {1} ... A missing text shows its path, so nothing breaks.
     $node = Get-UiTexts
     foreach ($part in $Key.Split('.')) {
@@ -62,7 +62,7 @@ function Get-UiText([string]$Key) {
 }
 
 function Get-UiCount([double]$N, [string]$Key) {
-    # A number with its word from "count" ("1 Zeile", "12 Zeilen").
+    # A number with its word from "count" ("1 line", "12 lines").
     $forms = @(Get-UiValue (Get-UiValue (Get-UiTexts) 'count' $null) $Key $null)
     $shown = Format-Number $N 0
     if ($forms.Count -eq 0 -or $null -eq $forms[0]) { return $shown }
@@ -71,7 +71,7 @@ function Get-UiCount([double]$N, [string]$Key) {
 }
 
 function Format-UiDuration([double]$Seconds, [switch]$Coarse) {
-    # "2,4 s", "42 s", "3 min 12 s" ("3 min" with -Coarse), "1 h 5 min"
+    # "2.4 s", "42 s", "3 min 12 s" ("3 min" with -Coarse), "1 h 5 min"
     if ($Seconds -lt 10) { return (Format-Number $Seconds 1) + ' s' }
     if ($Seconds -lt 60) { return ('{0} s' -f [int][Math]::Floor($Seconds)) }
     if ($Coarse -and $Seconds -lt 3600) { return ('{0} min' -f [int][Math]::Round($Seconds / 60)) }
@@ -679,7 +679,7 @@ function Format-UiWelcomePanel($Session, $Info, [int]$Width) {
     # The right side of the welcome: name and version, date, then the facts.
     $mode = $script:Ui.mode
     $lines = New-Object System.Collections.ArrayList
-    $date = (Get-Date).ToString('dddd, d. MMMM', $script:StyleCulture) + '  ' + $script:UiMid + '  ' + (Get-Date).ToString('HH:mm')
+    $date = (Get-Date).ToString('dddd, MMMM d', $script:StyleCulture) + '  ' + $script:UiMid + '  ' + (Get-Date).ToString('HH:mm')
     $head = (Format-ModeLabel $mode) + ' ' + (Format-UiInk ([string]$Info.version) $mode.dim)
     $gap = $Width - (Measure-UiText $head) - $date.Length
     if ($gap -ge 3) { $head += (' ' * $gap) + (Format-UiInk $date $mode.dim) }
@@ -740,9 +740,9 @@ function Write-UiWelcome($Session, $Info) {
     $null = $out.Add('')
     $null = $out.Add('  ' + (Format-UiRule ([Math]::Min(110, $width - 5))))
     $saying = ''
-    try { $saying = Get-StyleText 'sprueche' } catch {}
+    try { $saying = Get-StyleText 'quotes' } catch {}
     if ($saying) {
-        $quoted = [string][char]0x201E + $saying + [string][char]0x201C
+        $quoted = [string][char]0x201C + $saying + [string][char]0x201D
         $null = $out.Add('  ' + (Format-UiTrail 3) + ' ' + (Format-UiShimmer $quoted ([string](Get-UiLook 'headingInk' 'accent')) $script:StyleRandom.NextDouble() -Bold))
     }
     $null = $out.Add('  ' + (Format-UiInk (Limit-UiText (Get-UiText 'welcome.keys') ($width - 4)) $mode.dim))
@@ -914,7 +914,7 @@ function Show-UiSessionList($Files) {
     Write-UiHeading (Get-UiText 'resumePanel.title')
     for ($i = 0; $i -lt $Files.Count; $i++) {
         $f = $Files[$i]
-        $line = '   ' + (Format-UiInk ('{0,3}' -f ($i + 1)) $mode.accent -Bold) + '  ' + (Format-UiInk $f.time.ToString('ddd dd.MM. HH:mm', $script:StyleCulture) $mode.dim) + '  ' + (Format-UiInk (Limit-UiText ([string]$f.title) ($width - 28)) $mode.foreground)
+        $line = '   ' + (Format-UiInk ('{0,3}' -f ($i + 1)) $mode.accent -Bold) + '  ' + (Format-UiInk $f.time.ToString('ddd MMM d HH:mm', $script:StyleCulture) $mode.dim) + '  ' + (Format-UiInk (Limit-UiText ([string]$f.title) ($width - 28)) $mode.foreground)
         [Console]::Write($line + "`n")
     }
 }

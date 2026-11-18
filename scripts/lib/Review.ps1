@@ -2,7 +2,7 @@
 # It gets the task, the project rules (CLAUDE.md), the facts (facts\facts.json) and the
 # git diff in one request and answers with findings. Used by scripts\Invoke-Review.ps1,
 # which the closing check (scripts\hooks\Check-Stop.ps1) starts after larger changes.
-# Settings: "review" in config\agent.json, instructions: config\zweiter-blick.md.
+# Settings: "review" in config\agent.json, instructions: config\second-look.md.
 # Needs lib\Config.ps1 and lib\Server.ps1. Keep this file ASCII-only.
 # Description: docs\agent.md.
 
@@ -58,7 +58,7 @@ function Get-ChangeForReview([string]$Folder, [int]$MaxChars) {
         $body = @($text.TrimEnd("`r", "`n") -split "`r?`n")
         $files.Add($rel)
         $lines += $body.Count
-        $parts.Add("--- /dev/null`n+++ b/$rel  (neue Datei)`n" + (($body | ForEach-Object { "+$_" }) -join "`n"))
+        $parts.Add("--- /dev/null`n+++ b/$rel  (new file)`n" + (($body | ForEach-Object { "+$_" }) -join "`n"))
     }
     $diff = (($parts | Where-Object { $_ }) -join "`n").Trim()
     if (-not $diff) { $result.reason = 'no uncommitted change'; return $result }
@@ -125,28 +125,29 @@ function Get-ChangedFilesText([string]$Folder, $Files, [int]$MaxChars) {
 function New-ReviewRequest([string]$Folder, [string]$Task, $Change, [int]$MaxFileChars) {
     # The user message for the reviewing model.
     $sections = @()
-    if (-not $Task) { $Task = '(nicht bekannt; aus dem Diff erschliessen)' }
-    $sections += "## Auftrag an den Autor`n`n$Task"
+    if (-not $Task) { $Task = '(not known; infer it from the diff)' }
+    $sections += "## Task given to the author`n`n$Task"
     $rules = Get-FileHead (Join-Path $Folder 'CLAUDE.md') 6000
-    if ($rules) { $sections += "## Regeln des Projekts (CLAUDE.md)`n`n$rules" }
+    if ($rules) { $sections += "## Rules of the project (CLAUDE.md)`n`n$rules" }
     $facts = Get-FileHead (Join-Path $Folder 'facts\facts.json') 12000
-    if ($facts) { $sections += "## Belegte Fakten (facts/facts.json)`n`n$facts" }
-    $sections += "## Geaenderte Dateien`n`n" + (($Change.files | ForEach-Object { "- $_" }) -join "`n")
-    $sections += "## Aenderung (git diff)`n`n``````diff`n$($Change.diff)`n``````"
+    if ($facts) { $sections += "## Confirmed facts (facts/facts.json)`n`n$facts" }
+    $sections += "## Changed files`n`n" + (($Change.files | ForEach-Object { "- $_" }) -join "`n")
+    $sections += "## Change (git diff)`n`n``````diff`n$($Change.diff)`n``````"
     $whole = Get-ChangedFilesText $Folder $Change.files $MaxFileChars
-    if ($whole) { $sections += "## Geaenderte Dateien im neuen Stand (soweit sie hineinpassen)`n`n$whole" }
+    if ($whole) { $sections += "## Changed files in their new state (as far as they fit)`n`n$whole" }
     return ($sections -join "`n`n")
 }
 
 function ConvertFrom-ReviewAnswer([string]$Text) {
     # Splits the answer of the reviewing model into errors and hints. Lines that follow
-    # neither form are ignored; "KEINE BEFUNDE" or nothing usable means no finding.
+    # neither form are ignored; "NO FINDINGS" or nothing usable means no finding. The German
+    # words of earlier versions (FEHLER, HINWEIS) are understood as well.
     $errors = @(); $hints = @()
     foreach ($line in ($Text -split "`r?`n")) {
-        $match = [regex]::Match($line, '^\s*(?:[-*]\s*|\d+[.)]\s*)?\**(FEHLER|HINWEIS)\**\s*[|:]\s*(.+?)\s*$')
+        $match = [regex]::Match($line, '^\s*(?:[-*]\s*|\d+[.)]\s*)?\**(ERROR|HINT|FEHLER|HINWEIS)\**\s*[|:]\s*(.+?)\s*$')
         if (-not $match.Success) { continue }
         $body = ($match.Groups[2].Value -replace '\s*\|\s*', ' | ').Trim()
-        if ($match.Groups[1].Value -eq 'FEHLER') { $errors += $body } else { $hints += $body }
+        if ('ERROR', 'FEHLER' -contains $match.Groups[1].Value) { $errors += $body } else { $hints += $body }
     }
     return @{ errors = @($errors); hints = @($hints) }
 }

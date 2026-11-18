@@ -83,55 +83,55 @@
       "id": "disk-format",
       "decision": "deny",
       "pattern": "(^|[\\s;&|(\"'])(format(\\.com)?\\s+[a-z]:|diskpart\\b|mkfs(\\.\\w+)?\\s|Format-Volume\\b|Clear-Disk\\b|Initialize-Disk\\b|Remove-Partition\\b)|\\bdd\\s[^|;&]*\\bof=[\"']?(\\\\\\\\\\.\\\\|/dev/(sd|nvme|hd))",
-      "reason": "Formatieren oder Ueberschreiben eines Laufwerks"
+      "reason": "Formatting or overwriting a drive"
     },
     {
       "id": "boot-and-backups",
       "decision": "deny",
       "pattern": "\\b(bcdedit|bootrec|bcdboot)\\b|\\bvssadmin(\\.exe)?\\s+(delete|resize)|\\bwbadmin(\\.exe)?\\s+delete|\\bcipher(\\.exe)?\\s+/w|\\bsdelete(64)?(\\.exe)?\\b|\\bwmic\\s+shadowcopy\\s+delete|\\bRemove-CimInstance\\b[^|;&]*ShadowCopy",
-      "reason": "Eingriff in Startkonfiguration, Schattenkopien oder Sicherungen"
+      "reason": "Changing the boot configuration, shadow copies or backups"
     },
     {
       "id": "registry-change",
       "decision": "ask",
       "pattern": "\\breg(\\.exe)?\\s+(delete|add|import|restore|unload)\\b|\\b(Remove-Item|Remove-ItemProperty|Set-ItemProperty|New-ItemProperty|New-Item|ri|rm|sp)\\b[^|;&]*\\b(HKLM|HKCU|HKCR|HKU|Registry)::?",
-      "reason": "Aenderung an der Windows-Registrierung"
+      "reason": "Changing the Windows registry"
     },
     {
       "id": "security-off",
       "decision": "ask",
       "pattern": "\\bSet-MpPreference\\b[^|;&]*-Disable|\\bAdd-MpPreference\\b[^|;&]*-Exclusion|\\bnetsh(\\.exe)?\\s+(advfirewall|firewall)\\b[^|;&]*\\b(off|disable)\\b|\\bSet-NetFirewallProfile\\b[^|;&]*-Enabled\\s+\\$?False|\\bSet-ExecutionPolicy\\b[^|;&]*-Scope\\s+(LocalMachine|CurrentUser)|\\bnet1?(\\.exe)?\\s+(user|localgroup)\\b[^|;&]*/add\\b|\\b(New-LocalUser|Add-LocalGroupMember)\\b|\\bDisable-WindowsOptionalFeature\\b|\\bsc(\\.exe)?\\s+(delete|config)\\s",
-      "reason": "Aenderung an Virenschutz, Firewall, Benutzerkonten oder Diensten"
+      "reason": "Changing the antivirus, firewall, user accounts or services"
     },
     {
       "id": "autostart",
       "decision": "ask",
       "pattern": "\\bschtasks(\\.exe)?\\s+/create\\b|\\b(Register-ScheduledTask|New-Service)\\b|CurrentVersion\\\\+Run\\b|Start Menu\\\\+Programs\\\\+Startup",
-      "reason": "Eintrag, der ein Programm dauerhaft oder beim Anmelden startet"
+      "reason": "An entry that starts a program permanently or at sign-in"
     },
     {
       "id": "shutdown",
       "decision": "ask",
       "pattern": "(^|[\\s;&|(\"'])(shutdown(\\.exe)?\\s+[/-][srhpl]\\b|Restart-Computer\\b|Stop-Computer\\b|logoff(\\.exe)?(\\s|$))",
-      "reason": "Herunterfahren, Neustart oder Abmelden"
+      "reason": "Shutting down, restarting or signing out"
     },
     {
       "id": "download-and-run",
       "decision": "ask",
       "pattern": "\\b(curl|wget)(\\.exe)?\\b[^;&]*\\|\\s*(sudo\\s+)?(ba|z|da)?sh\\b|\\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod|curl|wget)\\b[^;&]*\\|\\s*(iex|Invoke-Expression)\\b|\\b(iex|Invoke-Expression)\\b[^;&|]*\\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod|DownloadString|Net\\.WebClient)\\b|\\bDownloadString\\s*\\([^)]*\\)\\s*\\|\\s*(iex|Invoke-Expression)|\\b(ba)?sh\\s+<\\(\\s*(curl|wget)\\b|\\bmshta(\\.exe)?\\s+https?:|\\bregsvr32\\b[^;&|]*/i:https?:",
-      "reason": "Programm aus dem Netz laden und sofort ausfuehren"
+      "reason": "Downloading a program and running it at once"
     },
     {
       "id": "git-discard",
       "decision": "ask",
       "pattern": "\\bgit\\b[^|;&]*\\s(reset\\s+(--hard|--merge)|clean\\s+(-[a-z]*f|--force)|checkout\\s+(-f|--force|(--\\s+)?\\.(\\s|$))|restore\\s+(--staged\\s+)?(--worktree\\s+)?\\.(\\s|$)|stash\\s+(drop|clear)|branch\\s+-D\\b|reflog\\s+expire|filter-branch|update-ref\\s+-d)",
-      "reason": "Git-Befehl, der nicht gesicherte Arbeit oder Verlauf verwirft"
+      "reason": "A git command that throws away unsaved work or history"
     },
     {
       "id": "git-force-push",
       "decision": "ask",
       "pattern": "\\bgit\\b[^|;&]*\\spush\\b[^|;&]*(\\s--force(?!-with-lease)\\b|\\s-[a-z]*f[a-z]*(\\s|$)|\\s--mirror\\b|\\s--delete\\b|\\s\\+\\S+)",
-      "reason": "Git-Push, der den Stand auf dem Server ueberschreibt oder loescht"
+      "reason": "A git push that overwrites or deletes the state on the server"
     },
     {
       "id": "credential-tools",
@@ -143,7 +143,7 @@
       "id": "secret-paths",
       "decision": "ask",
       "pattern": "[\\\\/]\\.ssh[\\\\/](?!known_hosts|[\\w.-]+\\.pub\\b|config\\b)[\\w.-]+|[\\\\/]\\.aws[\\\\/]credentials|[\\\\/]\\.git-credentials\\b|[\\\\/]\\.claude[\\\\/]\\.credentials\\.json|[\\\\/]\\.gnupg[\\\\/]|User Data[\\\\/][^|;&]*(Login Data|Cookies|Local State)|Firefox[\\\\/]Profiles[\\\\/][^|;&]*(logins\\.json|key4\\.db|cookies\\.sqlite)|\\.kdbx\\b|[\\\\/]run[\\\\/]api-key\\.txt",
-      "reason": "Zugriff auf Schluessel, Passwoerter oder Anmeldedaten"
+      "reason": "Access to keys, passwords or credentials"
     }
   ]
 }

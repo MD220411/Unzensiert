@@ -1,7 +1,7 @@
 # Removes Unzensiert and claude-local from this machine, asking before each part:
 #   1. stops llama-server
 #   2. takes the commands unzensiert and claude-local off the PATH
-#   3. removes the look "Nachtschicht", if it is installed (Install-Style.ps1 -Remove)
+#   3. removes the look of the project, if it is installed (Install-Style.ps1 -Remove)
 #   4. deletes what the installer put into the install folder: llama.cpp, the model files
 #      named in config\models.json, run state, logs, downloads, benchmark work folder,
 #      the saved conversations of Unzensiert and its input history.
@@ -41,7 +41,7 @@ if ($parts -contains $bin) {
     Write-Note 'was not on the PATH'
 }
 
-Write-Step 'Look "Nachtschicht"' $steps
+Write-Step 'Look (terminal, shell, Claude Code)' $steps
 if (Test-StyleInstalled) {
     if ((Invoke-ProjectScript 'Install-Style.ps1' @('-Remove')) -ne 0) { Write-Warn 'could not be removed completely (see above)' }
 } else {

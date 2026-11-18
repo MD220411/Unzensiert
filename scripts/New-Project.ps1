@@ -1,4 +1,4 @@
-# Creates a new project from the templates in templates\projekt\: README, CLAUDE.md,
+# Creates a new project from the templates in templates\project\: README, CLAUDE.md,
 # docs\ with a folder for decisions, config\, tests\, CHANGELOG.md, .gitignore, the check
 # command scripts\Check.ps1, a git repository with a pre-commit hook and the first commit.
 # The new project passes its own check command right away.
@@ -9,13 +9,13 @@
 #   ... -Name mein-tool -NoGit                 (no repository, no commit)
 #
 # Languages and folders: config\projects.json. An existing folder is never touched.
-# Description: docs\projekte.md.
+# Description: docs\projects.md.
 
 param(
     [Parameter(Mandatory = $true)][string]$Name,
     [string]$Language,
     [string]$Path,
-    [string]$Purpose = 'Zweck des Projekts in ein bis zwei Saetzen.',
+    [string]$Purpose = 'Purpose of the project in one or two sentences.',
     [switch]$NoGit
 )
 

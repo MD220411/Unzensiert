@@ -150,7 +150,7 @@ if ($script:Ui.on) {
     # the welcome of the style: picture, facts of the session, a saying, the keys
     $info = Get-AgentUiInfo $session
     $info.serverUp = Test-ServerUp
-    if ($continued) { $info.continued = Get-UiText 'welcome.continued' ($continued.ToString('dd.MM. HH:mm')) (Get-UiCount ($session.messages.Count - 1) 'messages') }
+    if ($continued) { $info.continued = Get-UiText 'welcome.continued' ($continued.ToString('MMM d, HH:mm', $script:StyleCulture)) (Get-UiCount ($session.messages.Count - 1) 'messages') }
     Write-UiWelcome $session $info
     if ($agent.gitCheck) {
         $note = Get-GitSafetyNote $cwd

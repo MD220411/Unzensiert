@@ -1,11 +1,11 @@
 {
-  "_comment": "Eine erfundene Sitzung, die jedes Element der Oberfläche von Unzensiert einmal zeigt: für scripts\\Show-AgentDesign.ps1 und die Prüfung der Oberfläche in scripts\\Test-Agent.ps1. Die Werkzeugergebnisse haben die Form von New-ToolResult (scripts\\lib\\AgentTools.ps1).",
+  "_comment": "A made-up session that shows every element of the terminal of Unzensiert once: for scripts\\Show-AgentDesign.ps1 and the check of the terminal in scripts\\Test-Agent.ps1. The tool results have the form of New-ToolResult (scripts\\lib\\AgentTools.ps1).",
 
-  "prompt": "Baue in calc.py eine Funktion mul(a, b), schreib einen Test dafür und lass alle Tests laufen.",
+  "prompt": "Add a function mul(a, b) to calc.py, write a test for it and run all tests.",
   "thinkingChars": 1460,
   "thinkingSeconds": 6.4,
 
-  "answer": "# Plan\nIch schaue mir zuerst `calc.py` an, baue dann **mul** ein und prüfe alles mit *pytest*. Die Funktion soll auch mit Kommazahlen funktionieren, deshalb bekommt sie einen eigenen Test, der genau das prüft – so fällt ein Fehler sofort auf.\n- Bestand lesen\n  - vorhandene Tests ansehen\n- Funktion einbauen\n1. Test schreiben\n2. Tests laufen lassen\n- [x] Projektregeln gelesen\n- [ ] README ergänzen\n\n```python\ndef mul(a, b):\n    \"\"\"Multipliziert zwei Zahlen.\"\"\"\n    return a * b  # auch für float\n```\n",
+  "answer": "# Plan\nFirst I look at `calc.py`, then I add **mul** and check everything with *pytest*. The function should also work with floats, so it gets a test of its own that checks exactly that – that way a mistake shows up at once.\n- Read what is there\n  - look at the existing tests\n- Add the function\n1. Write the test\n2. Run the tests\n- [x] Read the project rules\n- [ ] Extend the README\n\n```python\ndef mul(a, b):\n    \"\"\"Multiplies two numbers.\"\"\"\n    return a * b  # floats too\n```\n",
 
   "steps": [
     {
@@ -20,8 +20,8 @@
     },
     {
       "tool": "Edit",
-      "args": { "file_path": "calc.py", "old_string": "def mul(a, b):\n    \"\"\"Multipliziert.\"\"\"\n    return a + b", "new_string": "def mul(a, b):\n    \"\"\"Multipliziert zwei Zahlen.\"\"\"\n    return a * b" },
-      "result": { "text": "", "changed": "calc.py", "diff": { "old": "def mul(a, b):\n    \"\"\"Multipliziert.\"\"\"\n    return a + b", "new": "def mul(a, b):\n    \"\"\"Multipliziert zwei Zahlen.\"\"\"\n    return a * b", "line": 5 } }
+      "args": { "file_path": "calc.py", "old_string": "def mul(a, b):\n    \"\"\"Multiplies.\"\"\"\n    return a + b", "new_string": "def mul(a, b):\n    \"\"\"Multiplies two numbers.\"\"\"\n    return a * b" },
+      "result": { "text": "", "changed": "calc.py", "diff": { "old": "def mul(a, b):\n    \"\"\"Multiplies.\"\"\"\n    return a + b", "new": "def mul(a, b):\n    \"\"\"Multiplies two numbers.\"\"\"\n    return a * b", "line": 5 } }
     },
     {
       "tool": "Write",
@@ -55,7 +55,7 @@
   "questions": [
     {
       "tool": "Edit",
-      "args": { "file_path": "README.md", "old_string": "## Funktionen\n\n- `add(a, b)` addiert", "new_string": "## Funktionen\n\n- `add(a, b)` addiert\n- `mul(a, b)` multipliziert, auch Kommazahlen" },
+      "args": { "file_path": "README.md", "old_string": "## Functions\n\n- `add(a, b)` adds", "new_string": "## Functions\n\n- `add(a, b)` adds\n- `mul(a, b)` multiplies, floats too" },
       "why": "",
       "always": true,
       "reply": "always"
@@ -63,13 +63,13 @@
     {
       "tool": "PowerShell",
       "args": { "command": "Remove-Item -Recurse -Force build\nRemove-Item -Force .pytest_cache" },
-      "why": "guard rule delete-recursive: Rekursives Loeschen fragt immer nach",
+      "why": "guard rule delete-recursive: a recursive delete always asks",
       "always": false,
       "reply": "yes"
     }
   ],
 
-  "final": "Fertig: `mul` multipliziert jetzt, und der neue Test prüft auch Kommazahlen.\n\n| Datei | Änderung |\n|---|---|\n| `calc.py` | `mul` gibt `a * b` zurück |\n| `tests/test_calc.py` | neu, 3 Tests |\n\n> Die README beschreibt `mul` jetzt auch; ~~ein eigenes Kapitel~~ war nicht nötig.\n\n---\nMehr dazu: [pytest](https://docs.pytest.org) und `python -m pytest --help`.\n\n```powershell\n$result = Invoke-Pytest -Path 'tests' -Verbose  # Beispiel\nif ($LASTEXITCODE -ne 0) { Write-Host \"Fehler: $result\" }\n```\n",
+  "final": "Done: `mul` multiplies now, and the new test checks floats as well.\n\n| File | Change |\n|---|---|\n| `calc.py` | `mul` returns `a * b` |\n| `tests/test_calc.py` | new, 3 tests |\n\n> The README describes `mul` now too; ~~a chapter of its own~~ was not needed.\n\n---\nMore: [pytest](https://docs.pytest.org) and `python -m pytest --help`.\n\n```powershell\n$result = Invoke-Pytest -Path 'tests' -Verbose  # example\nif ($LASTEXITCODE -ne 0) { Write-Host \"Error: $result\" }\n```\n",
 
   "turn": { "seconds": 84.2, "rounds": 9, "outputTokens": 1873, "tokensPerSecond": 61, "files": ["calc.py", "tests/test_calc.py", "README.md"] },
   "session": { "contextShare": 0.23, "inputTokens": 4120, "cachedTokens": 38644, "outputTokens": 1873, "turns": 9, "minutes": 23 }

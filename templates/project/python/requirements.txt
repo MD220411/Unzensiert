@@ -1,0 +1,1 @@
+# Dependencies with a pinned version, one per line (example: requests==2.32.3).

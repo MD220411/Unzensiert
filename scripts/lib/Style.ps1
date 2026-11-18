@@ -1,16 +1,16 @@
-# Building blocks of the look (docs\stil.md): reads the active style, turns colours into
+# Building blocks of the look (docs\style.md): reads the active style, turns colours into
 # terminal escape sequences, mixes the colour wheel of colourful styles, tints the terminal
 # per mode and takes the readings that the prompt, the greeting and the status line show
 # (graphics cards, git, llama-server). Pictures made of characters: lib\CharArt.ps1.
 #
 # Which style is active says config\style.json ("active"); the styles themselves live in
-# config\styles\<name>.json (nachtschicht, ausbruch, ...).
+# config\styles\<name>.json (breakout, nightshift, ...).
 #
 # Self-contained on purpose: the interactive shell and the status line of Claude Code load
 # only this file (and CharArt.ps1). They must start fast, and $ErrorActionPreference =
 # 'Stop' from _common.ps1 must not leak into an interactive shell.
 # Keep this file ASCII-only: Windows PowerShell 5.1 reads BOM-less files as ANSI. All
-# non-ASCII characters (glyphs, German texts) therefore live in the style files.
+# non-ASCII characters (glyphs, texts with typographic signs) therefore live in the style files.
 
 $script:StyleProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $script:StyleSelectionCache = $null
@@ -19,7 +19,7 @@ $script:StyleRainbowCache = $null
 $script:StyleRandom = New-Object System.Random
 $script:StyleEsc = [string][char]27
 $script:StyleReset = $script:StyleEsc + '[0m'
-$script:StyleCulture = [System.Globalization.CultureInfo]::GetCultureInfo('de-DE')
+$script:StyleCulture = [System.Globalization.CultureInfo]::GetCultureInfo('en-US')
 
 . "$PSScriptRoot\CharArt.ps1"
 
@@ -64,7 +64,7 @@ function Get-KnownStyles {
 function Get-ShellModeName {
     # The mode of the plain shell ("shell.mode"); older style files had no key for it.
     $mode = [string](Get-StyleConfig).shell.mode
-    if (-not $mode) { $mode = 'werkbank' }
+    if (-not $mode) { $mode = 'workbench' }
     return $mode
 }
 
@@ -301,7 +301,7 @@ function Get-WindowWidth {
 }
 
 function Format-Number([double]$Value, [int]$Decimals = 0) {
-    # German number format: 1.234,5
+    # number format of the texts (English): 1,234.5
     return $Value.ToString("N$Decimals", $script:StyleCulture)
 }
 

@@ -4,7 +4,7 @@
 #   1. runs the check command of the project (first existing file of "commands", for
 #      example scripts\Check.ps1) and hands a failure back to the model, and
 #   2. once per answer reminds the model of the steps it tends to forget (test, README,
-#      settings in the configuration file): config\abschluss.md. A point is left out when
+#      settings in the configuration file): config\closing-check.md. A point is left out when
 #      the files changed in this answer show that it is done ("reminderPoints"); if no
 #      point is open, there is no reminder.
 #   3. once per answer, when nothing else is open and the uncommitted change is large
@@ -205,18 +205,18 @@ try {
             $name = $check.Substring($folder.TrimEnd('\').Length + 1)
             $result = Invoke-CheckCommand $check $folder ([int]$settings.timeoutSeconds)
             if (-not $result.ok) {
-                $why = 'ist gescheitert'
-                if ($result.timeout) { $why = "lief laenger als $($settings.timeoutSeconds) s und wurde abgebrochen" }
+                $why = 'failed'
+                if ($result.timeout) { $why = "ran longer than $($settings.timeoutSeconds) s and was stopped" }
                 if ($state.blocks -lt [int]$settings.maxBlocks) {
                     $checkFailed = $true
                     $state.blocks++
-                    $parts += "Die Projektpruefung ($name) $why. Behebe die Ursache und pruefe erneut, bevor du die Aufgabe als erledigt meldest. Ende der Ausgabe:`n$($result.output)"
+                    $parts += "The project check ($name) $why. Fix the cause and check again before you report the task as done. End of the output:`n$($result.output)"
                 } else {
-                    $warning = "$($script:AgentName): Die Projektpruefung ($name) $why, auch nach $($settings.maxBlocks) Versuchen des Modells. Bitte selbst ansehen."
+                    $warning = "$($script:AgentName): the project check ($name) $why, also after $($settings.maxBlocks) attempts of the model. Please look at it yourself."
                 }
             } else {
                 $state.blocks = 0
-                $parts += "Die Projektpruefung ($name) ist bestanden."
+                $parts += "The project check ($name) passed."
             }
         }
 
@@ -240,15 +240,15 @@ try {
         $state.reviewDone = $true
         $found = Invoke-SecondLook $folder ([string]$call.transcript_path) $review
         if (-not $found) {
-            $warning = "$($script:AgentName): Der zweite Blick hat nicht in $($review.timeoutSeconds) s geantwortet."
+            $warning = "$($script:AgentName): the second look did not answer within $($review.timeoutSeconds) s."
         } elseif ($found.status -eq 'error') {
-            $warning = "$($script:AgentName): Der zweite Blick lief nicht: $($found.reason)"
+            $warning = "$($script:AgentName): the second look did not run: $($found.reason)"
         } elseif (@($found.errors).Count -gt 0) {
             $reviewBlock = $true
-            $list = @(@($found.errors) | ForEach-Object { "- FEHLER | $_" }) + @(@($found.hints) | ForEach-Object { "- HINWEIS | $_" })
-            $parts = @("Zweiter Blick: Ein zweites Modell ($($found.model)) hat die nicht committete Aenderung in frischem Kontext geprueft und meldet:`n" + ($list -join "`n") + "`n`nPruefe jeden Befund am Code nach; der Pruefer sieht nur den Diff und kann sich irren. Behebe, was zutrifft, und pruefe danach erneut. Was nicht zutrifft, nenne in deiner Antwort an den Nutzer mit kurzer Begruendung.")
+            $list = @(@($found.errors) | ForEach-Object { "- ERROR | $_" }) + @(@($found.hints) | ForEach-Object { "- HINT | $_" })
+            $parts = @("Second look: a second model ($($found.model)) checked the uncommitted change in a fresh context and reports:`n" + ($list -join "`n") + "`n`nCheck every finding against the code; the reviewer sees only the diff and can be wrong. Fix what is right and check again afterwards. Name what is not right in your answer to the user, with a short reason.")
         } elseif (@($found.hints).Count -gt 0) {
-            $warning = "$($script:AgentName), zweiter Blick ($($found.model)), Hinweise ohne Fehler:`n" + ((@($found.hints) | ForEach-Object { "- $_" }) -join "`n")
+            $warning = "$($script:AgentName), second look ($($found.model)), hints without errors:`n" + ((@($found.hints) | ForEach-Object { "- $_" }) -join "`n")
         }
     }
 

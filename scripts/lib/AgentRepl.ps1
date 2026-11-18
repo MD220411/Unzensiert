@@ -71,7 +71,7 @@ function Invoke-UserCommand($Session, [string]$Command) {
 }
 
 function Get-AgentCommands {
-    # The commands in config\<pluginDir>\commands\*.md (/feature, /bugfix, /pruefen), the
+    # The commands in config\<pluginDir>\commands\*.md (/feature, /bugfix, /review), the
     # same files claude-local loads as plugin: name, description, hint and text.
     $commands = @{}
     $dir = Get-PluginDir
@@ -167,7 +167,7 @@ function Invoke-SlashCommand($Session, [string]$Line) {
     $name = $m.Groups[1].Value.ToLowerInvariant()
     $rest = $m.Groups[2].Value.Trim()
     $result = @{ exit = $false; prompt = '' }
-    if ($name.StartsWith('lokal:')) { $name = $name.Substring(6) }
+    if ($name -match '^(local|lokal):') { $name = $name.Substring(6) }
     switch ($name) {
         { $_ -in 'exit', 'quit' } { $result.exit = $true }
         { $_ -in 'help', '?' } { Show-AgentHelp }
@@ -179,7 +179,7 @@ function Invoke-SlashCommand($Session, [string]$Line) {
             $file = Select-SessionFile $Session $rest
             if ($file) {
                 Reset-AgentSession $Session $file
-                Write-UiNote (Get-UiText 'notes.continuing' ((Get-Item $file).LastWriteTime.ToString('dd.MM. HH:mm')) (Get-UiCount ($Session.messages.Count - 1) 'messages')) 'ok'
+                Write-UiNote (Get-UiText 'notes.continuing' ((Get-Item $file).LastWriteTime.ToString('MMM d, HH:mm', $script:StyleCulture)) (Get-UiCount ($Session.messages.Count - 1) 'messages')) 'ok'
             }
         }
         'status' { Show-AgentStatus $Session }

@@ -26,9 +26,9 @@ function Write-Verdict([string]$Tool, [string]$Subject) {
     # Prints the decision for Claude Code and notes it in the log. No output = go ahead.
     $v = $script:Verdict
     if ($v.decision -eq 'none') { return }
-    $text = "Schutz von claude-local (Regel $($v.rule)): $($v.reason)."
-    if ($v.decision -eq 'deny') { $text += ' Gesperrt. Nicht umgehen; dem Nutzer sagen, was geplant war und warum.' }
-    else { $text += ' Der Nutzer entscheidet.' }
+    $text = "Guard of claude-local (rule $($v.rule)): $($v.reason)."
+    if ($v.decision -eq 'deny') { $text += ' Blocked. Do not work around it; tell the user what was planned and why.' }
+    else { $text += ' The user decides.' }
     $out = @{ hookSpecificOutput = @{ hookEventName = 'PreToolUse'; permissionDecision = $v.decision; permissionDecisionReason = $text } }
     [Console]::Out.Write(($out | ConvertTo-Json -Compress -Depth 4))
     Write-GuardLog $Tool $Subject $v
@@ -46,7 +46,7 @@ try {
     $null = Invoke-GuardCheck $tool $call.tool_input ([string]$call.cwd) (Get-GuardRules)
 } catch {
     # A broken guard must not pass silently and must not stop all work: let the user decide.
-    Set-Verdict 'ask' 'guard-error' "Die Schutzpruefung ist fehlgeschlagen ($($_.Exception.Message)); scripts\Test-Setup.ps1 ausfuehren"
+    Set-Verdict 'ask' 'guard-error' "The guard check failed ($($_.Exception.Message)); run scripts\Test-Setup.ps1"
 }
 Write-Verdict $tool $subject
 exit 0

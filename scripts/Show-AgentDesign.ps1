@@ -5,7 +5,7 @@
 # Needs no model and no server and changes nothing. The look: docs\stil.md.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1
-#   ... -Style nachtschicht      another style of config\styles\, without switching to it
+#   ... -Style nightshift        another style of config\styles\, without switching to it
 #   ... -Width 100               as in a window of this many columns
 #   ... -OutFile design.ans      the output with its escape sequences into a file (UTF-8)
 #   ... -Seed 7                  the same random choices (colours, sayings) every time
@@ -103,7 +103,7 @@ try {
 
     # notes of every kind, the last answer, the end of the request
     Write-UiNote (Get-UiText 'notes.shortened' (Format-Number 12400 0))
-    Write-UiNote (Get-UiText 'notes.checkSays' 'README.md beschreibt mul noch nicht.') 'warn'
+    Write-UiNote (Get-UiText 'notes.checkSays' 'README.md does not describe mul yet.') 'warn'
     Write-UiNote (Get-UiText 'notes.summaryFailed' 'timeout') 'error'
     Write-UiNote (Get-UiText 'modes.switched' 'edits' (Get-UiText 'modes.edits')) 'ok'
     Start-UiAnswer

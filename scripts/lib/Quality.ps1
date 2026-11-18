@@ -1,6 +1,6 @@
 # Working method of the local model in claude-local sessions: the closing check (a Stop
 # hook of Claude Code, scripts\hooks\Check-Stop.ps1, settings "stopCheck" and "review" in
-# config\agent.json) and the fixed procedures /feature, /bugfix, /pruefen (a plugin folder,
+# config\agent.json) and the fixed procedures /feature, /bugfix, /review (a plugin folder,
 # "pluginDir" in config\agent.json). Needs lib\Config.ps1. Keep this file ASCII-only.
 # Description: docs\agent.md.
 

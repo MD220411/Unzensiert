@@ -1,10 +1,14 @@
 {
-  "_comment": "Welches Erscheinungsbild gilt. Die Stile liegen in config\\styles\\<name>.json. Nach einem Wechsel: scripts\\Install-Style.ps1. Beschreibung: docs\\stil.md.",
+  "_comment": "Which look is active. The styles are in config\\styles\\<name>.json. After a switch: scripts\\Install-Style.ps1. Description: docs\\style.md.",
 
-  "active": "ausbruch",
+  "active": "breakout",
 
-  "_install": "Gemeinsam fuer alle Stile, damit ein Wechsel dieselben Eintraege ersetzt statt neue anzulegen: das Profil in Windows Terminal (feste GUID), die Variable, an der die Statuszeile eine lokale Sitzung erkennt, und die Endung der Sicherungskopien vom Stand vor dem ersten Stil.",
+  "_install": "Shared by all styles, so a switch replaces the same entries instead of adding new ones: the profile in Windows Terminal (fixed GUID), the variable by which the status line recognises a local session, and the ending of the backup copies of the state before the first style (the German name stays so earlier backups are still found).",
   "profileGuid": "{6e616368-7473-6368-6963-687400000001}",
   "modeVariable": "CLAUDE_LOCAL_LOOK",
-  "backupSuffix": ".vor-nachtschicht"
+  "backupSuffix": ".vor-nachtschicht",
+
+  "_former": "Names of styles and Claude Code theme files from earlier versions (German names until 2026-11). Install-Style.ps1 takes their entries out of Windows Terminal and Claude Code like those of the current styles.",
+  "formerNames": ["Ausbruch", "Nachtschicht"],
+  "formerThemes": ["ausbruch-frei", "ausbruch-wolke", "nachtschicht-glut", "nachtschicht-fernlicht"]
 }

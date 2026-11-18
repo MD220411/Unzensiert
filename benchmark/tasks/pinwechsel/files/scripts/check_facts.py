@@ -140,13 +140,15 @@ def check_entries(facts, devices, report):
         seen.add(fid)
         if "value" not in fact or str(fact.get("value")).strip() == "":
             report.fail("fact '%s' has no 'value'" % fid)
-        status = str(fact.get("status") or "belegt").strip().lower()
-        if status not in ("belegt", "annahme"):
-            report.fail("fact '%s': status must be 'belegt' or 'annahme', not '%s'" % (fid, status))
-        elif status == "annahme":
-            report.warn("fact '%s' is an assumption (status annahme): %s" % (fid, fact.get("value")))
+        # "belegt" and "annahme" are the German words of earlier versions of the template
+        status = str(fact.get("status") or "confirmed").strip().lower()
+        status = {"belegt": "confirmed", "annahme": "assumption"}.get(status, status)
+        if status not in ("confirmed", "assumption"):
+            report.fail("fact '%s': status must be 'confirmed' or 'assumption', not '%s'" % (fid, status))
+        elif status == "assumption":
+            report.warn("fact '%s' is an assumption (status assumption): %s" % (fid, fact.get("value")))
         elif not str(fact.get("source") or "").strip():
-            report.fail("fact '%s' has no 'source'; add where it was looked up, or set status 'annahme'" % fid)
+            report.fail("fact '%s' has no 'source'; add where it was looked up, or set status 'assumption'" % fid)
         device = str(fact.get("device") or "").strip()
         if device and devices and device not in devices:
             report.fail("fact '%s' names device '%s', which is not under 'devices'" % (fid, device))

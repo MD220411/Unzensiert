@@ -123,24 +123,24 @@ function Test-RecursiveDelete([string]$Command, [string]$Cwd, $Config, [int]$Dep
                 $path = Resolve-CommandPath $raw $dir
                 if (-not $path) { continue }
                 if ($path -like '<shell-root>*') {
-                    Set-Verdict 'deny' 'delete-system' "Rekursives Loeschen im Wurzelverzeichnis der Shell ($raw)"; continue
+                    Set-Verdict 'deny' 'delete-system' "Recursive delete in the root folder of the shell ($raw)"; continue
                 }
                 if ($path -match '^[a-zA-Z]:\\?$' -or $path -match '^\\\\[^\\]+\\[^\\]+\\?$') {
-                    Set-Verdict 'deny' 'delete-system' "Rekursives Loeschen eines ganzen Laufwerks ($path)"; continue
+                    Set-Verdict 'deny' 'delete-system' "Recursive delete of a whole drive ($path)"; continue
                 }
                 $hit = $critical | Where-Object { Test-PathInside $_ $path } | Select-Object -First 1
-                if ($hit) { Set-Verdict 'deny' 'delete-system' "Rekursives Loeschen von $path (enthaelt oder ist $hit)"; continue }
+                if ($hit) { Set-Verdict 'deny' 'delete-system' "Recursive delete of $path (contains or is $hit)"; continue }
                 $hit = $system | Where-Object { Test-PathInside $path $_ } | Select-Object -First 1
-                if ($hit) { Set-Verdict 'deny' 'delete-system' "Rekursives Loeschen in einem Systemordner ($path)"; continue }
+                if ($hit) { Set-Verdict 'deny' 'delete-system' "Recursive delete in a system folder ($path)"; continue }
                 if ($free | Where-Object { Test-PathInside $path $_ }) { continue }
                 if ($Cwd -and (Test-PathInside $Cwd $path)) {
-                    Set-Verdict 'ask' 'delete-project' "Rekursives Loeschen des ganzen Projektordners ($path)"; continue
+                    Set-Verdict 'ask' 'delete-project' "Recursive delete of the whole project folder ($path)"; continue
                 }
                 if ($Cwd -and (Test-PathInside $path $Cwd)) {
-                    if ($path -match '\\\.git$') { Set-Verdict 'ask' 'delete-project' "Loeschen des Git-Verlaufs ($path)" }
+                    if ($path -match '\\\.git$') { Set-Verdict 'ask' 'delete-project' "Deleting the git history ($path)" }
                     continue
                 }
-                Set-Verdict 'ask' 'delete-outside' "Rekursives Loeschen ausserhalb des Projektordners ($path)"
+                Set-Verdict 'ask' 'delete-outside' "Recursive delete outside the project folder ($path)"
             }
         }
     }
@@ -159,16 +159,16 @@ function Test-FileAccess([string]$Path, [string]$Cwd, [bool]$Writes, $Config) {
     if (-not $excepted) {
         foreach ($entry in $Config.secretPaths) {
             $secret = Expand-ConfigPath $entry
-            if ($secret -and (Test-PathInside $full $secret)) { Set-Verdict 'ask' 'secret-files' "Zugriff auf Zugangsdaten ($full)" }
+            if ($secret -and (Test-PathInside $full $secret)) { Set-Verdict 'ask' 'secret-files' "Access to credentials ($full)" }
         }
         foreach ($pattern in $Config.secretFileNames) {
-            if ($leaf -like $pattern) { Set-Verdict 'ask' 'secret-files' "Zugriff auf eine Schluessel- oder Passwortdatei ($full)" }
+            if ($leaf -like $pattern) { Set-Verdict 'ask' 'secret-files' "Access to a key or password file ($full)" }
         }
     }
     if ($Writes) {
         foreach ($entry in $Config.guardFiles) {
             $file = Expand-ConfigPath $entry
-            if ($file -and $full -ieq $file) { Set-Verdict 'ask' 'guard-files' "Aenderung an den Schutzregeln selbst ($full)" }
+            if ($file -and $full -ieq $file) { Set-Verdict 'ask' 'guard-files' "Change to the guard rules themselves ($full)" }
         }
     }
 }
@@ -210,7 +210,7 @@ function Invoke-GuardCheck([string]$Tool, $ToolInput, [string]$Cwd, $Config) {
         }
     } catch {
         # A broken guard must not pass silently and must not stop all work: let the user decide.
-        Set-Verdict 'ask' 'guard-error' "Die Schutzpruefung ist fehlgeschlagen ($($_.Exception.Message)); scripts\Test-Setup.ps1 ausfuehren"
+        Set-Verdict 'ask' 'guard-error' "The guard check failed ($($_.Exception.Message)); run scripts\Test-Setup.ps1"
     }
     return $script:Verdict
 }
