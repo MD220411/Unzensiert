@@ -108,11 +108,17 @@ former one) counts as its own.
   links inside the project templates point to files that exist once a project is created).
 - The design preview rendered again in both styles and looked at.
 
-### Not measured yet
+### Measured
 
-Whether the English working rules, closing check and second look work as well as the German
-ones: the benchmark run `english1` (Unzensiert, all eleven tasks once) follows as soon as the
-graphics cards are free; its result will be added here.
+Run `english1` (Unzensiert, `local-coder`, all eleven tasks once, English working rules,
+closing check and second look; the closing check still began its message with the German word
+"Abschlusspruefung"): **9 of 11 passed, 1,636 s, 259 rounds, rules 30 of 32**. For comparison
+`vergleich2` (German texts, three runs per task): sum of the medians 1,629 s, 268 rounds,
+27 of 33 passed, rules 88 of 96. The failures are known mistakes of the model: `psscript`
+printed `"total": null` for `-Since` with `-Source` (as in `schleife1`), `longcontext` the known
+mistake with Ireland. `extend` passed. The rule missed was `config` in `extend` and `psscript`,
+as in every earlier run. With one run per task this shows no change through the English texts;
+it is not a proof of equality.
 
 ## 2026-11-18 midday: better protection against loops
 
