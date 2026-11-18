@@ -1,7 +1,7 @@
 ﻿# Benchmark-Ergebnisse
 
 Automatisch erzeugt von `scripts\Benchmark-Models.ps1`. Nicht von Hand bearbeiten.
-Stand: 2026-11-17 23:25. Rohdaten: `logs\benchmark\results.jsonl`.
+Stand: 2026-11-18 10:03. Rohdaten: `logs\benchmark\results.jsonl`.
 Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bis 2026-11-14).
 
 ## Rohwerte
@@ -27,6 +27,8 @@ Zeilen mit Backend `Ollama` stammen aus der Zeit vor dem Umbau auf llama.cpp (bi
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | stufe4-128k | RTX 5070 Ti 15588, RTX 3060 10371 MiB | 7.2 s | 57.5 Tok./s | 57 % | 1314.2 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | vergleich1 | RTX 5070 Ti 14640, RTX 3060 10181 MiB | 5.8 s | 69.8 Tok./s | 62 % | 974.6 Tok./s | OK |
 | llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | vergleich1 | RTX 5070 Ti 14640, RTX 3060 10181 MiB | 6.3 s | 69.5 Tok./s | 62 % | 980.6 Tok./s | OK |
+| llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | vergleich2 | RTX 5070 Ti 14640, RTX 3060 10181 MiB | 7.3 s | 69.6 Tok./s | 62 % | 992.7 Tok./s | OK |
+| llama.cpp | `local-coder` | `qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf` | 128k | vergleich2 | RTX 5070 Ti 14640, RTX 3060 10181 MiB | 5.7 s | 66.3 Tok./s | 57 % | 975.3 Tok./s | OK |
 | llama.cpp | `local-fast` | `qwen3.6-35b-a3b-heretic-Q4_K_M-mtp.gguf` | 64k | lean | RTX 5070 Ti 13996, RTX 3060 9813 MiB | 11.9 s | 83.4 Tok./s | 64 % | 2985.5 Tok./s | OK |
 | llama.cpp | `local-fast` | `qwen3.6-35b-a3b-heretic-Q4_K_M-mtp.gguf` | 64k | planner | RTX 5070 Ti 13996, RTX 3060 9830 MiB | 11.4 s | 82.4 Tok./s | 61 % | 2990.4 Tok./s | OK |
 | llama.cpp | `local-fast` | `qwen3.6-35b-a3b-heretic-Q4_K_M-mtp.gguf` | 64k | stufe2 | RTX 5070 Ti 15108, RTX 3060 9311 MiB | 17.1 s | 129.1 Tok./s | 60 % | 3497.3 Tok./s | OK |
@@ -81,6 +83,8 @@ Runden = Anfragen an das Modell, Tokens = vom Modell geschriebene Tokens, beides
 | llama.cpp | claude-local | `local-coder` | stufe4-128k | 1 / 3 | 42290 s | 237 | 57491 | 12 / 12 (100 %) |
 | llama.cpp | claude-local | `local-coder` | vergleich1 | 5 / 5 | 829 s | 159 | 48858 | 21 / 23 (91 %) |
 | llama.cpp | unzensiert | `local-coder` | vergleich1 | 5 / 5 | 659 s | 88 | 42640 | 22 / 23 (96 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | 29 / 33 | 6541 s | 1221 | 338974 | 86 / 96 (90 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | 27 / 33 | 5528 s | 790 | 297684 | 88 / 96 (92 %) |
 | llama.cpp | claude-local | `local-fast` | lean | 9 / 9 | 266 s | 128 | - | - |
 | llama.cpp | claude-local | `local-fast` | planner | 1 / 3 | 846 s | 87 | - | - |
 | llama.cpp | claude-local | `local-fast` | stufe2 | 3 / 15 | 3679 s | 594 | 246003 | 34 / 66 (52 %) |
@@ -173,6 +177,28 @@ Runden = Anfragen an das Modell, Tokens = vom Modell geschriebene Tokens, beides
 | llama.cpp | unzensiert | `local-coder` | vergleich1 | screenshot | 1 / 1 | ja (80 s) | 4 / 4 (100 %) |
 | llama.cpp | unzensiert | `local-coder` | vergleich1 | datenblatt | 1 / 1 | ja (105 s) | 5 / 5 (100 %) |
 | llama.cpp | unzensiert | `local-coder` | vergleich1 | pinwechsel | 1 / 1 | ja (80 s) | 5 / 5 (100 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | bugfix | 3 / 3 | ja (38 s), ja (35 s), ja (31 s) | - |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | feature | 3 / 3 | ja (80 s), ja (77 s), ja (99 s) | - |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | multifile | 3 / 3 | ja (92 s), ja (117 s), ja (96 s) | - |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | planner | 2 / 3 | Zeit, Dateien ok (600 s), ja (293 s), ja (262 s) | - |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | extend | 3 / 3 | ja (267 s), ja (275 s), ja (203 s) | 11 / 15 (73 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | refactor | 3 / 3 | ja (269 s), ja (203 s), ja (258 s) | 10 / 12 (83 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | psscript | 3 / 3 | ja (425 s), ja (492 s), ja (258 s) | 12 / 15 (80 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | screenshot | 3 / 3 | ja (99 s), ja (89 s), ja (71 s) | 12 / 12 (100 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | longcontext | 2 / 3 | ja (366 s), ja (318 s), nein (368 s) | 11 / 12 (92 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | datenblatt | 1 / 3 | nein (135 s), ja (117 s), nein (155 s) | 15 / 15 (100 %) |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | pinwechsel | 3 / 3 | ja (127 s), ja (110 s), ja (116 s) | 15 / 15 (100 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | bugfix | 3 / 3 | ja (29 s), ja (29 s), ja (28 s) | - |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | feature | 3 / 3 | ja (67 s), ja (77 s), ja (66 s) | - |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | multifile | 3 / 3 | ja (90 s), ja (77 s), ja (81 s) | - |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | planner | 3 / 3 | ja (187 s), ja (180 s), ja (233 s) | - |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | extend | 1 / 3 | ja (201 s), nein (261 s), nein (199 s) | 12 / 15 (80 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | refactor | 2 / 3 | Zeit, Dateien ok (600 s), ja (176 s), ja (168 s) | 12 / 12 (100 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | psscript | 3 / 3 | ja (306 s), ja (258 s), ja (418 s) | 12 / 15 (80 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | screenshot | 3 / 3 | ja (110 s), ja (85 s), ja (63 s) | 10 / 12 (83 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | longcontext | 1 / 3 | nein (324 s), ja (296 s), nein (299 s) | 12 / 12 (100 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | datenblatt | 2 / 3 | ja (99 s), nein (141 s), ja (110 s) | 15 / 15 (100 %) |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | pinwechsel | 3 / 3 | ja (87 s), ja (95 s), ja (88 s) | 15 / 15 (100 %) |
 | llama.cpp | claude-local | `local-fast` | lean | bugfix | 3 / 3 | ja (21 s), ja (25 s), ja (25 s) | - |
 | llama.cpp | claude-local | `local-fast` | lean | feature | 3 / 3 | ja (32 s), ja (36 s), ja (27 s) | - |
 | llama.cpp | claude-local | `local-fast` | lean | multifile | 3 / 3 | ja (31 s), ja (34 s), ja (35 s) | - |
@@ -274,6 +300,8 @@ Gezaehlt ueber alle Laeufe der Aufgaben, die die Regel pruefen (auch ueber nicht
 | llama.cpp | claude-local | `local-coder` | stufe4-128k | 3 / 3 | 3 / 3 | - | 3 / 3 | - | 3 / 3 | - |
 | llama.cpp | claude-local | `local-coder` | vergleich1 | 5 / 5 | 5 / 5 | 0 / 1 | 4 / 5 | - | 5 / 5 | 2 / 2 |
 | llama.cpp | unzensiert | `local-coder` | vergleich1 | 5 / 5 | 5 / 5 | 0 / 1 | 5 / 5 | - | 5 / 5 | 2 / 2 |
+| llama.cpp | claude-local | `local-coder` | vergleich2 | 21 / 21 | 17 / 21 | 0 / 6 | 18 / 18 | 3 / 3 | 21 / 21 | 6 / 6 |
+| llama.cpp | unzensiert | `local-coder` | vergleich2 | 20 / 21 | 20 / 21 | 0 / 6 | 18 / 18 | 3 / 3 | 21 / 21 | 6 / 6 |
 | llama.cpp | claude-local | `local-fast` | stufe2 | 4 / 15 | 2 / 15 | 0 / 6 | 11 / 12 | 2 / 3 | 15 / 15 | - |
 
 `readme` = README angepasst, `tests` = Test fuer das Neue geschrieben, `config` = neue Einstellung in der Konfigurationsdatei statt im Code,

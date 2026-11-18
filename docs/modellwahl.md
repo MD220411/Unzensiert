@@ -4,6 +4,65 @@ Bewertung der Messwerte aus [benchmark.md](benchmark.md). Die jüngste Messung s
 Abschnitt, die Wahl der Modelle im Abschnitt „Aktuelle Wahl“. Die Abschnitte darunter sind älter und bleiben
 als Begründung stehen.
 
+## Agent: Unzensiert gegen Claude Code, alle Aufgaben dreimal (2026-11-18)
+
+Lauf `vergleich2`: alle elf Aufgaben, jede dreimal, `local-coder`, ohne zweiten Blick, sonst
+wie `vergleich1` (Abschnitt darunter). Diesmal lief `claude-local` zuerst (06:40 bis 08:30
+Uhr), dann Unzensiert (08:30 bis 10:03 Uhr), damit eine Aufwärmphase oder die Wärme der
+Karten nicht Unzensiert begünstigt. Je Aufgabe der Median von Zeit und Runden aus drei
+Läufen, dazu die bestandenen Läufe. Ein Lauf am Zeitlimit zählt wie in
+[benchmark.md](benchmark.md) als nicht bestanden, auch wenn seine Dateien die Prüfung
+bestehen:
+
+| Aufgabe | Unzensiert | claude-local (Claude Code) |
+|---|---|---|
+| `bugfix` | 29 s, 8 Runden, 3 / 3 | 35 s, 11 Runden, 3 / 3 |
+| `feature` | 67 s, 17 Runden, 3 / 3 | 80 s, 21 Runden, 3 / 3 |
+| `multifile` | 81 s, 21 Runden, 3 / 3 | 96 s, 32 Runden, 3 / 3 |
+| `planner` | 187 s, 27 Runden, 3 / 3 | 293 s, 53 Runden, 2 / 3 (einmal Zeitlimit, Dateien richtig) |
+| `extend` | 201 s, 23 Runden, **1 / 3** | 267 s, 37 Runden, 3 / 3 |
+| `refactor` | 176 s, 31 Runden, 2 / 3 (einmal Zeitlimit, Dateien richtig) | 258 s, 54 Runden, 3 / 3 |
+| `psscript` | 306 s, 54 Runden, 3 / 3 | 425 s, 56 Runden, 3 / 3 |
+| `screenshot` | 85 s, 13 Runden, 3 / 3 | 89 s, 20 Runden, 3 / 3 |
+| `longcontext` | 299 s, 41 Runden, 1 / 3 | 366 s, 74 Runden, 2 / 3 |
+| `datenblatt` | 110 s, 18 Runden, 2 / 3 | 135 s, 30 Runden, 1 / 3 |
+| `pinwechsel` | 88 s, 15 Runden, 3 / 3 | 116 s, 30 Runden, 3 / 3 |
+| **zusammen** | **27 / 33 bestanden, 1.629 s, 268 Runden, 98.591 Tokens, Regeln 88 / 96** | **29 / 33 bestanden**, 2.160 s, 418 Runden, 122.004 Tokens, Regeln 86 / 96 |
+
+„zusammen“ heißt bei Zeit, Runden und Tokens: Summe der Mediane je Aufgabe. Tokens sind die
+vom Modell geschriebenen.
+
+- **Tempo:** Unzensiert war bei allen elf Aufgaben schneller, zusammen 25 % weniger Zeit,
+  36 % weniger Runden und 19 % weniger geschriebene Tokens. Über alle 66 Läufe gerechnet
+  5.528 s gegen 6.541 s (15 % weniger, beide mit einer Zeitüberschreitung von 600 s). Das
+  bestätigt `vergleich1`, jetzt mit Wiederholungen, allen Aufgaben und umgekehrter
+  Reihenfolge.
+- **Bestanden:** 27 gegen 29 von 33, mit den Dateien der Läufe am Zeitlimit 28 gegen 30.
+  Der Unterschied liegt im Zufall dieser Stichprobe (exakter Test nach Fisher, p = 0,73).
+  Alle Fehlschläge mit falschem Ergebnis sind Fehler des Modells, die auch bei Claude Code
+  vorkommen:
+  - `extend`, bei Unzensiert zweimal: `transfer` normalisiert den Artikelnamen nicht
+    (`"Bolt"` statt `"bolt"`). Genau dieser Fehler (`only 0 of Bolt in main`) traf Claude
+    Code in 2 von 28 bisherigen Läufen. Unzensiert hatte das neue Verhalten mit eigenen Skripten
+    und 24 neuen Tests geprüft, nur nicht mit großgeschriebenem Namen.
+  - `longcontext`: dieselben Fehler wie in früheren Läufen mit Claude Code (Spanien ohne
+    `invoice`, Irland ohne Obergrenze). Claude Code bestand die Aufgabe über alle
+    bisherigen Läufe in 6 von 24 Fällen.
+  - `datenblatt`: bei beiden derselbe falsche Wert aus dem Datenblatt (HX-7).
+- **Zeitüberschreitungen:** je eine, beide Lösungen bestanden trotzdem. Bei Unzensiert
+  (`refactor` #1) lief das Modell sechs Minuten im Kreis: Es wollte seinen eigenen neuen
+  Test reparieren, schrieb dieselbe Datei viermal mit gleichem Inhalt und versuchte 16
+  Edits, die nichts änderten. Der Schutz gegen Wiederholungen griff nicht, weil jede
+  Änderung an einer Datei seinen Zähler zurücksetzte, auch ein Write mit gleichem Inhalt,
+  und weil die Testausgabe wegen der Laufzeit nie gleich aussah (`Ran 7 tests in 0.507s`,
+  `0.493s`, `0.496s`, jedes Mal mit demselben `TypeError`).
+- **Regeln:** 88 gegen 86 von 96, praktisch gleich. Bei beiden fehlte in allen Läufen
+  `config` in `extend` und `psscript`; dazu bei Claude Code viermal `tests`, bei Unzensiert
+  einmal `readme` und `tests`.
+
+Nicht gemessen: der zweite Blick (`-Git`); sein Prüfer `local-qwen38` hieße einen
+Modellwechsel bei jeder Aufgabe.
+
 ## Agent: Unzensiert gegen Claude Code (2026-11-17)
 
 Derselbe Benchmark mit beiden Agenten, `local-coder`, gleicher Server, gleiche Werkzeuge

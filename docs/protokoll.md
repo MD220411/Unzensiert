@@ -3,6 +3,53 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-18 vormittags: Vergleich mit Wiederholungen (`vergleich2`)
+
+Der gründlichere Vergleich, um den der Nutzer nach dem Release gebeten hatte: alle elf
+Aufgaben, jede dreimal, `local-coder`, ohne zweiten Blick. Befehl
+`Benchmark-Models.ps1 -Only local-coder -Label vergleich2 -Repeat 3 -Agent claude-local`,
+danach dasselbe mit `-Agent unzensiert`. Diesmal lief `claude-local` zuerst (06:40 bis 08:30
+Uhr, Unzensiert 08:30 bis 10:03 Uhr); in `vergleich1` war es umgekehrt. Rohmessung vor den
+Aufgaben: 69,6 bzw. 66,3 Tokens/s beim Schreiben, 993 bzw. 975 beim Lesen.
+
+| | Unzensiert | claude-local (Claude Code) |
+|---|---|---|
+| bestanden | 27 / 33 | 29 / 33 |
+| Zeit, Summe der Mediane je Aufgabe | 1.629 s | 2.160 s |
+| Runden, ebenso | 268 | 418 |
+| geschriebene Tokens, ebenso | 98.591 | 122.004 |
+| alle 33 Läufe | 5.528 s | 6.541 s |
+| Arbeitsregeln | 88 / 96 | 86 / 96 |
+| Zeitlimit (600 s) erreicht, Dateien richtig | `refactor` #1 | `planner` #1 |
+
+Tabelle je Aufgabe und Bewertung: [modellwahl.md](modellwahl.md). Kurz: Unzensiert war bei
+allen elf Aufgaben schneller (Median). Beim Bestehen liegt der Unterschied im Zufall (exakter
+Test nach Fisher, p = 0,73). Läufe am Zeitlimit zählen wie in `benchmark.md` als nicht
+bestanden.
+
+Die Fehlschläge wurden an den gespeicherten Unterhaltungen
+(`<installRoot>\sessions`) und an den Arbeitsordnern nachgesehen:
+
+- **`extend`, Unzensiert #2 und #3:** `transfer("Bolt", ...)` fand nichts, weil der
+  Artikelname dort nicht normalisiert wurde (`source_items.get(item, 0)`). Am selben Fehler
+  (`only 0 of Bolt in main`) fiel Claude Code in 2 von 28 bisherigen Läufen durch (`stufe3`,
+  `stufe3-befehl`). Der Agent hatte das neue Verhalten selbst geprüft: erst mit einem
+  Skript, nach der Abschlussprüfung mit 24 neuen Tests (33 von 33 grün). Keiner rief `transfer` mit großgeschriebenem Namen auf. Ein
+  Fehler des Modells, nicht des Agenten.
+- **`longcontext`:** Bei beiden Agenten traten dieselben Fehler wie in früheren Läufen auf
+  (Irland: Obergrenze; Spanien und Niederlande: `invoice`). Claude Code bestand die Aufgabe
+  über alle bisherigen Läufe in 6 von 24 Fällen.
+- **`datenblatt`:** Bei beiden derselbe falsche Wert aus dem Datenblatt (HX-7).
+- **Zeitlimit bei Unzensiert, `refactor` #1** (Lösung trotzdem bestanden): Nach der
+  Abschlussprüfung wollte das Modell seinen eigenen neuen Test reparieren und lief sechs
+  Minuten im Kreis. Es schrieb `tests\test_tracker.py` viermal mit genau demselben Inhalt
+  und versuchte 16 Edits mit `old_string` gleich `new_string`; dazwischen liefen die Tests
+  mit demselben Fehler. Der Schutz gegen Wiederholungen gab einmal einen Hinweis, kam aber
+  nie bis zum Abbruch. Ursache: Jede Änderung an einer Datei setzte seinen Zähler zurück,
+  auch ein Write mit gleichem Inhalt, und die Testausgabe sah wegen der Laufzeit nie zweimal
+  gleich aus (`Ran 7 tests in 0.507s`, `0.493s`, `0.496s`, jedes Mal mit demselben
+  `TypeError`). Das ist als Nächstes zu verbessern.
+
 ## 2026-11-18: erstes Release v1.0.0
 
 Auf Wunsch des Nutzers veröffentlicht, mit `scripts\New-Release.ps1 -Version 1.0.0` und einem

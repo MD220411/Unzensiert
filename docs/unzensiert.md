@@ -13,21 +13,25 @@ zum Vergleich erhalten; der Benchmark kann beide messen.
 
 ## Gemessen gegen Claude Code
 
-Fünf Benchmark-Aufgaben mit `local-coder`, beide Agenten unter gleichen Bedingungen, je ein
-Lauf (Lauf `vergleich1`, Bewertung in [modellwahl.md](modellwahl.md)):
+Alle elf Benchmark-Aufgaben, jede dreimal, mit `local-coder`, beide Agenten unter gleichen
+Bedingungen (Lauf `vergleich2`; Tabelle je Aufgabe und Bewertung in
+[modellwahl.md](modellwahl.md)):
 
-| Aufgabe | Unzensiert | claude-local (Claude Code) |
+| | Unzensiert | claude-local (Claude Code) |
 |---|---|---|
-| `screenshot` | 80 s, 16 Runden | 98 s, 22 Runden |
-| `pinwechsel` | 80 s, 17 Runden | 123 s, 30 Runden |
-| `datenblatt` | 105 s, 15 Runden | 124 s, 25 Runden |
-| `extend` | 214 s, 21 Runden | 244 s, 34 Runden |
-| `refactor` | 180 s, 19 Runden | 240 s, 48 Runden |
-| **zusammen** | **5 / 5 bestanden, 659 s, 88 Runden, 42.640 Tokens, Regeln 22 / 23** | 5 / 5 bestanden, 829 s, 159 Runden, 48.858 Tokens, Regeln 21 / 23 |
+| bestanden | 27 / 33 | 29 / 33 |
+| Zeit (Summe der Mediane je Aufgabe) | **1.629 s** | 2.160 s |
+| Runden (ebenso) | **268** | 418 |
+| geschriebene Tokens (ebenso) | **98.591** | 122.004 |
+| Arbeitsregeln | 88 / 96 | 86 / 96 |
+| Zeitlimit erreicht (zählt als nicht bestanden) | 1 | 1 |
 
-Unzensiert war bei allen fünf Aufgaben schneller (zusammen 20 % weniger Zeit) und brauchte
-45 % weniger Runden. Ein Lauf je Aufgabe liegt in der Streuung früherer Wiederholungen;
-der Lauf mit `-Repeat 3` und den übrigen Aufgaben steht aus.
+Unzensiert war bei allen elf Aufgaben schneller: zusammen 25 % weniger Zeit und 36 % weniger
+Runden. Beim Bestehen liegt der Unterschied im Zufall (exakter Test nach Fisher, p = 0,73);
+alle Fehlschläge mit falschem Ergebnis sind Fehler des Modells, die auch bei Claude Code
+vorkamen. Der erste
+Vergleich (`vergleich1`, fünf Aufgaben, je ein Lauf) steht ebenfalls in
+[modellwahl.md](modellwahl.md).
 
 ## Benutzen
 

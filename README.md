@@ -178,7 +178,7 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
 | Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle im Installationsordner (`config\machine.json`) |
 | Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme, misst die Karten und berechnet die Verteilung auf Karten und Hauptspeicher ([einrichtung.md](docs/einrichtung.md), [planer.md](docs/planer.md)); erprobt nur auf diesem Rechner |
 | Agent | Unzensiert, eigenes Programm (PowerShell 5.1, OpenAI-kompatible Schnittstelle von `llama-server`), Version in `VERSION`, automatische Updates aus den Releases; zum Vergleich Claude Code über die Anthropic-kompatible Schnittstelle ([unzensiert.md](docs/unzensiert.md)) |
-| Vergleich | Unzensiert gegen Claude Code, fünf Aufgaben mit `local-coder`, je ein Lauf: beide 5 von 5 bestanden; Unzensiert 659 s statt 829 s, 88 statt 159 Runden, 42.640 statt 48.858 Tokens, Arbeitsregeln 22 statt 21 von 23. Wiederholungen und die übrigen Aufgaben stehen aus ([modellwahl.md](docs/modellwahl.md)) |
+| Vergleich | Unzensiert gegen Claude Code, alle elf Aufgaben je dreimal mit `local-coder`: Unzensiert bei allen elf schneller (Summe der Mediane 1.629 s statt 2.160 s, 36 % weniger Runden); bestanden 27 statt 29 von 33, ein Unterschied im Rahmen des Zufalls (alle Fehlschläge sind Fehler des Modells, die auch bei Claude Code vorkamen); Arbeitsregeln 88 statt 86 von 96 ([modellwahl.md](docs/modellwahl.md)) |
 
 ## Grenzen
 
