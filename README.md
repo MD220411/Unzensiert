@@ -49,7 +49,8 @@ unzensiert
 Type what you want; Enter sends, Shift+Enter starts a new line, Esc stops the model.
 `/help` lists the commands, `/model` switches between the models you have installed,
 Shift+Tab switches how much the agent may do without asking (`ask`, `edits`, `all`).
-`unzensiert -p "question"` answers once without a session. No account is needed.
+`unzensiert -p "question"` answers once without a session. No account is needed. The
+terminal of the agent speaks German; its texts are in `config\unzensiert-texte.json`.
 More models: `scripts\Get-Model.ps1 -List`. The same models in Claude Code, for
 comparison: `claude-local` ([docs/agent.md](docs/agent.md)).
 
@@ -177,7 +178,7 @@ in der Seitenleiste einen Chat mit `local-coder` oder `local-fast`. Einrichtung:
 | Benchmark | `local-coder`: alle 24 Läufe der vier älteren Aufgaben bestanden, 14 von 15 der fünf schwereren, 89 % der Arbeitsregeln eingehalten, mit Projektvorlage 91 % (gemessen mit 64k); die zwei Aufgaben zu Faktentreue und Konsistenz über Dateien 6 von 6. `local-fast` (Stand vor der Abschlussprüfung): 3 von 15, 52 % ([modellwahl.md](docs/modellwahl.md)) |
 | Backend | llama.cpp Build b12433 (`llama-server` im Router-Modus), Programme und Modelle im Installationsordner (`config\machine.json`) |
 | Installation | Installer für jeden Windows-Rechner: wählt llama.cpp-Paket und Modell nach Grafikkarte, lädt mit Prüfsumme, misst die Karten und berechnet die Verteilung auf Karten und Hauptspeicher ([einrichtung.md](docs/einrichtung.md), [planer.md](docs/planer.md)); erprobt nur auf diesem Rechner |
-| Agent | Unzensiert, eigenes Programm (PowerShell 5.1, OpenAI-kompatible Schnittstelle von `llama-server`), Version in `VERSION`, automatische Updates aus den Releases; zum Vergleich Claude Code über die Anthropic-kompatible Schnittstelle ([unzensiert.md](docs/unzensiert.md)) |
+| Agent | Unzensiert, eigenes Programm (PowerShell 5.1, OpenAI-kompatible Schnittstelle von `llama-server`), Version in `VERSION`, automatische Updates aus den Releases, eigene Oberfläche im Stil des Projekts ([stil.md](docs/stil.md#die-oberfläche-von-unzensiert)); zum Vergleich Claude Code über die Anthropic-kompatible Schnittstelle ([unzensiert.md](docs/unzensiert.md)) |
 | Vergleich | Unzensiert gegen Claude Code, alle elf Aufgaben je dreimal mit `local-coder`: Unzensiert bei allen elf schneller (Summe der Mediane 1.629 s statt 2.160 s, 36 % weniger Runden); bestanden 27 statt 29 von 33, ein Unterschied im Rahmen des Zufalls (alle Fehlschläge sind Fehler des Modells, die auch bei Claude Code vorkamen); Arbeitsregeln 88 statt 86 von 96 ([modellwahl.md](docs/modellwahl.md)) |
 
 ## Grenzen
@@ -227,7 +228,7 @@ mit dem meisten Platz).
 | [docs/unzensiert.md](docs/unzensiert.md) | der eigene Agent: Bedienung, Tasten, Befehle, Rechte, Werkzeuge, Kontext, gespeicherte Unterhaltungen, Einmal-Lauf, automatische Updates, Releases |
 | [docs/agent.md](docs/agent.md) | Einstellungen beider Agenten, Arbeitsregeln, Abschlussprüfung, zweiter Blick, Befehle für feste Abläufe; `claude-local` (Claude Code zum Vergleich) |
 | [docs/projekte.md](docs/projekte.md) | neues Projekt aus der Vorlage, Prüfbefehl, Fakten mit Quelle und Abgleich gegen Doku und Code, Arbeitsweise in einem Projekt |
-| [docs/stil.md](docs/stil.md) | Erscheinungsbild: „Ausbruch“ (bunt, Bilder und Wand aus Zeichen) oder „Nachtschicht“ (ruhig); Shell, Statuszeile, Farbthemen für `claude` und `claude-local`, Stil wechseln |
+| [docs/stil.md](docs/stil.md) | Erscheinungsbild: „Ausbruch“ (bunt, Bilder und Wand aus Zeichen) oder „Nachtschicht“ (ruhig); Shell, Oberfläche von Unzensiert, Statuszeile, Farbthemen für `claude` und `claude-local`, Stil wechseln |
 | [docs/erweitern.md](docs/erweitern.md) | Wegweiser für Änderungen, Benchmark, neue Skripte |
 | [docs/modellwahl.md](docs/modellwahl.md) | Bewertung der Messwerte und Empfehlung |
 | [docs/benchmark.md](docs/benchmark.md) | Messwerte aller getesteten Modelle (automatisch erzeugt) |
@@ -256,7 +257,7 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 | `Test-Setup.ps1` | Konfiguration und Skripte prüfen, ohne ein Modell zu laden (wenige Sekunden) |
 | `Test-Install.ps1` | Logik des Installers prüfen, ohne Download und ohne Grafikkarte: `machine.json`, Geräteliste, Wahl der Stufe, Download-Einträge, Probelauf `-Plan`, Planer mit einem nachgebildeten Speichermodell |
 | `Test-Guard.ps1` | Schutzregeln gegen die Fälle in `tests\guard-cases.json` prüfen |
-| `Test-Agent.ps1` | Agent Unzensiert prüfen, ohne Modell: JSON, Antwortstrom, Werkzeuge, Rechte, Wiederholungen, Sitzungen, Befehle, Abschlussprüfung, Updates, Ausgabe; `-WithModel` löst eine kleine Aufgabe |
+| `Test-Agent.ps1` | Agent Unzensiert prüfen, ohne Modell: JSON, Antwortstrom, Werkzeuge, Rechte, Wiederholungen, Sitzungen, Befehle, Abschlussprüfung, Updates, Oberfläche (Markdown, Umbruch, Diff, Farben von Code, Vorschau); `-WithModel` löst eine kleine Aufgabe |
 | `Test-Tasks.ps1` | Benchmark-Aufgaben prüfen, ohne ein Modell: Vorlage fällt durch, Musterlösung besteht |
 | `Test-Templates.ps1` | Projektvorlagen prüfen: neues Projekt besteht seinen Prüfbefehl, eingebaute Fehler (Widerspruch zu `facts\facts.json`, Fakt ohne Quelle, scheiternder Test) lassen ihn scheitern |
 | `New-Project.ps1` | neues Projekt aus der Vorlage anlegen (Python oder PowerShell), mit Prüfbefehl und erstem Commit |
@@ -267,6 +268,7 @@ Aufruf jeweils mit `powershell -ExecutionPolicy Bypass -File scripts\<Name>`.
 | `Install-Continue.ps1` | Continue installieren und Konfiguration kopieren |
 | `Install-Font.ps1` | Schrift des Erscheinungsbilds (IBM Plex Mono) für den Benutzer installieren |
 | `Install-Style.ps1` | den in `config\style.json` gewählten Stil (`config\styles\`) auf Windows Terminal und Claude Code anwenden, auch nach einem Wechsel (`-Remove` nimmt es zurück) |
+| `Show-AgentDesign.ps1` | jedes Element der Oberfläche von Unzensiert mit einer Beispielsitzung zeigen, ohne Modell; `-Style nachtschicht` zeigt einen anderen Stil, ohne zu wechseln |
 | `unzensiert.ps1` | Starter hinter dem Befehl `unzensiert` |
 | `claude-local.ps1` | Starter hinter dem Befehl `claude-local` (Claude Code zum Vergleich) |
 | `New-Release.ps1` | neue Version veröffentlichen: Prüfungen, `VERSION`, Tag, Release auf GitHub (nur für die Pflege des Repositorys) |

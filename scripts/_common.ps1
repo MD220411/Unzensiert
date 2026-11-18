@@ -22,7 +22,10 @@
 #                    AgentTools   the tools Bash, PowerShell, Read, Edit, Write, Glob, Grep
 #                    AgentPrompt  system prompt with the instructions of the project
 #                    AgentSession messages, saved conversations, size of the context
-#                    AgentUi      the terminal: answer, tools, questions, input, status line
+#                    AgentUi      the terminal: welcome, activity line, notes, input, status
+#                                 line, the end of a request and of the session
+#                    AgentUiMarkdown  the answer: Markdown, word wrap, colours of code
+#                    AgentUiTools the tool calls, diffs of changes, the question before a call
 #                    AgentLoop    one request: model, guard, permissions, tools, closing check
 #                    AgentRepl    the conversation, commands with a slash, the -p run
 #   lib\Update.ps1   automatic updates from the releases on GitHub (config\updates.json)
@@ -49,6 +52,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\AgentPrompt.ps1"
 . "$PSScriptRoot\lib\AgentSession.ps1"
 . "$PSScriptRoot\lib\AgentUi.ps1"
+. "$PSScriptRoot\lib\AgentUiMarkdown.ps1"
+. "$PSScriptRoot\lib\AgentUiTools.ps1"
 . "$PSScriptRoot\lib\AgentLoop.ps1"
 . "$PSScriptRoot\lib\AgentRepl.ps1"
 . "$PSScriptRoot\lib\Update.ps1"

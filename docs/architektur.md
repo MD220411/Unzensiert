@@ -61,6 +61,7 @@ config\              alle Einstellungen
   agent.json           beide Agenten: Standardmodell, Kurznamen, Modellauswahl, Regeln, Abschlussprüfung, Werkzeuge
   unzensiert.json      Unzensiert: Rechte, Kontext, Zeitgrenzen, Befehle ohne Rückfrage (unzensiert.md)
   unzensiert-prompt.md Systemprompt von Unzensiert
+  unzensiert-texte.json Texte der Oberfläche von Unzensiert (stil.md)
   updates.json         automatische Updates aus den Releases auf GitHub
   entwicklungsregeln.md  Arbeitsregeln, die das lokale Modell in jeder Sitzung bekommt
   abschluss.md         Erinnerung der Abschlussprüfung (Test, README, Einstellungen)
@@ -78,7 +79,8 @@ scripts\             ein Skript je Aufgabe (Einrichten, Starten, Testen, Messen)
   lib\                 gemeinsame Bausteine: Config.ps1, Machine.ps1, Download.ps1, Planner.ps1, Dialog.ps1, Server.ps1,
                        Measure.ps1, Session.ps1, Safety.ps1, Quality.ps1, Review.ps1, Tasks.ps1, Projects.ps1,
                        Style.ps1, CharArt.ps1, Update.ps1; der Agent Unzensiert in AgentApi.ps1, AgentTools.ps1,
-                       AgentPrompt.ps1, AgentSession.ps1, AgentUi.ps1, AgentLoop.ps1, AgentRepl.ps1
+                       AgentPrompt.ps1, AgentSession.ps1, AgentUi.ps1, AgentUiMarkdown.ps1, AgentUiTools.ps1,
+                       AgentLoop.ps1, AgentRepl.ps1
   hooks\               GuardRules.ps1: Regeln des Wächters, die Unzensiert im eigenen Prozess prüft;
                        Guard-Tool.ps1: Wächter, den Claude Code vor jedem Werkzeug-Aufruf startet;
                        Check-Stop.ps1: Abschlussprüfung, bevor das Modell eine Antwort beendet;
@@ -88,7 +90,8 @@ benchmark\tasks\     Aufgaben für den Agenten-Benchmark (Vorlage, Auftrag, Prü
 benchmark\lib\       rulecheck.py: misst in den Prüfungen, ob die Arbeitsregeln eingehalten wurden
 benchmark\overlays\  Zusätze, die eine Aufgabe wie ein Projekt aus der Vorlage ausstatten
 templates\projekt\   Vorlagen für neue Projekte (gemeinsam\, python\, powershell\), siehe projekte.md
-tests\               Prüffälle für die Skripte (guard-cases.json für Test-Guard.ps1)
+tests\               Prüffälle für die Skripte (guard-cases.json für Test-Guard.ps1; agent-design.json,
+                     eine Beispielsitzung für Show-AgentDesign.ps1 und Test-Agent.ps1)
 docs\                Dokumentation
 logs\                Messergebnisse (results.jsonl, model-tests.log)
 ```
@@ -158,8 +161,8 @@ das für die Cloud gebaut ist: sein Systemprompt mit Werkzeugen hat am lokalen S
 26.000 Tokens, jeder Hook ist ein eigener Prozess, und jede neue Version kann das Verhalten
 mit lokalen Modellen ändern. Unzensiert ist auf lokale Modelle zugeschnitten (erste Anfrage
 2.808 Tokens, Wächter im eigenen Prozess, Hilfen gegen Schleifen) und gehört zum Projekt;
-Bedienung, Werkzeuge und Erscheinungsbild folgen Claude Code, damit sich nichts umlernen
-muss. Es ist in PowerShell 5.1 geschrieben, weil das auf jedem Windows vorhanden ist und das
+Bedienung und Werkzeuge folgen Claude Code, damit sich nichts umlernen muss. Die Oberfläche
+zeichnet es selbst, im Stil des Projekts und auf Deutsch (stil.md). Es ist in PowerShell 5.1 geschrieben, weil das auf jedem Windows vorhanden ist und das
 übrige Projekt schon darin steht. `claude-local` bleibt, damit der Benchmark beide
 vergleichen kann ([unzensiert.md](unzensiert.md)).
 

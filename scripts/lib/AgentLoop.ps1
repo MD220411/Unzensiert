@@ -291,6 +291,7 @@ function Invoke-ModelRound($Session, $Schemas) {
                     param($kind, $text)
                     if ($kind -eq 'reasoning') { Add-UiReasoning $text }
                     elseif ($kind -eq 'content') { Add-UiContent $text }
+                    elseif ($kind -eq 'tool') { Add-UiToolDraft $text }
                 } -ShouldStop { Test-UiStop }
             Complete-UiAnswer
             $Session.turns++
@@ -309,23 +310,23 @@ function Invoke-ModelRound($Session, $Schemas) {
             $msg = $_.Exception.Message
             if (-not $retried['server'] -and -not (Test-ServerUp)) {
                 $retried['server'] = $true
-                Write-UiNote 'llama-server is not running, starting it ...' 'warn'
+                Write-UiNote (Get-UiText 'notes.serverStarting') 'warn'
                 try { foreach ($l in @(Start-Server)) { Write-UiNote ([string]$l) } } catch { Write-UiNote $_.Exception.Message 'error'; return $null }
                 continue
             }
             if (-not $retried['context'] -and $msg -match 'context') {
                 $retried['context'] = $true
-                Write-UiNote 'The conversation no longer fits into the context window.' 'warn'
+                Write-UiNote (Get-UiText 'notes.contextFull') 'warn'
                 if (Invoke-Compaction $Session '') { continue }
             }
             if (-not $retried['image'] -and $msg -match 'image|mmproj|multimodal|vision') {
                 $retried['image'] = $true
                 if (Remove-SessionImages $Session) {
-                    Write-UiNote 'The model takes no images; they are left out.' 'warn'
+                    Write-UiNote (Get-UiText 'notes.noImages') 'warn'
                     continue
                 }
             }
-            Write-UiNote "Error: $msg" 'error'
+            Write-UiNote (Get-UiText 'notes.error' $msg) 'error'
             return $null
         }
     }
@@ -377,7 +378,7 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
                 if ($decision.why) { $why += " ($($decision.why))" }
                 $decision = @{ action = 'deny'; why = "$why. Find another way or say in your answer what is needed." }
             } else {
-                $reply = Read-UiPermission $c.name (Get-CallPreview $c.name $parsed) $decision.why (-not $decision.guard)
+                $reply = Read-UiPermission $c.name (Get-CallPreview $c.name $parsed) $decision.why (-not $decision.guard) $parsed
                 if ($reply -eq 'always') { foreach ($r in @(Get-AlwaysRules $c.name $parsed)) { $Session.allowed[$r] = $true } }
                 if ($reply -eq 'no') {
                     Add-ToolMessage $Session $c.id 'The user said no to this call. Stop and wait for their instructions.'
@@ -395,7 +396,7 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
             Write-UiToolResult $result $c.name
             Add-ToolMessage $Session $c.id $result.text
             if ($Session.denials -ge 3 * $limit) {
-                Write-UiNote "$($Session.denials) calls were refused; the request is stopped." 'warn'
+                Write-UiNote (Get-UiText 'notes.refused' $Session.denials) 'warn'
                 $outcome = 'loop'
             }
             continue
@@ -422,7 +423,7 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
         if ($result.image) { $images += , $result.image }
         if ($result.userStop) { $outcome = 'stopped' }
         elseif ($count -ge 2 * $limit) {
-            Write-UiNote "The model keeps repeating the same call ($($c.name)); the request is stopped." 'warn'
+            Write-UiNote (Get-UiText 'notes.repeating' $c.name) 'warn'
             $outcome = 'loop'
         }
     }
@@ -441,14 +442,16 @@ function Invoke-AgentClosingCheck($Session) {
     if ($Session.answerEdits -eq 0 -and -not $Session.stopActive) { return $null }
     $agent = Get-AgentConfig
     if (-not $agent.stopCheck -or -not $agent.stopCheck.enabled) { return $null }
-    Write-UiNote 'closing check ...'
+    Start-UiActivity 'check'
     try {
         $hook = Invoke-StopHook $Session.id $Session.hookTranscript $Session.cwd $Session.stopActive { Test-UiStop }
     } catch {
-        Write-UiNote "The closing check failed: $($_.Exception.Message)" 'warn'
+        Stop-UiActivity
+        Write-UiNote (Get-UiText 'notes.checkFailed' $_.Exception.Message) 'warn'
         return $null
     }
-    if ($hook.cancelled) { Write-UiNote 'closing check stopped' 'warn'; return $null }
+    Stop-UiActivity
+    if ($hook.cancelled) { Write-UiNote (Get-UiText 'notes.checkStopped') 'warn'; return $null }
     return $hook
 }
 
@@ -484,7 +487,6 @@ function Invoke-AgentTurn($Session, $Content) {
             $text = [string]$answer.content
             if ($text) { $text += "`n" }
             Add-SessionMessage $Session @{ role = 'assistant'; content = $text + '[stopped by the user]' }
-            Write-UiNote 'stopped' 'warn'
             return 'stopped'
         }
         $calls = @($answer.toolCalls)
@@ -493,12 +495,12 @@ function Invoke-AgentTurn($Session, $Content) {
             if ($answer.reasoning) { $msg['reasoning_content'] = [string]$answer.reasoning }
             Add-SessionMessage $Session $msg
             $Session.lastAnswer = [string]$answer.content
-            if ($answer.finish -eq 'length') { Write-UiNote "The answer was cut off at the limit of $($Session.lastBudget) tokens." 'warn' }
+            if ($answer.finish -eq 'length') { Write-UiNote (Get-UiText 'notes.cutOff' $Session.lastBudget) 'warn' }
             $hook = Invoke-AgentClosingCheck $Session
             if ($hook -and $hook.decision -eq 'block') {
                 $first = ([string]$hook.reason).Split("`n")[0]
                 if ($first.Length -gt 110) { $first = $first.Substring(0, 110) + '...' }
-                Write-UiNote "closing check: $first" 'warn'
+                Write-UiNote (Get-UiText 'notes.checkSays' $first) 'warn'
                 Add-SessionMessage $Session @{ role = 'user'; content = $script:HookPrefix + "`n" + [string]$hook.reason }
                 $Session.stopActive = $true
                 continue
@@ -510,7 +512,7 @@ function Invoke-AgentTurn($Session, $Content) {
         $outcome = Invoke-ToolCalls $Session $calls $guard
         if ($outcome -ne 'ok') { return $outcome }
     }
-    Write-UiNote "Stopped after $maxRounds rounds of tool calls (maxToolRounds in config\unzensiert.json or --max-turns)." 'warn'
+    Write-UiNote (Get-UiText 'notes.maxRounds' $maxRounds) 'warn'
     return 'limit'
 }
 
@@ -524,7 +526,7 @@ function Invoke-AutoCompact($Session) {
     if ((Get-EstimatedTokens $Session) -lt $limit) { return }
     $saved = Compress-OldToolResults $Session ([int]$cfg.keepRecentRounds) ([int]$cfg.oldToolResultChars)
     if ($saved -gt 0) {
-        Write-UiNote "context: older tool results shortened by $saved characters"
+        Write-UiNote (Get-UiText 'notes.shortened' (Format-Number $saved 0))
         if ((Get-EstimatedTokens $Session) -lt $limit) { return }
     }
     $null = Invoke-Compaction $Session ''
@@ -560,8 +562,7 @@ function Get-CompactionText($Session) {
 function Invoke-Compaction($Session, [string]$Focus) {
     # Replaces the conversation by a summary the model writes of it, followed by the current
     # request. True if it worked. The session file gets a mark: a resumed session starts there.
-    if ($Session.messages.Count -le 2) { Write-UiNote 'Nothing to summarise yet.'; return $false }
-    Write-UiNote 'context: summarising the conversation ...'
+    if ($Session.messages.Count -le 2) { Write-UiNote (Get-UiText 'notes.nothingToSummarise'); return $false }
     $text = Get-CompactionText $Session
     # the summary request must fit itself: about 60 % of the window at 3 characters a token
     $maxChars = [int]((Get-SessionContextSize $Session) * 0.6 * 3)
@@ -575,17 +576,17 @@ function Invoke-Compaction($Session, [string]$Focus) {
         @{ role = 'system'; content = 'You summarise the work of a coding agent precisely and completely.' },
         @{ role = 'user'; content = "$text`n`n---`n$instruction" }
     )
-    Start-UiAnswer
+    Start-UiActivity 'compact'
     try {
         $answer = Invoke-ChatStream -Model $Session.model -Messages $request -Tools $null -MaxTokens 6000 `
-            -OnEvent { param($kind, $t) if ($kind -eq 'reasoning' -or $kind -eq 'content') { Add-UiReasoning $t } } -ShouldStop { Test-UiStop }
+            -OnEvent { param($kind, $t) if ($kind -eq 'reasoning' -or $kind -eq 'content') { Add-UiActivityChars $t.Length } } -ShouldStop { Test-UiStop }
     } catch {
-        Complete-UiAnswer
-        Write-UiNote "The summary failed: $($_.Exception.Message)" 'error'
+        Stop-UiActivity
+        Write-UiNote (Get-UiText 'notes.summaryFailed' $_.Exception.Message) 'error'
         return $false
     }
-    Complete-UiAnswer
-    if ($answer.cancelled -or -not $answer.content.Trim()) { Write-UiNote 'No summary; the conversation stays as it is.' 'warn'; return $false }
+    Stop-UiActivity
+    if ($answer.cancelled -or -not $answer.content.Trim()) { Write-UiNote (Get-UiText 'notes.noSummary') 'warn'; return $false }
     $system = $Session.messages[0]
     $Session.messages.Clear()
     $null = $Session.messages.Add($system)
@@ -597,6 +598,6 @@ function Invoke-Compaction($Session, [string]$Focus) {
     $Session.reads = @{}
     $Session.promptTokens = 0
     $Session.charsAtPrompt = 0
-    Write-UiNote "context: summarised, now about $(Get-EstimatedTokens $Session) tokens" 'ok'
+    Write-UiNote (Get-UiText 'notes.summarised' (Get-UiCount (Get-EstimatedTokens $Session) 'tokens')) 'ok'
     return $true
 }

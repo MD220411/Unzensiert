@@ -3,6 +3,69 @@
 Neue Einträge oben anfügen. Messwerte aus `scripts\Test-Model.ps1` stehen zusätzlich in
 `logs\model-tests.log`.
 
+## 2026-11-18: Oberfläche von Unzensiert ausgearbeitet
+
+Wunsch des Nutzers: das Design von Unzensiert weiter ausarbeiten und detaillierter machen,
+jetzt, wo es nicht mehr auf Claude Code beruht. Beschreibung mit Bild aller Elemente:
+[stil.md](stil.md#die-oberfläche-von-unzensiert).
+
+### Durchgeführt
+
+1. **Oberfläche neu** in drei Dateien: `scripts\lib\AgentUi.ps1` (Begrüßung, Wartezeile,
+   Titel und Fortschritt des Tabs, Hinweise, Eingabe, Statuszeile, Übersichten, Ende einer
+   Anfrage, Abschied), `AgentUiMarkdown.ps1` (Markdown mit Wortumbruch, Tabellen mit
+   ausgerichteten Spalten, Codeblöcke im Rahmen mit Farben für 15 Sprachfamilien) und
+   `AgentUiTools.ps1` (Werkzeuge mit Zeichen, Farbe, Haken und Dauer, Diff mit
+   Zeilennummern, getöntem Grund und markierten Zeichen, Rückfrage im Rahmen). Text wird aus
+   Stücken mit Farbe, Grund und Attributen gebaut, die sich messen und umbrechen lassen.
+2. **Die Wartezeile bewegt sich in jeder Wartezeit:** Antwortstrom, Befehle und
+   Abschlussprüfung fragen ohnehin zehnmal je Sekunde nach Esc (`Test-UiStop`); dabei wird
+   sie neu gezeichnet. Sie zeigt auch, welchen Werkzeugaufruf das Modell gerade schreibt
+   (Ereignis `tool` des Antwortstroms, bisher ungenutzt).
+3. **Texte deutsch** in `config\unzensiert-texte.json` (vorher englisch im Code); was das
+   Modell liest, bleibt englisch. `Test-Setup.ps1` prüft, dass jeder Text, nach dem der Code
+   fragt, vorhanden ist (112).
+4. **Stil-Abschnitt `agent`** in `ausbruch.json` und `nachtschicht.json`: Bild, Zeichen,
+   Farben je Werkzeug, Wörter für fertige Anfragen, Tönung der Diffs.
+5. **Ergebnisse der Werkzeuge** tragen zusätzlich `info` (Zeilen, Dateien, Rückgabewert,
+   Ausgabe eines Befehls) für die Anzeige; der Text an das Modell ist unverändert.
+6. **`unzensiert.ps1`:** Oberfläche schon vor dem Serverstart, eigene Begrüßung statt der
+   Zeilen von `claude-local`, Abschied mit den Zahlen der Sitzung, alter Fenstertitel danach.
+7. **`scripts\Show-AgentDesign.ps1`** zeigt jedes Element mit der Beispielsitzung
+   `tests\agent-design.json`, ohne Modell, auch in einem anderen Stil (`-Style`).
+8. **Prüfungen:** `Test-Agent.ps1` prüft Umbruch, Diff, Markierung im Diff, Farben von Code
+   (kein Zeichen geht verloren) und die Vorschau; `Test-Setup.ps1` Texte und Stil-Abschnitte.
+
+Gebaut in einem eigenen Arbeitsordner (git worktree), weil der Vergleich `vergleich2` lief
+und jeder Aufgabenlauf `config\` und `scripts\` neu liest.
+
+### Gemessen
+
+Windows PowerShell 5.1, Fenster 120 Spalten, während der Benchmark lief: ein Bild der
+Wartezeile etwa 4 ms (höchstens zehn je Sekunde), eine Zeile der Antwort etwa 2 ms, ein
+Absatz von 220 Zeichen 4 ms, Diff des Beispiels 11 ms, 60 Zeilen mit 8 Änderungen 34 ms,
+Begrüßung beim ersten Mal 480 ms (mit `nvidia-smi`), Statuszeile 90 ms. Laden aller
+Skripte 265 statt 235 ms.
+
+### Geprüft
+
+- `Test-Setup.ps1` und `Test-Agent.ps1` bestehen.
+- Vorschau in „Ausbruch“ und „Nachtschicht“, 80, 100 und 120 Spalten als Bild gerendert und
+  angesehen (eigener kleiner Terminal-Nachbau mit IBM Plex Mono).
+- Antwort stückweise mit Pausen: Wartezeile (27 Neuzeichnungen), rohe und umgebrochene
+  Zeilen hinterlassen nichts; das Endbild gleicht dem einer Antwort am Stück.
+
+Unterwegs gefunden (stehen jetzt in [unzensiert.md](unzensiert.md#aufbau)): Eine Funktion,
+die mit `return , $liste` antwortet, darf beim Aufruf nicht zusätzlich in `@(...)` stehen
+(sonst eine Liste in einer Liste, angezeigt als `System.Object[]`), und PowerShell 5.1 kann
+`$t[($i + 1), $j]` als Argument einer Methode nicht lesen.
+
+### Nicht geprüft
+
+Im echten Fenster von Windows Terminal: Titel und Fortschrittskreis am Tab, der Balken
+hinter der eigenen Eingabe nach PSReadLine, die Tasten in der Rückfrage und ob `✓ ✗ ✎ ✚ ⌕
+❯ ≡ ⎿` eine Spalte breit sind.
+
 ## 2026-11-18 vormittags: Vergleich mit Wiederholungen (`vergleich2`)
 
 Der gründlichere Vergleich, um den der Nutzer nach dem Release gebeten hatte: alle elf

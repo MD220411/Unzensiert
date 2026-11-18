@@ -310,7 +310,7 @@ try {
         Add-UiContent "# Title`nA **bold** word and ``code``.`n- item`n``````python`nx = 1`n```````n"
         Complete-UiAnswer
         Write-UiToolStart 'Bash' @{ command = 'python -m pytest' } $proj
-        Write-UiToolResult @{ error = $false; text = "line 1`nline 2"; diff = $null; summary = '' } 'Bash'
+        Write-UiToolResult @{ error = $false; text = "line 1`nline 2"; diff = $null; summary = ''; info = @{ exit = 0; output = "line 1`nline 2"; stopped = '' } } 'Bash'
         Write-UiToolStart 'Edit' @{ file_path = 'src\app.py' } $proj
         Write-UiToolResult @{ error = $false; text = ''; diff = @{ old = 'a'; new = "b`nc"; line = 3 }; summary = '' } 'Edit'
         Write-UiNote 'a warning' 'warn'
@@ -329,7 +329,35 @@ try {
     $shown = (($sw.ToString() -replace "$([char]27)\[[0-9;]*[A-Za-z]", '') -split "`n" | ForEach-Object { $_.Substring($_.LastIndexOf("`r") + 1) }) -join "`n"
     Assert-That (-not $uiError) "terminal: answer, tools and status line render without error $uiError"
     Assert-That ($shown.Contains('Title') -and $shown.Contains('bold') -and $shown.Contains('x = 1') -and -not $shown.Contains('**')) 'terminal: Markdown is shown formatted'
-    Assert-That ($shown.Contains('changed at line 3') -and $shown.Contains('+ c') -and $shown.Contains('mode edits')) 'terminal: diff of an edit and the mode in the status line'
+    Assert-That ($shown.Contains((Get-UiText 'tools.at' 3)) -and $shown.Contains('+ c') -and $shown.Contains('edits')) 'terminal: diff of an edit and the rights in the status line'
+    Assert-That (-not $shown.Contains('System.')) 'terminal: no list or object printed as its type name'
+
+    # wrapping, diffs and the colours of code (lib\AgentUiMarkdown.ps1, lib\AgentUiTools.ps1)
+    $script:Ui.on = $true
+    $long = ConvertTo-UiInlineSpans ('Ein Absatz mit **fett** und `code`, ' * 6) '#FFFFFF'
+    $wrapped = Format-UiWrapped $long '  ' '  ' 2 40
+    Assert-That ($wrapped.Count -ge 4 -and @($wrapped | Where-Object { (Measure-UiText $_) -gt 40 }).Count -eq 0) "terminal: a long paragraph is wrapped into $($wrapped.Count) lines of at most 40 columns"
+    $steps = Get-UiLineDiff @('a', 'b', 'c', 'd') @('a', 'x', 'c', 'd')
+    Assert-That ((@($steps | ForEach-Object { $_[0] }) -join '') -eq ' -+  ') 'terminal: the diff of two texts finds the one changed line'
+    $range = Get-UiChangedRange '    return a + b' '    return a * b'
+    Assert-That ($range -and $range[0] -eq 13 -and $range[1] -eq 14) 'terminal: inside a changed line only the changed character is marked'
+    $lostChars = @()
+    $samples = @{ python = 'def f(x):  # "q" ''s'' 0x1F'; powershell = '$a = Get-Item -Path "C:\x" # c'; js = 'const s = `t` + f(1) // c'; c = '#include <a.h> int main() { return 0; }'; json = '{"k": [1, true, null]}'; bash = 'echo "$HOME" | grep -v x # c'; generic = 'irgendwas 12 "x"' }
+    foreach ($lang in $samples.Keys) {
+        $script:Ui.codeState = ''
+        $joined = (@(ConvertTo-UiCodeSpans $samples[$lang] $lang) | ForEach-Object { $_.t }) -join ''
+        if ($joined -cne $samples[$lang]) { $lostChars += $lang }
+    }
+    $script:Ui.codeState = ''
+    Assert-That ($lostChars.Count -eq 0) "terminal: the colours of code keep every character $($lostChars -join ', ')"
+    $script:Ui.on = $false
+
+    # every element of the look once, as scripts\Show-AgentDesign.ps1 shows it
+    $designFile = Join-Path $root 'design.ans'
+    $designOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Show-AgentDesign.ps1') -OutFile $designFile -Width 100 -Seed 1 2>&1
+    $design = ''
+    if (Test-Path $designFile) { $design = [System.IO.File]::ReadAllText($designFile) -replace "$([char]27)\[[0-9;]*m", '' }
+    Assert-That ($LASTEXITCODE -eq 0 -and $design.Contains((Get-UiText 'permission.title')) -and $design.Contains((Get-UiText 'statusPanel.title')) -and -not $design.Contains('System.')) "terminal: the design preview shows every element $designOut"
 
     # --- 11. a task with the model ------------------------------------------------------------------------------
     if ($WithModel) {

@@ -235,6 +235,24 @@ Assert-That (Test-Path (Join-Path $script:ProjectRoot 'bin\unzensiert.cmd')) 'co
 Assert-That ((Get-ProgramVersion) -match '^\d+\.\d+\.\d+$') "VERSION holds a version ($(Get-ProgramVersion))"
 $upd = Get-UpdateConfig
 Assert-That ([string]$upd.repository -match '^[\w.-]+/[\w.-]+$' -and [int]$upd.checkHours -ge 1) 'updates.json: repository owner/name and checkHours'
+# every text the terminal of Unzensiert asks for exists in config\unzensiert-texte.json
+$uiTexts = Read-JsonFile (Join-Path $script:ConfigDir 'unzensiert-texte.json')
+$wanted = @('modes.ask', 'modes.edits', 'modes.all')
+foreach ($f in @(Get-ChildItem -Path (Join-Path $script:ProjectRoot 'scripts') -Recurse -Filter '*.ps1')) {
+    $code = [System.IO.File]::ReadAllText($f.FullName)
+    $wanted += @([regex]::Matches($code, "Get-UiText '([\w.]+)'") | ForEach-Object { $_.Groups[1].Value })
+    $wanted += @([regex]::Matches($code, "Get-UiCount [^'\r\n]*?'(\w+)'") | ForEach-Object { 'count.' + $_.Groups[1].Value })
+}
+$absent = @($wanted | Select-Object -Unique | Where-Object {
+    $node = $uiTexts
+    foreach ($part in $_.Split('.')) {
+        if ($null -eq $node) { break }
+        $prop = $node.PSObject.Properties[$part]
+        if ($prop) { $node = $prop.Value } else { $node = $null }
+    }
+    $null -eq $node
+})
+Assert-That ($absent.Count -eq 0) "unzensiert-texte.json: all $(@($wanted | Select-Object -Unique).Count) texts of the terminal exist $($absent -join ', ')"
 
 # --- 8. look ---------------------------------------------------------------------------
 # config\style.json picks one of config\styles\ (docs\stil.md).
@@ -257,8 +275,18 @@ foreach ($s in $known) {
             $rows.Count -ne 5 -or @($rows | ForEach-Object { ([string]$_).Length } | Select-Object -Unique).Count -ne 1
         } | ForEach-Object { $_.Name })
         Assert-That ($bad.Count -eq 0) "style $($s.name): every letter of the art font has 5 rows of one width $($bad -join ' ')"
-        $missing = @(([string]$s.art.text + [string]$s.art.bannerText).ToUpperInvariant().ToCharArray() | Where-Object { -not $font.PSObject.Properties[[string]$_] } | Select-Object -Unique)
+        $agentBanner = ''
+        if ($s.PSObject.Properties['agent'] -and $s.agent.PSObject.Properties['bannerText']) { $agentBanner = [string]$s.agent.bannerText }
+        $missing = @(([string]$s.art.text + [string]$s.art.bannerText + $agentBanner).ToUpperInvariant().ToCharArray() | Where-Object { -not $font.PSObject.Properties[[string]$_] } | Select-Object -Unique)
         Assert-That ($missing.Count -eq 0) "style $($s.name): the art font has all letters of text and bannerText $($missing -join ' ')"
+    }
+    if ($s.PSObject.Properties['agent']) {
+        # the look of Unzensiert: colours of the tools, spinner, words for a finished request
+        $ag = $s.agent
+        $inks = @($ag.spinnerInk, $ag.verbInk, $ag.headingInk, $ag.promptInk) + @($ag.tools.PSObject.Properties | Where-Object { $_.Name -notlike '_*' } | ForEach-Object { $_.Value.ink })
+        $badInks = @($inks | Where-Object { $_ -and [string]$_ -notmatch '^(#[0-9A-Fa-f]{6}|rainbow|shimmer|accent)$' })
+        Assert-That ($badInks.Count -eq 0) "style $($s.name): agent colours are #RRGGBB, rainbow, shimmer or accent $($badInks -join ' ')"
+        Assert-That (@($ag.spinner).Count -ge 2 -and @($ag.doneVerbs).Count -ge 1 -and ([string]$ag.box).Length -eq 4) "style $($s.name): agent has a spinner, doneVerbs and four frame signs"
     }
 }
 $style = Get-StyleConfig

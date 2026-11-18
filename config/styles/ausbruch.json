@@ -254,6 +254,40 @@
     }
   },
 
+  "agent": {
+    "_comment": "Der Agent Unzensiert (scripts\\lib\\AgentUi*.ps1, docs\\stil.md): Begrüßung, Wartezeile, Antwort, Werkzeuge, Rückfragen, Abschluss jeder Anfrage. Texte ohne Stil-Bezug stehen in config\\unzensiert-texte.json, die Wartetexte in claude.spinnerVerbs (oder hier in verbs). Farben als #RRGGBB, \"rainbow\" (Farbkreis), \"shimmer\" (ein Licht läuft durch) oder \"accent\".",
+    "bannerText": "FREI",
+    "bannerScale": 2,
+    "bannerWidth": 60,
+    "_banner": "Das Bild aus bannerText steht in der Begrüßung links (bannerWidth Spalten breit), die Angaben der Sitzung rechts daneben; in schmalen Fenstern darunter.",
+    "spinner": ["·", "+", "*", "✧", "✦", "✧", "*", "+"],
+    "spinnerInk": "rainbow",
+    "verbInk": "rainbow",
+    "doneVerbs": ["Gesprüht", "Ausgebrochen", "Fertig gemalt", "Getaggt", "Übermalt", "Bunt gemacht", "Funken geschlagen", "An die Wand gebracht", "Dose leer gesprüht"],
+    "marks": { "answer": "✦", "thought": "∴", "corner": "⎿", "turn": "✦", "stopped": "■", "thinking": "┊" },
+    "notes": { "dim": "·", "ok": "✓", "warn": "!", "error": "✗" },
+    "bullets": ["•", "◦", "▪"],
+    "quote": "▌",
+    "box": "╭╰─│",
+    "headingInk": "rainbow",
+    "promptInk": "rainbow",
+    "rule": "spray",
+    "trail": 5,
+    "tools": {
+      "_comment": "Zeichen und Farbe jedes Werkzeugs in der Kopfzeile.",
+      "Bash": { "icon": "❯", "ink": "#FF8A1F" },
+      "PowerShell": { "icon": "❯", "ink": "#4D8DFF" },
+      "Read": { "icon": "≡", "ink": "#2EE6E6" },
+      "Edit": { "icon": "✎", "ink": "#FF3D9A" },
+      "Write": { "icon": "✚", "ink": "#8CFF3D" },
+      "Glob": { "icon": "⌕", "ink": "#B45CFF" },
+      "Grep": { "icon": "⌕", "ink": "#FFE03D" }
+    },
+    "diffTint": 0.80,
+    "diffStrong": 0.58,
+    "_diff": "Hintergrund entfernter und hinzugefügter Zeilen: Rot und Grün aus ink, zum Hintergrund hin gemischt (diffTint, 1 = unsichtbar); die geänderten Zeichen einer Zeile kräftiger (diffStrong)."
+  },
+
   "claude": {
     "_comment": "Claude Code. themes werden nach ~\\.claude\\themes\\<themePrefix><name>.json geschrieben; die Schluessel unter overrides sind die Farbnamen von Claude Code.",
     "themePrefix": "ausbruch-",

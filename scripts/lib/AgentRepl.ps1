@@ -29,12 +29,10 @@ function Reset-AgentSession($Session, [string]$File = '') {
 function Select-SessionFile($Session, [string]$Choice) {
     # An earlier session of this folder: by number from the list, or asked at the terminal.
     $files = @(Get-SessionFiles $Session.cwd | Where-Object { $_.file -ne $Session.file } | Select-Object -First 15)
-    if ($files.Count -eq 0) { Write-UiNote 'There is no earlier conversation in this folder.'; return '' }
+    if ($files.Count -eq 0) { Write-UiNote (Get-UiText 'notes.noEarlier'); return '' }
     if (-not $Choice) {
-        for ($i = 0; $i -lt $files.Count; $i++) {
-            Write-UiNote ('{0,3}  {1}  {2}' -f ($i + 1), $files[$i].time.ToString('yyyy-MM-dd HH:mm'), $files[$i].title)
-        }
-        $Choice = Read-UiLine 'number (Enter = cancel)'
+        Show-UiSessionList $files
+        $Choice = Read-UiLine (Get-UiText 'notes.chooseNumber')
     }
     $n = 0
     if ([int]::TryParse([string]$Choice, [ref]$n) -and $n -ge 1 -and $n -le $files.Count) { return $files[$n - 1].file }
@@ -104,34 +102,29 @@ function Expand-AgentCommand($Command, [string]$Arguments) {
 
 # --- commands with a slash --------------------------------------------------------------------------
 
-function Show-AgentHelp {
-    $lines = @(
-        'Enter sends, Shift+Enter starts a new line, Esc stops the model, Up/Down: earlier inputs.',
-        'Shift+Tab switches the mode (ask, edits, all). Alt+V pastes an image from the clipboard.',
-        '!command    run a command yourself; the model sees it with your next message',
-        '/model      switch the model            /mode [ask|edits|all]  permission mode',
-        '/compact    summarise the conversation  /clear                 start a new conversation',
-        '/resume     continue an earlier one     /status                model, context, session',
-        '/think      show or hide the thinking   /init                  write AGENTS.md for this project',
-        '/exit       end'
-    )
-    foreach ($l in $lines) { Write-UiNote $l }
-    $commands = Get-AgentCommands
-    foreach ($k in ($commands.Keys | Sort-Object)) {
-        Write-UiNote ('/{0,-10} {1}' -f $k, $commands[$k].description)
+function Get-AgentUiInfo($Session) {
+    # What the welcome and /status tell about the session beyond the session object.
+    $cfg = Get-AgentSettings
+    $row = @(@((Get-AgentConfig).picker) | Where-Object { $_ -and [string]$_.model -eq $Session.model }) | Select-Object -First 1
+    $desc = ''
+    if ($row) { $desc = [string]$row.description -replace ('^' + [regex]::Escape($Session.model) + ':\s*'), '' }
+    else { try { $desc = [string](Get-ModelProfile $Session.model).description } catch {} }
+    return @{
+        version = (Get-ProgramVersion); server = [string](Get-ServerConfig).baseUrl; serverUp = $false
+        compactAt = [double]$cfg.compactAt; description = $desc; continued = ''
     }
+}
+
+function Show-AgentHelp {
+    Show-UiHelp (Get-AgentCommands)
 }
 
 function Switch-AgentModel($Session, [string]$Choice) {
     # /model: the installed models of the picker in config\agent.json, by number or name.
     $rows = @(@((Get-AgentConfig).picker) | Where-Object { $_ -and (Test-ModelInstalled ([string]$_.model)) })
     if (-not $Choice) {
-        for ($i = 0; $i -lt $rows.Count; $i++) {
-            $mark = ' '
-            if ([string]$rows[$i].model -eq $Session.model) { $mark = '*' }
-            Write-UiNote ('{0} {1}  {2,-12} {3}' -f $mark, ($i + 1), $rows[$i].label, $rows[$i].description)
-        }
-        $Choice = Read-UiLine 'number or name (Enter = keep)'
+        Show-UiModelList $rows $Session.model
+        $Choice = Read-UiLine (Get-UiText 'notes.chooseModel')
         if (-not $Choice) { return }
     }
     $target = ''
@@ -142,38 +135,30 @@ function Switch-AgentModel($Session, [string]$Choice) {
         $row = @($rows | Where-Object { $_.label -eq $Choice }) | Select-Object -First 1
         if ($row) { $target = [string]$row.model }
     }
-    if (-not $target -or -not (Test-ModelInstalled $target)) { Write-UiNote "Unknown or not installed: $Choice" 'warn'; return }
+    if (-not $target -or -not (Test-ModelInstalled $target)) { Write-UiNote (Get-UiText 'notes.unknownModel' $Choice) 'warn'; return }
     $Session.model = $target
     $Session.promptTokens = 0
     $Session.charsAtPrompt = 0
-    Write-UiNote "model: $target (context $(Get-SessionContextSize $Session) tokens); it loads with the next request" 'ok'
+    Write-UiNote (Get-UiText 'notes.modelSwitched' $target (Format-Number (Get-SessionContextSize $Session) 0)) 'ok'
     Invoke-AutoCompact $Session
 }
 
 function Set-AgentMode($Session, [string]$Choice) {
     if ($Choice) {
         $mode = ConvertTo-PermissionMode $Choice
-        if (-not $mode) { Write-UiNote "Unknown mode: $Choice (ask, edits, all)" 'warn'; return }
+        if (-not $mode) { Write-UiNote (Get-UiText 'modes.unknown' $Choice) 'warn'; return }
     } else {
         $i = [array]::IndexOf($script:ModeOrder, $Session.mode)
         $mode = $script:ModeOrder[($i + 1) % $script:ModeOrder.Count]
     }
     $Session.mode = $mode
-    $text = @{ ask = 'commands and file changes need your yes'; edits = 'file changes run without asking, commands need your yes'; all = 'everything runs without asking (the guard still decides first)' }
     $kind = 'ok'
     if ($mode -eq 'all') { $kind = 'warn' }
-    Write-UiNote "mode $mode - $($text[$mode])" $kind
+    Write-UiNote (Get-UiText 'modes.switched' $mode (Get-UiText "modes.$mode")) $kind
 }
 
 function Show-AgentStatus($Session) {
-    $ctx = Get-SessionContextSize $Session
-    $used = Get-EstimatedTokens $Session
-    Write-UiNote "Unzensiert $(Get-ProgramVersion), model $($Session.model) at $((Get-ServerConfig).baseUrl)"
-    Write-UiNote ('context about {0} of {1} tokens ({2} %), summarised at {3} %' -f $used, $ctx, [int](100 * $used / [math]::Max(1, $ctx)), [int](100 * [double](Get-AgentSettings).compactAt))
-    Write-UiNote "this session: $($Session.turns) requests, $($Session.inputTokens) tokens read (+$($Session.cachedTokens) from cache), $($Session.outputTokens) written"
-    Write-UiNote "mode $($Session.mode); allowed in this session: $((@($Session.allowedTools) + @($Session.allowed.Keys)) -join ', ')"
-    Write-UiNote "project instructions: $(@($Session.instructionFiles) -join ', ')"
-    Write-UiNote "changed files: $($Session.changed.Count); conversation file: $($Session.file)"
+    Show-UiStatus $Session (Get-AgentUiInfo $Session)
 }
 
 function Invoke-SlashCommand($Session, [string]$Line) {
@@ -186,7 +171,7 @@ function Invoke-SlashCommand($Session, [string]$Line) {
     switch ($name) {
         { $_ -in 'exit', 'quit' } { $result.exit = $true }
         { $_ -in 'help', '?' } { Show-AgentHelp }
-        { $_ -in 'clear', 'new' } { Reset-AgentSession $Session; Write-UiNote 'new conversation' 'ok' }
+        { $_ -in 'clear', 'new' } { Reset-AgentSession $Session; Write-UiNote (Get-UiText 'notes.newConversation') 'ok' }
         'compact' { $null = Invoke-Compaction $Session $rest }
         'model' { Switch-AgentModel $Session $rest }
         'mode' { Set-AgentMode $Session $rest }
@@ -194,20 +179,20 @@ function Invoke-SlashCommand($Session, [string]$Line) {
             $file = Select-SessionFile $Session $rest
             if ($file) {
                 Reset-AgentSession $Session $file
-                Write-UiNote "continuing the conversation of $((Get-Item $file).LastWriteTime.ToString('yyyy-MM-dd HH:mm')) ($($Session.messages.Count - 1) messages)" 'ok'
+                Write-UiNote (Get-UiText 'notes.continuing' ((Get-Item $file).LastWriteTime.ToString('dd.MM. HH:mm')) (Get-UiCount ($Session.messages.Count - 1) 'messages')) 'ok'
             }
         }
         'status' { Show-AgentStatus $Session }
         'think' {
             $Session.showThinking = -not $Session.showThinking
             $script:Ui.showThinking = $Session.showThinking
-            Write-UiNote "thinking is $(if ($Session.showThinking) { 'shown' } else { 'hidden' })" 'ok'
+            if ($Session.showThinking) { Write-UiNote (Get-UiText 'notes.thinkingShown') 'ok' } else { Write-UiNote (Get-UiText 'notes.thinkingHidden') 'ok' }
         }
         'init' { $result.prompt = $script:InitPrompt }
         default {
             $commands = Get-AgentCommands
             if ($commands.ContainsKey($name)) { $result.prompt = Expand-AgentCommand $commands[$name] $rest }
-            else { Write-UiNote "Unknown command /$name - /help lists them." 'warn' }
+            else { Write-UiNote (Get-UiText 'notes.unknownCommand' $name) 'warn' }
         }
     }
     return $result
@@ -216,11 +201,17 @@ function Invoke-SlashCommand($Session, [string]$Line) {
 # --- the two loops ----------------------------------------------------------------------------------
 
 function Invoke-InteractiveTurn($Session, $Content) {
+    # One request at the terminal, with the line after it (how it ended, time, rounds, files).
     # Ctrl+C stops the request like Esc instead of ending the program.
     $saved = $false
+    $snap = Start-UiTurn $Session
+    $status = 'error'
     try { $saved = [Console]::TreatControlCAsInput; [Console]::TreatControlCAsInput = $true } catch {}
-    try { $null = Invoke-AgentTurn $Session $Content }
-    finally { try { [Console]::TreatControlCAsInput = $saved } catch {} }
+    try { $status = Invoke-AgentTurn $Session $Content }
+    finally {
+        try { [Console]::TreatControlCAsInput = $saved } catch {}
+        Complete-UiTurn $Session $snap ([string]$status)
+    }
 }
 
 function Start-AgentRepl($Session, [string]$FirstPrompt = '') {
@@ -228,7 +219,6 @@ function Start-AgentRepl($Session, [string]$FirstPrompt = '') {
     $cfg = Get-AgentSettings
     $history = Join-Path (Get-ServerConfig).installRoot ([string]$cfg.historyFile)
     Initialize-UiInput $history
-    Write-UiNote 'Enter sends, Shift+Enter: new line, Esc: stop, /help: commands, /exit: end'
     if ($FirstPrompt) { Invoke-InteractiveTurn $Session (ConvertTo-UserContent $FirstPrompt) }
     while ($true) {
         $line = Read-UiPrompt $Session

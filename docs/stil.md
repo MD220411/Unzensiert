@@ -1,7 +1,8 @@
 # Erscheinungsbild
 
-Ein gemeinsames Aussehen für die Kommandozeile, für Claude Code und für `claude-local`. Es
-gibt zwei Stile; welcher gilt, steht in `config\style.json`:
+Ein gemeinsames Aussehen für die Kommandozeile, für den eigenen Agenten Unzensiert, für
+Claude Code und für `claude-local`. Es gibt zwei Stile; welcher gilt, steht in
+`config\style.json`:
 
 | Stil | Charakter | Datei |
 |---|---|---|
@@ -197,6 +198,115 @@ Ist die Ausgabe umgeleitet (Benchmark, Skripte) oder der Stil nicht installiert,
 `claude-local` stattdessen die schlichten Zeilen `claude-local: model ...` ohne Farbcodes
 und ohne Bild aus.
 
+## Die Oberfläche von Unzensiert
+
+Unzensiert zeichnet sein Terminal selbst (`scripts\lib\AgentUi*.ps1`), anders als Claude
+Code, bei dem nur Farbthema, Wartetexte und Statuszeile einstellbar sind. Jedes Element
+nimmt Farben und Zeichen aus dem aktiven Stil (Abschnitt `agent` der Stil-Datei, Farben der
+Stimmung „Frei“ bzw. „Glut“) und seine Texte aus `config\unzensiert-texte.json`. So sieht
+eine Sitzung in „Ausbruch“ aus, hier ohne Farben (erzeugt mit
+`scripts\Show-AgentDesign.ps1 -Width 118`, gekürzt):
+
+```
+      :   `               ` ;   :        : ~         :        ✦ Unzensiert 1.0.0    Mittwoch, 18. November  ·  07:37
+  BIXK8%RXRI  0W%TBX&Z ' ;0SUR&MU0N#  $U$#UX  I /
+  $S.;..:::.;;SE;;;:..WK^ SS';.:::;..:. MU;.;: +              Modell    local-coder  Qwen 3.6 27B, unzensiert, z…
+  0Z0WUIUU    XS8MRE0Z  ;:U0TSEBEN      M@;; S >    ,         Kontext   131.072 Tokens · fasst bei 80 % zusammen
+  @@.:.;;::.  &N;;::B8::  %%;;.;;.:;  ' <&:.E$                Projekt   design  design-ui ±15
+  Z@;:        E8;:  : 8%  @SE08WMSR#  @RRTTR~0    \           Karten    5070 Ti  $#=X@X+#WM#·  14,3 / 15,9 GB
+    ;.          .;  |   ::  ...::;:::.  ;.....                          3060     $=%=#&$+#*··  10,0 / 12,0 GB
+                    .                                         Rechte    ask  fragt vor Befehlen und Änderungen
+                                                              Regeln    CLAUDE.md
+                                               % %  :         Server    http://127.0.0.1:8080  ·  läuft
+
+   -         `    ' , - ~ `~' '~ :~-. ~ ,-.^-_._ -:- -~: ^`==,`,^'.=__~~'~,'-~=:,. _=:,,  = =  `  ~ ~ =  ~
+  ~   „Denk selbst. Bau selbst.“
+  Enter senden · Shift+Enter neue Zeile · Esc anhalten · Shift+Tab Rechte · /help alles
+
+ ✦ Unzensiert  local-coder  %  Kontext $M······ 23 %  +  Rechte ask  %  design design-ui ±15                    07:37
+» Baue in calc.py eine Funktion mul(a, b), schreib einen Test dafür und lass alle Tests laufen.
+
+  ∴ 6,4 s gedacht · 365 Tokens
+✦ Plan
+   --_: '' _~
+  Ich schaue mir zuerst calc.py an, baue dann mul ein und prüfe alles mit pytest. Die Funktion soll auch mit
+  Kommazahlen funktionieren, deshalb bekommt sie einen eigenen Test, der genau das prüft – so fällt ein Fehler sofort
+  auf.
+  • Bestand lesen
+    ◦ vorhandene Tests ansehen
+  1. Test schreiben
+  ✓ Projektregeln gelesen
+  ○ README ergänzen
+
+  ╭─ python ──────────────────────────────────────────────────────
+  │ def mul(a, b):
+  │     return a * b  # auch für float
+  ╰───────────────────────────────────────────────────────────────
+
+✎ Edit  calc.py
+  ⎿  ✓ Zeile 5  ·  -2 +2
+     5   def mul(a, b):
+     6 -     """Multipliziert."""
+     7 -     return a + b
+     6 +     """Multipliziert zwei Zahlen."""
+     7 +     return a * b
+
+❯ Bash  python -m pytest -q
+  ⎿  ✗ Ende 1  ·  1,8 s
+     ..F
+     … +4 Zeilen
+     FAILED tests/test_calc.py::test_mul_float - assert 2 == 2.0
+     1 failed, 2 passed in 0.08s
+
+  ╭─ ! Der Wächter fragt  ❯ PowerShell ───────────────────────────────────────────────────────────────────────────
+  │ Remove-Item -Recurse -Force build
+  │ Grund: guard rule delete-recursive: Rekursives Loeschen fragt immer nach
+  ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   j  ja     n  nein   ›
+
+✦ Fertig: mul multipliziert jetzt, und der neue Test prüft auch Kommazahlen.
+
+   Datei              │ Änderung
+  ────────────────────┼───────────────────────
+   calc.py            │ mul gibt a * b zurück
+   tests/test_calc.py │ neu, 3 Tests
+
+  ✦ Übermalt in 1 min 24 s  ·  9 Runden  ·  3 Dateien geändert  ·  1.873 Tokens  ·  61 tok/s  +\:`
+```
+
+Die Elemente, von oben nach unten:
+
+| Element | Was es zeigt | „Ausbruch“ | „Nachtschicht“ |
+|---|---|---|---|
+| **Begrüßung** | Bild aus Zeichen (`agent.bannerText`) und daneben die Angaben der Sitzung: Version, Datum, Modell mit Beschreibung, Kontextfenster, Projekt mit Git-Stand, Speicher jeder Grafikkarte, Rechte, Projektanweisungen, Server; in schmalen Fenstern (unter `bannerWidth` + 52 Spalten) darunter. Dann Sprühlinie, Spruch und Tasten | Bild FREI, Spruch in den Farben des Kreises | statt des Bilds der gesperrte Name `U N Z E N S I E R T` in Glutorange, schlichte Linie |
+| **Statuszeile** vor jeder Eingabe | Stimmung und Modell, Kontext als Messlinie mit Prozent, Tempo der letzten Antwort, Rechte (ask ruhig, edits grün, all gelb), Grafikkarten, Ordner und Git, rechts die Uhrzeit. Was nicht ins Fenster passt, fällt weg, das Unwichtigste zuerst (Karten, Tempo, Ordner) | gesprühte Messlinien und Trennzeichen | durchgezogene Messlinien |
+| **Eingabe** | Eingabezeichen in wechselnder Farbe; nach Enter steht die eigene Nachricht auf einem farbigen Balken über die ganze Breite | Zeichen und Farbe wechseln bei jeder Eingabe | `»` in Messing |
+| **Wartezeile** | solange nichts anderes läuft: drehendes Zeichen, was gerade geschieht (ein Wartetext des Stils, „denkt · 340 Tokens“, „schreibt Write“, „läuft“, „Abschlussprüfung“, „fasst die Unterhaltung zusammen“), die Zeit bis jetzt, „Esc hält an“. Sie verschwindet, sobald etwas anderes erscheint | funkelnder Stern, der Wartetext läuft durch den Farbkreis, davonfliegende Zeichen | `◐◓◑◒` in Glutorange, ein Licht läuft durch das Wort |
+| **Tab und Taskleiste** | Titel des Fensters: was Unzensiert tut und in welchem Ordner; in Windows Terminal dazu der Fortschrittskreis am Tab (OSC 9;4), rot nach einem Fehler bis zur nächsten Eingabe. Beim Beenden kommt der alte Titel zurück | | |
+| **Denken** | danach eine leise Zeile „∴ 6,4 s gedacht · 365 Tokens“; mit `/think` das Denken selbst, blass und kursiv hinter `┊` | | |
+| **Antwort** | Zeichen des Stils vor der ersten Zeile; Markdown: Überschriften (die erste im Farbkreis mit gesprühtem Strich), Listen mit einem Zeichen je Ebene, Zahlen, offene und erledigte Aufgaben (`○`, `✓`), Zitate (`▌`), Trennlinien, Tabellen mit ausgerichteten Spalten, `Code` auf getöntem Grund, **fett**, *kursiv*, ~~durchgestrichen~~, Links (in Windows Terminal anklickbar). Jede Zeile wird an Wortgrenzen umbrochen, Listen hängend eingerückt | Aufzählungszeichen und Überschriften im Farbkreis | in Glutorange |
+| **Code** | im Rahmen mit Namen der Sprache, in den Farben der Eingabezeile der Shell (`shell.syntax`): Schlüsselwörter, Zeichenketten, Zahlen, Kommentare, Variablen, Funktionen, Typen. Python, PowerShell, Bash, JavaScript/TypeScript, C-artige (C, C++, C#, Java, Go, Rust, Arduino …), JSON, YAML, INI/TOML, SQL, Lua, Batch, HTML/XML, CSS, Diff | | |
+| **Werkzeuge** | Kopfzeile mit Zeichen und Farbe des Werkzeugs (`agent.tools`), Befehle in den Farben ihrer Shell; darunter `⎿` mit Haken oder Kreuz und Dauer. Befehle: Anfang und Ende der Ausgabe (dazwischen „… +4 Zeilen“), Fehlerzeilen rot, Erfolg grün. Read: Zeilen; Write: neu oder ersetzt, die ersten Zeilen mit Nummern; Glob und Grep: Treffer mit Datei und Zeile | ❯ Orange, ≡ Cyan, ✎ Pink, ✚ Limette, ⌕ Violett und Gelb | gedämpfte Werkstattfarben |
+| **Änderungen** (Edit) | Diff mit Zeilennummern: unveränderte Zeilen blass, entfernte und hinzugefügte auf rot und grün getöntem Grund über die ganze Breite, die geänderten Zeichen kräftiger, der Code in seinen Farben; lange unveränderte Strecken zusammengefaltet (`⋯`) | | |
+| **Rückfrage** | ein Rahmen: der Befehl in seinen Farben, bei Edit der Diff, bei Write der Anfang der Datei, darunter der Grund; dann die Tasten als Schilder `j` ja, `i` immer (mit der Regel, etwa `Bash(python:*)`), `n` nein. Danach ersetzt die Antwort die Tasten | Gelb; fragt der Wächter, Pink mit `!` und ohne „immer“ | Messing, beim Wächter Glutorange |
+| **Hinweise** | Zeichen je Art: `·` blass, `✓` in Ordnung, `!` Warnung, `✗` Fehler, lange Hinweise umbrochen | | |
+| **Ende einer Anfrage** | „✦ Übermalt in 1 min 24 s · 9 Runden · 3 Dateien geändert · 1.873 Tokens · 61 tok/s“ mit einem Wort des Stils (`agent.doneVerbs`); nach Esc „■ angehalten nach 12 s“, nach einem Abbruch rot | Gesprüht, Ausgebrochen, Getaggt … | Geschmiedet, Gefeilt, Gehärtet … |
+| **Übersichten** | `/help` (Tasten, Befehle, Abläufe), `/status` (Kontext mit Messlinie, Tokens der Sitzung, Rechte, Erlaubtes, Regeln, geänderte Dateien), `/model` und `/resume` als Listen unter kleinen Überschriften | | |
+| **Abschied** | Sprühlinie, „Sitzung vorbei nach 23 min. Die Zeichen fliegen weiter.“, Anfragen, Runden, gelesene (davon aus dem Cache) und geschriebene Tokens, geänderte Dateien, was mit den Modellen geschah | | „Sitzung vorbei nach 23 min.“ |
+
+Alle Elemente auf einmal, ohne Modell und ohne Server:
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1                    # im aktiven Stil
+powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1 -Style nachtschicht # anderer Stil, ohne Wechsel
+```
+
+Die Beispielsitzung steht in `tests\agent-design.json`; `-Width` stellt eine Fensterbreite
+nach, `-OutFile` schreibt die Ausgabe mit Steuerzeichen in eine Datei.
+
+Ist die Ausgabe umgeleitet (`unzensiert -p`, Benchmark), zeichnet Unzensiert nichts davon;
+die Standardausgabe enthält nur das Ergebnis.
+
 ## Einrichten
 
 ```
@@ -256,7 +366,32 @@ Eine Stil-Datei in `config\styles\`, danach `scripts\Install-Style.ps1`:
 | `font` | Schrift, Größe, Zeilenhöhe, Quelle für `Install-Font.ps1` |
 | `terminal` | Abstand, Cursorform, Farbe der Tab-Leiste und des Fensterrahmens; `wall` = Wand aus Zeichen hinter dem Terminal (`text`, Größe in `cols` × `rows`, `fontPixels`, `opacity`, `alignment`) |
 | `shell` | `mode` (Stimmung der Shell), Begrüßung an/aus (`greeting`), `rainbow` (bunter Ordnername, wechselnde Farbe des Eingabezeichens), `trail` (Spalten davonfliegender Zeichen am Ende der Eingabezeile), ab wann die Dauer erscheint, Farben der Eingabe |
-| `claude` | Themen für Claude Code (`themes`), Stimmungen für lokal und Cloud, Wartetexte (`spinnerVerbs`), Schwellen der Statuszeile |
+| `claude` | Themen für Claude Code (`themes`), Stimmungen für lokal und Cloud, Wartetexte (`spinnerVerbs`, auch für die Wartezeile von Unzensiert), Schwellen der Statuszeile |
+| `agent` | die Oberfläche von Unzensiert (siehe unten) |
+
+Der Abschnitt `agent` (fehlt er, gelten schlichte Vorgaben):
+
+| Schlüssel | Inhalt |
+|---|---|
+| `bannerText`, `bannerScale`, `bannerWidth` | Bild der Begrüßung (Wort, größte Verbreiterung, Spalten für das Bild neben den Angaben) |
+| `title` | Name über den Angaben in Stilen ohne `art` |
+| `spinner`, `spinnerInk` | Zeichen der Wartezeile (eins je Bild) und ihre Farbe |
+| `verbInk`, `headingInk`, `promptInk` | Farbe des Wartetexts, der Überschriften und Abschlusszeilen, des Eingabezeichens |
+| `verbs` | Wartetexte; ohne den Schlüssel die von `claude.spinnerVerbs` |
+| `doneVerbs` | Wörter für eine fertige Anfrage („Gesprüht in 42 s“) |
+| `marks` | Zeichen für Antwort, Denken, Ergebnis (`corner`), Ende, Angehalten, Mitlesen des Denkens |
+| `notes` | Zeichen der Hinweise: `dim`, `ok`, `warn`, `error` |
+| `bullets`, `quote`, `box` | Aufzählungszeichen je Ebene, Zeichen vor Zitaten, Rahmen (oben links, unten links, Linie, Seite) |
+| `rule` | Trennlinien: `spray` (gesprüht) oder `line` |
+| `trail` | Spalten davonfliegender Zeichen am Ende von Warte- und Abschlusszeile (0 = keine) |
+| `tools` | je Werkzeug `icon` und `ink` |
+| `diffTint`, `diffStrong` | wie stark der Grund entfernter und hinzugefügter Zeilen und der geänderten Zeichen getönt ist (1 = gar nicht) |
+
+Farben sind `#RRGGBB`, `rainbow` (Farbkreis), `shimmer` (ein Licht läuft durch) oder
+`accent` (Akzent der Stimmung). Die Texte der Oberfläche, die in jedem Stil gleich sind
+(Beschriftungen, Hinweise, Rückfragen, Hilfe), stehen in `config\unzensiert-texte.json`;
+`{0}`, `{1}` sind Platzhalter, eine Liste mit zwei Einträgen unter `count` ist Einzahl und
+Mehrzahl. `Test-Setup.ps1` prüft, dass jeder Text, nach dem der Code fragt, dort steht.
 
 Beispiele: Ein anderes Wort im Bild ist `"text": "FREIHEIT"`. Ohne Farbnasen:
 `"dripChance": 0`. Ohne Wand: den Abschnitt `terminal.wall` löschen und
@@ -279,6 +414,11 @@ config\style.json            welcher Stil gilt, was alle Stile teilen
 config\styles\*.json         je Stil: Farben, Zeichen, Texte, Blockschrift
 scripts\lib\Style.ps1        Bausteine: Stil lesen, Farben, Farbkreis, Messlinien, Tönen des Terminals, Messwerte
 scripts\lib\CharArt.ps1      Bilder aus Zeichen: Blockschrift, Füllung, Licht, Schatten, Farbnasen, Sprühnebel, Funken, ausbrechende Zeichen; die Wand als PNG
+scripts\lib\AgentUi.ps1      Oberfläche von Unzensiert: Begrüßung, Wartezeile, Hinweise, Eingabe, Statuszeile, Übersichten, Abschied
+scripts\lib\AgentUiMarkdown.ps1  die Antwort: Markdown, Umbruch, Tabellen, Farben von Code
+scripts\lib\AgentUiTools.ps1     Werkzeuge, Diffs, Rückfragen
+config\unzensiert-texte.json  Texte der Oberfläche von Unzensiert
+scripts\Show-AgentDesign.ps1  zeigt jedes Element der Oberfläche mit tests\agent-design.json
 scripts\style\Shell.ps1      richtet die interaktive Shell ein (Eingabezeile, Begrüßung, Funktion claude)
 scripts\style\Statusline.ps1 Statuszeile von Claude Code
 scripts\Install-Style.ps1    wendet den aktiven Stil auf Windows Terminal und Claude Code an
@@ -322,6 +462,20 @@ Funken:
 | `lib\Style.ps1` laden | etwa 70 ms |
 | ein Lauf der Statuszeile (lokal, mit `nvidia-smi`) | etwa 480 ms |
 
+Oberfläche von Unzensiert, gemessen am 2026-11-18 (Windows PowerShell 5.1, Fenster 120
+Spalten, Mittel aus mehreren Durchläufen nach einem ersten; nebenher lief ein Benchmark):
+
+| | Dauer |
+|---|---|
+| alle Skripte laden (`_common.ps1`) | etwa 265 ms (vorher 235 ms) |
+| Begrüßung, erstes Mal im Prozess (mit `nvidia-smi`, Git, Bild) | etwa 480 ms |
+| Statuszeile (mit `nvidia-smi`) | etwa 90 ms |
+| ein Bild der Wartezeile (höchstens zehn je Sekunde) | etwa 4 ms |
+| eine Zeile der Antwort mit Markdown, im Mittel | etwa 2 ms |
+| Absatz von 220 Zeichen mit fett, Code und Link | etwa 4 ms |
+| Zeile Code mit Farben | etwa 1 ms |
+| Diff des Beispiels (3 Zeilen) / 60 Zeilen mit 8 Änderungen | etwa 11 ms / 34 ms |
+
 Für „Nachtschicht“ gemessen am 2026-11-14: Start der Shell mit Begrüßung etwa 440 ms, eine
 Eingabezeile im Git-Ordner etwa 30 ms, ein Lauf der Statuszeile etwa 380 ms.
 
@@ -335,7 +489,16 @@ Mono); „Nachtschicht“ sieht mit dem umgebauten Code aus wie vorher. `Install
 ersetzt beim Wechsel Schema, Thema, Profil und Themen-Dateien, ein zweiter Lauf ändert
 nichts mehr.
 
+Die Oberfläche von Unzensiert wurde mit `Show-AgentDesign.ps1` in beiden Stilen und in 80,
+100 und 120 Spalten gerendert und angesehen (eigener Renderer, IBM Plex Mono). Ein Test lässt
+eine Antwort stückweise mit Pausen eintreffen: Wartezeile, rohe Zeilen und umgebrochene
+Zeilen hinterlassen nichts, das Endbild gleicht dem einer Antwort am Stück.
+`Test-Agent.ps1` prüft Umbruch, Diff, Farben von Code (kein Zeichen geht verloren) und die
+Vorschau.
+
 **Nicht geprüft:** das Aussehen im echten Windows-Terminal-Fenster mit IBM Plex Mono,
+bei Unzensiert der Titel und der Fortschrittskreis am Tab, der Balken hinter der eigenen
+Eingabe nach PSReadLine und die Zeichen `✓ ✗ ✎ ✚ ⌕ ❯ ≡ ⎿` (eine Spalte breit?),
 wie stark die Wand bei 20 % Deckkraft im Fenster wirkt,
 insbesondere ob `✦`, `✧` und `◇` dort genau eine Spalte breit sind, und ob Claude Code die
 Themen „Ausbruch · Frei“ und „Ausbruch · Wolke“ ohne Meldung annimmt.

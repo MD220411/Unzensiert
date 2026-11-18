@@ -142,6 +142,37 @@
     }
   },
 
+  "agent": {
+    "_comment": "Der Agent Unzensiert (scripts\\lib\\AgentUi*.ps1, docs\\stil.md): Begrüßung, Wartezeile, Antwort, Werkzeuge, Rückfragen, Abschluss jeder Anfrage. Texte ohne Stil-Bezug stehen in config\\unzensiert-texte.json, die Wartetexte in claude.spinnerVerbs. Farben als #RRGGBB, \"rainbow\", \"shimmer\" (ein Licht läuft durch) oder \"accent\".",
+    "title": "U N Z E N S I E R T",
+    "_title": "Ohne Bild aus Zeichen (kein Abschnitt art) steht dieser Name über den Angaben der Begrüßung.",
+    "spinner": ["◐", "◓", "◑", "◒"],
+    "spinnerInk": "accent",
+    "verbInk": "shimmer",
+    "doneVerbs": ["Geschmiedet", "Gefeilt", "Gehärtet", "Verlötet", "Eingepasst", "Nachgemessen", "Fertig geschliffen"],
+    "marks": { "answer": "●", "thought": "∴", "corner": "⎿", "turn": "●", "stopped": "■", "thinking": "┊" },
+    "notes": { "dim": "·", "ok": "✓", "warn": "!", "error": "✗" },
+    "bullets": ["•", "◦", "▪"],
+    "quote": "│",
+    "box": "╭╰─│",
+    "headingInk": "accent",
+    "promptInk": "accent",
+    "rule": "line",
+    "trail": 0,
+    "tools": {
+      "_comment": "Zeichen und Farbe jedes Werkzeugs in der Kopfzeile.",
+      "Bash": { "icon": "❯", "ink": "#E9B44C" },
+      "PowerShell": { "icon": "❯", "ink": "#8FB0D0" },
+      "Read": { "icon": "≡", "ink": "#73B7AE" },
+      "Edit": { "icon": "✎", "ink": "#FF8A3D" },
+      "Write": { "icon": "✚", "ink": "#A9C48A" },
+      "Glob": { "icon": "⌕", "ink": "#D2A9D0" },
+      "Grep": { "icon": "⌕", "ink": "#D2A9D0" }
+    },
+    "diffTint": 0.82,
+    "diffStrong": 0.62
+  },
+
   "claude": {
     "_comment": "Claude Code. themes werden nach ~\\.claude\\themes\\<themePrefix><name>.json geschrieben; die Schluessel unter overrides sind die Farbnamen von Claude Code.",
     "themePrefix": "nachtschicht-",

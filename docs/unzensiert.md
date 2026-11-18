@@ -6,10 +6,12 @@ prüft seine Arbeit. Er braucht kein weiteres Programm und keine Cloud. Er spric
 OpenAI-kompatible Schnittstelle des Servers an (`/v1/chat/completions`, gestreamt, mit
 Werkzeugen) und ist ganz in PowerShell 5.1 geschrieben, das auf jedem Windows vorhanden ist.
 
-Bedienung, Werkzeuge, Arbeitsregeln, Wächter, Abschlussprüfung, zweiter Blick, die Befehle
-`/feature`, `/bugfix`, `/pruefen` und das Erscheinungsbild sind dieselben wie bei
-`claude-local`. `claude-local` (Claude Code am lokalen Server, [agent.md](agent.md)) bleibt
-zum Vergleich erhalten; der Benchmark kann beide messen.
+Bedienung, Werkzeuge, Arbeitsregeln, Wächter, Abschlussprüfung, zweiter Blick und die
+Befehle `/feature`, `/bugfix`, `/pruefen` sind dieselben wie bei `claude-local`. Die
+Oberfläche zeichnet Unzensiert selbst, im Stil des Projekts und auf Deutsch
+([stil.md](stil.md#die-oberfläche-von-unzensiert)). `claude-local` (Claude Code am lokalen
+Server, [agent.md](agent.md)) bleibt zum Vergleich erhalten; der Benchmark kann beide
+messen.
 
 ## Gemessen gegen Claude Code
 
@@ -78,14 +80,34 @@ Sitzung, werden die Modelle wie bei `claude-local` entladen (`onExit` in `config
 | `/feature`, `/bugfix`, `/pruefen` (auch `/lokal:feature` usw.) | feste Abläufe aus `config\befehle\commands\` ([agent.md](agent.md)) |
 | `/exit` | beenden |
 
-Vor jeder Eingabe steht eine Statuszeile: Stimmung und Modell, wie voll der Kontext ist, das
-Tempo der letzten Antwort, der Rechte-Modus, der Speicher der Grafikkarten, Ordner und
-Git-Stand. Die Farben kommen aus dem aktiven Stil (`config\style.json`, [stil.md](stil.md)),
-im Stil „Ausbruch“ also die Stimmung „Frei“ wie bei `claude-local`.
+## Was man sieht
 
-Während das Modell denkt, zählt eine Zeile mit, wie viel es denkt; die Antwort erscheint
-Wort für Wort, mit etwas Markdown (Überschriften, Listen, `Code`, Codeblöcke). Werkzeuge
-erscheinen mit ihrem Ergebnis, Änderungen mit den entfernten und hinzugefügten Zeilen.
+Die Oberfläche ist in [stil.md](stil.md#die-oberfläche-von-unzensiert) mit Bild und allen
+Elementen beschrieben; `scripts\Show-AgentDesign.ps1` zeigt sie ohne Modell. Kurz:
+
+- **Begrüßung:** das Bild des Stils, daneben Version, Modell, Kontextfenster, Projekt mit
+  Git-Stand, Speicher der Grafikkarten, Rechte, Projektanweisungen und Server; ein Spruch
+  und die wichtigsten Tasten. Bei `-c` oder `--resume` steht dort, welche Unterhaltung
+  weitergeht.
+- **Statuszeile** vor jeder Eingabe: Stimmung und Modell, Kontext als Messlinie, Tempo der
+  letzten Antwort, Rechte, Grafikkarten, Ordner und Git, die Uhrzeit; was nicht in das
+  Fenster passt, fällt weg. Die eigene Nachricht steht nach dem Absenden auf einem farbigen
+  Balken.
+- **Wartezeile**, solange das Modell liest, denkt, einen Werkzeugaufruf schreibt, ein Befehl
+  läuft oder die Abschlussprüfung arbeitet: was gerade geschieht, seit wann, „Esc hält an“.
+  Titel und Fortschrittskreis des Tabs in Windows Terminal zeigen dasselbe, auch wenn das
+  Fenster im Hintergrund liegt.
+- **Antwort** mit Markdown (Überschriften, Listen, Aufgaben, Zitate, Tabellen mit
+  ausgerichteten Spalten, Links), an Wortgrenzen umbrochen; Codeblöcke im Rahmen mit den
+  Farben ihrer Sprache. Nach dem Denken eine Zeile „∴ 6,4 s gedacht · 365 Tokens“.
+- **Werkzeuge** mit Zeichen und Farbe, Haken oder Kreuz und Dauer; Befehle mit Anfang und
+  Ende ihrer Ausgabe, Änderungen als Diff mit Zeilennummern und markierten Zeichen.
+- **Rückfragen** im Rahmen, siehe Rechte.
+- Nach jeder Anfrage eine Zeile mit Dauer, Runden, geänderten Dateien, Tokens und Tempo;
+  am Ende der Sitzung eine Zusammenfassung.
+
+Farben und Zeichen kommen aus dem aktiven Stil (`config\style.json`, Abschnitt `agent` der
+Stil-Datei), die Texte aus `config\unzensiert-texte.json`.
 
 ## Rechte
 
@@ -107,9 +129,12 @@ Gesperrtes läuft nie, Heikles fragt immer. Danach gilt der Modus:
 - **Dateibefehle** (`fileCommands`: `mkdir`, `rm`, `mv`, `cp`, `New-Item`, `Remove-Item` ...)
   zählen in `edits` als Dateiänderung, wenn jedes Ziel im Projektordner liegt. Ein Ziel
   außerhalb, in einer Variablen oder der Projektordner selbst führt zur Frage.
-- **Die Frage** zeigt den Befehl, bei Edit die Änderung (rot/grün), bei Write den Inhalt:
-  `y` oder `j` ja, `a` oder `i` immer (für diese Sitzung: bei Befehlen das Programm, etwa
-  `Bash(python:*)`, bei Dateien alle Änderungen), `n` oder Esc nein. Nach einem Nein wartet das Modell auf deine Anweisung.
+- **Die Frage** steht in einem Rahmen und zeigt den Befehl in den Farben seiner Shell, bei
+  Edit die Änderung als Diff mit Zeilennummern, bei Write den Anfang der Datei, dazu den
+  Grund. Tasten: `j`, `y` oder Enter ja; `i` oder `a` immer (für diese Sitzung: bei Befehlen
+  das Programm, etwa `Bash(python:*)`, das die Frage nennt, bei Dateien alle Änderungen);
+  `n` oder Esc nein. Fragt der Wächter, ist der Rahmen pink und es gibt kein „immer“. Nach
+  einem Nein wartet das Modell auf deine Anweisung.
 - **Ohne Terminal** (`-p`) wird aus jeder Frage eine Ablehnung mit Begründung für das
   Modell. Nach drei Ablehnungen in einer Anfrage bekommt es den Hinweis, nicht weiter nach
   Umwegen zu suchen; nach neun endet die Anfrage.
@@ -257,7 +282,11 @@ sich der Build geändert hat und keine andere Sitzung läuft, und startet sich s
 | `scripts\lib\AgentTools.ps1` | die Werkzeuge |
 | `scripts\lib\AgentPrompt.ps1` | Systemprompt mit Projektanweisungen |
 | `scripts\lib\AgentSession.ps1` | Nachrichten, gespeicherte Unterhaltungen, Größe des Kontexts |
-| `scripts\lib\AgentUi.ps1` | Terminal: Antwort, Werkzeuge, Fragen, Eingabe (PSReadLine), Statuszeile |
+| `scripts\lib\AgentUi.ps1` | Terminal: Texte, Farben, Begrüßung, Wartezeile, Titel und Fortschritt des Tabs, Hinweise, Eingabe (PSReadLine), Statuszeile, Übersichten, Ende einer Anfrage, Abschied |
+| `scripts\lib\AgentUiMarkdown.ps1` | die Antwort: Markdown, Umbruch, Tabellen, Farben von Code |
+| `scripts\lib\AgentUiTools.ps1` | Werkzeuge, Diffs, Rückfragen |
+| `config\unzensiert-texte.json` | Texte der Oberfläche (deutsch) |
+| `scripts\Show-AgentDesign.ps1`, `tests\agent-design.json` | alle Elemente der Oberfläche mit einer Beispielsitzung, ohne Modell |
 | `scripts\lib\AgentLoop.ps1` | eine Anfrage: Modell, Wächter, Rechte, Werkzeuge, Abschlussprüfung, Kontext |
 | `scripts\lib\AgentRepl.ps1` | Unterhaltung, Befehle mit Schrägstrich, Einmal-Lauf, Argumente |
 | `scripts\lib\Update.ps1` | automatische Updates |
@@ -266,7 +295,10 @@ sich der Build geändert hat und keine andere Sitzung läuft, und startet sich s
 | `scripts\New-Release.ps1` | ein Release veröffentlichen |
 
 Bewusste Eigenheiten von PowerShell 5.1, die der Code beachtet: Listen kommen aus Funktionen
-mit führendem Komma zurück (sonst wird eine Liste mit einem Element zu diesem Element),
+mit führendem Komma zurück (sonst wird eine Liste mit einem Element zu diesem Element; der
+Aufruf steht dann nicht noch in `@(...)`, das gäbe eine Liste in einer Liste), Indizes eines
+zweidimensionalen Felds mit Ausdrücken (`$t[($i + 1), $j]`) kommen vorher in Variablen, weil
+PowerShell sie als Argument einer Methode nicht lesen kann,
 Daten für den Server enthalten keine Werte von Cmdlets (`New-Object`, `Join-Path`,
 `Get-Date` verpacken sie in ein PSObject, das der Serialisierer nicht kennt), und Kinder-
 prozesse starten über `Start-ChildProcess` (`lib\Machine.ps1`), weil .NET sonst auf einer
@@ -285,3 +317,9 @@ UTF-8-Konsole ein Byte-Order-Mark in ihre Eingabe schreibt.
   durch einen Vermerk und fragt erneut.
 - **Ohne PSReadLine** (sehr alte Systeme) gibt es nur eine einfache Eingabezeile ohne
   Verlauf und ohne Shift+Enter.
+- **Breite Zeichen** (chinesische Schrift, Emoji) zählt die Oberfläche als eine Spalte. In
+  solchen Zeilen kann das Ersetzen der rohen Zeile durch die fertige Reste lassen.
+- **Tabellen** werden mit jeder neuen Zeile ganz neu gezeichnet; wird eine Tabelle höher als
+  das Fenster, kommen die weiteren Zeilen nur noch darunter.
+- **Titel und Fortschritt des Tabs** gibt es nur in Windows Terminal (der Titel auch in
+  anderen Konsolen); geprüft ist die Ausgabe, nicht die Anzeige im Fenster.

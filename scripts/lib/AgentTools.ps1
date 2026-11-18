@@ -49,7 +49,8 @@ function Get-AgentToolSchemas([string]$GitBash) {
 # --- helpers --------------------------------------------------------------------------------
 
 function New-ToolResult([string]$Text, [bool]$IsError = $false) {
-    return @{ text = $Text; error = $IsError; image = $null; changed = ''; diff = $null; summary = ''; userStop = $false }
+    # info: facts for the terminal (lines, files, exit code ...); the model reads only text
+    return @{ text = $Text; error = $IsError; image = $null; changed = ''; diff = $null; summary = ''; userStop = $false; info = $null }
 }
 
 function Resolve-AgentPath([string]$Path, [string]$Cwd) {
@@ -145,6 +146,7 @@ function Invoke-ToolRead($Session, $A) {
         if ($bytes.Length -gt 10MB) { return (New-ToolResult "Image too large ($([int]($bytes.Length / 1MB)) MB)." $true) }
         $r = New-ToolResult "Image $(Get-DisplayPath $path $Session.cwd) ($([int]($bytes.Length / 1KB)) KB), shown below."
         $r.image = @{ mime = $script:ImageTypes[$ext]; data = [Convert]::ToBase64String($bytes) }
+        $r.info = @{ image = $true }
         return $r
     }
     $file = Read-TextFile $path
@@ -169,6 +171,7 @@ function Invoke-ToolRead($Session, $A) {
     elseif ($last -lt $lines.Count -or $offset -gt 1) { $text += "(lines $offset to $last of $($lines.Count); read more with offset)" }
     $r = New-ToolResult $text
     $r.summary = "$($last - $offset + 1) lines"
+    $r.info = @{ lines = ($last - $offset + 1); total = $lines.Count }
     return $r
 }
 
@@ -234,6 +237,7 @@ function Invoke-ToolWrite($Session, $A) {
     $r = New-ToolResult "$verb $(Get-DisplayPath $path $Session.cwd) ($count lines)."
     $r.changed = $path
     $r.summary = "$count lines"
+    $r.info = @{ lines = $count; created = (-not $existed) }
     return $r
 }
 
@@ -291,12 +295,13 @@ function Invoke-ToolGlob($Session, $A) {
     $regex = ConvertTo-GlobRegex ([string](Get-DictValue $A 'pattern'))
     $hits = @(Get-ProjectFiles $base | Where-Object { $regex.IsMatch($_.rel) } |
             Sort-Object { [System.IO.File]::GetLastWriteTimeUtc($_.full) } -Descending)
-    if ($hits.Count -eq 0) { return (New-ToolResult 'No files found.') }
+    if ($hits.Count -eq 0) { $r = New-ToolResult 'No files found.'; $r.info = @{ files = 0 }; return $r }
     $shown = @($hits | Select-Object -First 100 | ForEach-Object { Get-DisplayPath $_.full $Session.cwd })
     $text = $shown -join "`n"
     if ($hits.Count -gt 100) { $text += "`n($($hits.Count) files, the 100 newest shown; narrow the pattern)" }
     $r = New-ToolResult $text
     $r.summary = "$($hits.Count) files"
+    $r.info = @{ files = $hits.Count }
     return $r
 }
 
@@ -350,12 +355,13 @@ function Invoke-ToolGrep($Session, $A) {
         }
         if ($out.Count -ge 200) { break }
     }
-    if ($out.Count -eq 0) { return (New-ToolResult 'No matches.') }
+    if ($out.Count -eq 0) { $r = New-ToolResult 'No matches.'; $r.info = @{ files = 0; lines = 0 }; return $r }
     $text = ($out -join "`n")
     if ($out.Count -ge 200) { $text += "`n(first 200 shown; narrow the pattern or path)" }
     $r = New-ToolResult $text
     $r.summary = "$($out.Count) lines in $matchedFiles files"
     if ($filesOnly) { $r.summary = "$($out.Count) files" }
+    $r.info = @{ lines = $out.Count; files = $matchedFiles; filesOnly = $filesOnly }
     return $r
 }
 
@@ -422,6 +428,7 @@ function Invoke-ToolShell($Session, [string]$Kind, $A, [scriptblock]$ShouldStop)
     $text = $output.Replace("`r`n", "`n").TrimEnd()
     if ($errors.Trim()) { $text = ($text + "`n" + $errors.Replace("`r`n", "`n").TrimEnd()).Trim() }
     $text = Limit-Text $text ([int]$cfg.toolResultChars)
+    $info = @{ exit = $code; seconds = $watch.Elapsed.TotalSeconds; stopped = $stopped; output = $text }
     if (-not $text) { $text = '(no output)' }
     if ($stopped) { $text += "`n$stopped" }
     elseif ($code -ne 0) { $text += "`n[exit code $code]" }
@@ -429,6 +436,7 @@ function Invoke-ToolShell($Session, [string]$Kind, $A, [scriptblock]$ShouldStop)
     $r.summary = "exit code $code, $([math]::Round($watch.Elapsed.TotalSeconds, 1)) s"
     if ($stopped) { $r.summary = $stopped.Trim('[', ']') }
     $r.userStop = ($stopped -eq '[stopped by the user]')
+    $r.info = $info
     return $r
 }
 

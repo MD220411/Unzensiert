@@ -76,9 +76,15 @@ $start = Resolve-StartModel $opt.model
 if ($start.problem) { [Console]::Error.WriteLine("unzensiert: $($start.problem)"); exit 1 }
 $model = $start.model
 
+# the terminal in the look of the style (lib\AgentUi.ps1); nothing of it in a -p run
+$savedEncoding = [Console]::OutputEncoding
+if ($opt.print) { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) }
+Initialize-AgentUi $interactive ([bool]$cfg.showThinking)
+
 if (-not (Test-ServerUp)) {
-    Write-LaunchNote 'llama-server is not running, starting it ...'
-    foreach ($line in @(Start-Server)) { if ($line) { Write-LaunchNote ([string]$line) } }
+    if ($script:Ui.on) { Write-UiNote (Get-UiText 'notes.serverStarting') 'warn' }
+    else { Write-LaunchNote 'llama-server is not running, starting it ...' }
+    foreach ($line in @(Start-Server)) { if ($line) { if ($script:Ui.on) { Write-UiNote ([string]$line) } else { Write-LaunchNote ([string]$line) } } }
 }
 
 # --- the session --------------------------------------------------------------------------
@@ -86,31 +92,30 @@ $cwd = (Get-Location).ProviderPath
 $session = New-AgentSession $cwd $model
 if ($opt.mode) {
     $mode = ConvertTo-PermissionMode $opt.mode
-    if (-not $mode) { [Console]::Error.WriteLine("unzensiert: unknown permission mode '$($opt.mode)' (ask, edits, all)"); exit 1 }
+    if (-not $mode) { [Console]::Error.WriteLine("unzensiert: unknown permission mode '$($opt.mode)' (ask, edits, all)"); [Console]::OutputEncoding = $savedEncoding; exit 1 }
     $session.mode = $mode
 }
 if (-not (ConvertTo-PermissionMode $session.mode)) { $session.mode = 'ask' }
 $session.allowedTools = @($opt.allowed)
 $session.maxTurns = $opt.maxTurns
-$savedEncoding = [Console]::OutputEncoding
-if ($opt.print) { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) }
-Initialize-AgentUi $interactive $session.showThinking
 Initialize-AgentSession $session
 
+$continued = $null
 if ($opt.continue) {
     $last = @(Get-SessionFiles $cwd) | Select-Object -First 1
-    if ($last) { Import-AgentSession $session $last.file; Write-LaunchNote "continuing the conversation of $($last.time.ToString('yyyy-MM-dd HH:mm'))" }
+    if ($last) { Import-AgentSession $session $last.file; $continued = $last.time }
     else { Write-LaunchNote 'there is no earlier conversation in this folder, starting a new one' }
 } elseif ($null -ne $opt.resume) {
     $file = ''
     if ($opt.resume) {
         $file = Join-Path $session.folder "$($opt.resume).jsonl"
-        if (-not (Test-Path $file)) { [Console]::Error.WriteLine("unzensiert: no conversation $($opt.resume) in this folder"); exit 1 }
+        if (-not (Test-Path $file)) { [Console]::Error.WriteLine("unzensiert: no conversation $($opt.resume) in this folder"); [Console]::OutputEncoding = $savedEncoding; exit 1 }
     } elseif ($interactive) {
         $file = Select-SessionFile $session ''
     }
-    if ($file) { Import-AgentSession $session $file }
+    if ($file) { Import-AgentSession $session $file; $continued = (Get-Item $file).LastWriteTime }
 }
+if ($continued -and -not $script:Ui.on) { Write-LaunchNote "continuing the conversation of $($continued.ToString('yyyy-MM-dd HH:mm'))" }
 
 # the models this run may have loaded: the start model and the ones of the picker
 $pickerModels = @(@($agent.picker) | Where-Object { $_ -and (Test-ModelInstalled ([string]$_.model)) } | ForEach-Object { [string]$_.model })
@@ -139,20 +144,39 @@ if ($opt.print) {
 }
 
 # --- at the terminal ------------------------------------------------------------------------
-$ctx = Get-SessionContextSize $session
-Get-LocalLookBanner $model $server.baseUrl ([int]($ctx * [double]$cfg.compactAt)) $ctx $pickerModels 'unzensiert'
-if ($agent.gitCheck -and $interactive) {
-    $note = Get-GitSafetyNote $cwd
-    if ($note) { "unzensiert: $note" }
-}
-Enter-LocalLook
 $sessionStart = Get-Date
+Enter-LocalLook
+if ($script:Ui.on) {
+    # the welcome of the style: picture, facts of the session, a saying, the keys
+    $info = Get-AgentUiInfo $session
+    $info.serverUp = Test-ServerUp
+    if ($continued) { $info.continued = Get-UiText 'welcome.continued' ($continued.ToString('dd.MM. HH:mm')) (Get-UiCount ($session.messages.Count - 1) 'messages') }
+    Write-UiWelcome $session $info
+    if ($agent.gitCheck) {
+        $note = Get-GitSafetyNote $cwd
+        if ($note) { Write-UiNote $note 'warn' }
+    }
+} else {
+    $ctx = Get-SessionContextSize $session
+    Get-LocalLookBanner $model $server.baseUrl ([int]($ctx * [double]$cfg.compactAt)) $ctx $pickerModels 'unzensiert'
+    if ($agent.gitCheck -and $interactive) {
+        $note = Get-GitSafetyNote $cwd
+        if ($note) { "unzensiert: $note" }
+    }
+}
 try {
     Start-AgentRepl $session ($positional -join ' ')
 } finally {
+    $closing = Complete-AgentSession $opt.onExit $sessionModels
+    if ($script:Ui.on) {
+        Write-UiFarewell $session $sessionStart $closing
+        Exit-AgentUi
+    }
     [Console]::OutputEncoding = $savedEncoding
     Exit-LocalLook
-    Get-LocalLookFarewell $sessionStart
-    "unzensiert: $(Complete-AgentSession $opt.onExit $sessionModels)"
+    if (-not $script:Ui.on) {
+        Get-LocalLookFarewell $sessionStart
+        "unzensiert: $closing"
+    }
 }
 exit 0

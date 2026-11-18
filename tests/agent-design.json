@@ -1,0 +1,76 @@
+{
+  "_comment": "Eine erfundene Sitzung, die jedes Element der Oberfläche von Unzensiert einmal zeigt: für scripts\\Show-AgentDesign.ps1 und die Prüfung der Oberfläche in scripts\\Test-Agent.ps1. Die Werkzeugergebnisse haben die Form von New-ToolResult (scripts\\lib\\AgentTools.ps1).",
+
+  "prompt": "Baue in calc.py eine Funktion mul(a, b), schreib einen Test dafür und lass alle Tests laufen.",
+  "thinkingChars": 1460,
+  "thinkingSeconds": 6.4,
+
+  "answer": "# Plan\nIch schaue mir zuerst `calc.py` an, baue dann **mul** ein und prüfe alles mit *pytest*. Die Funktion soll auch mit Kommazahlen funktionieren, deshalb bekommt sie einen eigenen Test, der genau das prüft – so fällt ein Fehler sofort auf.\n- Bestand lesen\n  - vorhandene Tests ansehen\n- Funktion einbauen\n1. Test schreiben\n2. Tests laufen lassen\n- [x] Projektregeln gelesen\n- [ ] README ergänzen\n\n```python\ndef mul(a, b):\n    \"\"\"Multipliziert zwei Zahlen.\"\"\"\n    return a * b  # auch für float\n```\n",
+
+  "steps": [
+    {
+      "tool": "Grep",
+      "args": { "pattern": "def \\w+", "glob": "*.py" },
+      "result": { "text": "calc.py:1:def add(a, b):\ncalc.py:5:def mul(a, b):\ntests/test_calc.py:4:def test_add():", "info": { "lines": 3, "files": 2 } }
+    },
+    {
+      "tool": "Read",
+      "args": { "file_path": "calc.py" },
+      "result": { "text": "", "info": { "lines": 7, "total": 7 } }
+    },
+    {
+      "tool": "Edit",
+      "args": { "file_path": "calc.py", "old_string": "def mul(a, b):\n    \"\"\"Multipliziert.\"\"\"\n    return a + b", "new_string": "def mul(a, b):\n    \"\"\"Multipliziert zwei Zahlen.\"\"\"\n    return a * b" },
+      "result": { "text": "", "changed": "calc.py", "diff": { "old": "def mul(a, b):\n    \"\"\"Multipliziert.\"\"\"\n    return a + b", "new": "def mul(a, b):\n    \"\"\"Multipliziert zwei Zahlen.\"\"\"\n    return a * b", "line": 5 } }
+    },
+    {
+      "tool": "Write",
+      "args": { "file_path": "tests/test_calc.py", "content": "from calc import add, mul\n\n\ndef test_add():\n    assert add(2, 3) == 5\n\n\ndef test_mul():\n    assert mul(6, 7) == 42\n\n\ndef test_mul_float():\n    assert mul(0.5, 4) == 2.0\n" },
+      "result": { "text": "", "changed": "tests/test_calc.py", "info": { "lines": 13, "created": true } }
+    },
+    {
+      "tool": "Bash",
+      "args": { "command": "python -m pytest -q" },
+      "seconds": 1.8,
+      "result": { "text": "", "error": false, "info": { "exit": 1, "output": "..F\n=================================== FAILURES ===================================\n_________________________________ test_mul_float _________________________________\n\n    def test_mul_float():\n>       assert mul(0.5, 4) == 2.0\nE       assert 2 == 2.0\nE        +  where 2 = mul(0.5, 4)\n\ntests/test_calc.py:13: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_calc.py::test_mul_float - assert 2 == 2.0\n1 failed, 2 passed in 0.08s" } }
+    },
+    {
+      "tool": "Read",
+      "args": { "file_path": "calc_helpers.py", "offset": 1, "limit": 40 },
+      "result": { "text": "File not found: calc_helpers.py", "error": true }
+    },
+    {
+      "tool": "Bash",
+      "args": { "command": "python -m pytest -q && git status --short" },
+      "seconds": 2.3,
+      "result": { "text": "", "error": false, "info": { "exit": 0, "output": "...\n3 passed in 0.04s\n M calc.py\n?? tests/test_calc.py" } }
+    },
+    {
+      "tool": "Glob",
+      "args": { "pattern": "**/*.py" },
+      "result": { "text": "tests/test_calc.py\ncalc.py\ntests/conftest.py\nsetup.py", "info": { "files": 4 } }
+    }
+  ],
+
+  "questions": [
+    {
+      "tool": "Edit",
+      "args": { "file_path": "README.md", "old_string": "## Funktionen\n\n- `add(a, b)` addiert", "new_string": "## Funktionen\n\n- `add(a, b)` addiert\n- `mul(a, b)` multipliziert, auch Kommazahlen" },
+      "why": "",
+      "always": true,
+      "reply": "always"
+    },
+    {
+      "tool": "PowerShell",
+      "args": { "command": "Remove-Item -Recurse -Force build\nRemove-Item -Force .pytest_cache" },
+      "why": "guard rule delete-recursive: Rekursives Loeschen fragt immer nach",
+      "always": false,
+      "reply": "yes"
+    }
+  ],
+
+  "final": "Fertig: `mul` multipliziert jetzt, und der neue Test prüft auch Kommazahlen.\n\n| Datei | Änderung |\n|---|---|\n| `calc.py` | `mul` gibt `a * b` zurück |\n| `tests/test_calc.py` | neu, 3 Tests |\n\n> Die README beschreibt `mul` jetzt auch; ~~ein eigenes Kapitel~~ war nicht nötig.\n\n---\nMehr dazu: [pytest](https://docs.pytest.org) und `python -m pytest --help`.\n\n```powershell\n$result = Invoke-Pytest -Path 'tests' -Verbose  # Beispiel\nif ($LASTEXITCODE -ne 0) { Write-Host \"Fehler: $result\" }\n```\n",
+
+  "turn": { "seconds": 84.2, "rounds": 9, "outputTokens": 1873, "tokensPerSecond": 61, "files": ["calc.py", "tests/test_calc.py", "README.md"] },
+  "session": { "contextShare": 0.23, "inputTokens": 4120, "cachedTokens": 38644, "outputTokens": 1873, "turns": 9, "minutes": 23 }
+}
