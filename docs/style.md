@@ -191,8 +191,8 @@ Unzensiert draws its terminal itself (`scripts\lib\AgentUi*.ps1`), unlike Claude
 only colour theme, activity words and status line can be set. Every element takes colours and
 glyphs from the active style (section `agent` of the style file, colours of the mood "Free"
 or "Ember") and its texts from `config\unzensiert-texts.json`. This is what a session looks
-like in "Breakout", here without colours (made with `scripts\Show-AgentDesign.ps1 -Width 118`,
-shortened); the picture at the top of this page shows it in colour:
+like in "Breakout", here without colours (118 columns, shortened); the picture at the top of
+this page shows it in colour:
 
 ```
                    ✦ *      `            ~ + ` ~   +          ✦ Unzensiert 1.0.0    Wednesday, November 18  ·  13:59
@@ -279,16 +279,6 @@ The elements, from top to bottom:
 | **End of a request** | "✦ Put it on the wall in 1 min 24 s · 9 rounds · 3 files changed · 1,873 tokens · 61 tok/s" with a word of the style (`agent.doneVerbs`); after Esc "■ stopped after 12 s", after a break-off in red | Sprayed, Broke out, Tagged … | Forged, Filed, Hardened … |
 | **Overviews** | `/help` (keys, commands, workflows), `/status` (context with gauge, tokens of the session, rights, what is allowed, rules, changed files), `/model` and `/resume` as lists under small headings | | |
 | **Farewell** | sprayed line, "Session over after 23 min. The characters keep flying.", requests, rounds, tokens read (of which from the cache) and written, changed files, what happened to the models | | "Session over after 23 min." |
-
-All elements at once, without a model and without a server:
-
-```
-powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1                    # in the active style
-powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1 -Style nightshift   # another style, without switching
-```
-
-The sample session is in `tests\agent-design.json`; `-Width` simulates a window width,
-`-OutFile` writes the output with control characters into a file.
 
 If the output is redirected (`unzensiert -p`, benchmark), Unzensiert draws none of it;
 standard output only contains the result.
@@ -407,7 +397,6 @@ scripts\lib\AgentUi.ps1      terminal of Unzensiert: welcome, activity line, not
 scripts\lib\AgentUiMarkdown.ps1  the answer: Markdown, wrapping, tables, colours of code
 scripts\lib\AgentUiTools.ps1     tools, diffs, questions
 config\unzensiert-texts.json  texts of the terminal of Unzensiert
-scripts\Show-AgentDesign.ps1  shows every element of the terminal with tests\agent-design.json
 scripts\style\Shell.ps1      sets up the interactive shell (prompt, greeting, function claude)
 scripts\style\Statusline.ps1 status line of Claude Code
 scripts\Install-Style.ps1    applies the active style to Windows Terminal and Claude Code
@@ -475,12 +464,11 @@ pictures and looked at (own renderer, font Cascadia Mono); "Night Shift" looks a
 the rebuilt code. When switching, `Install-Style.ps1` replaces scheme, theme, profile and theme
 files; a second run changes nothing more.
 
-The terminal of Unzensiert was rendered with `Show-AgentDesign.ps1` in both styles and at 80,
-100 and 120 columns and looked at (own renderer, IBM Plex Mono), after the switch to English
-again in both styles. A test lets an answer arrive piece by piece with pauses: activity line,
-raw lines and wrapped lines leave nothing behind, the final picture equals that of an answer
-in one piece. `Test-Agent.ps1` checks wrapping, diff, colours of code (no character gets lost)
-and the preview.
+The terminal of Unzensiert was rendered in both styles and at 80, 100 and 120 columns and
+looked at (own renderer, IBM Plex Mono), after the switch to English again in both styles. A
+test lets an answer arrive piece by piece with pauses: activity line, raw lines and wrapped
+lines leave nothing behind, the final picture equals that of an answer in one piece. Tests
+check wrapping, diff and colours of code (no character gets lost).
 
 **Not checked:** the look in a real Windows Terminal window with IBM Plex Mono; for Unzensiert
 the title and the progress ring on the tab, the bar behind your own input after PSReadLine and

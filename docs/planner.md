@@ -57,7 +57,7 @@ moved).
 
 The largest context size from `minCtx` (64k) up is chosen whose time is at most
 `speedTolerance` (15 %) above the fastest one. More context is worth some speed: in the
-benchmark the task `longcontext` only passed with 128k ([model-choice.md](model-choice.md)).
+benchmark the task `longcontext` only passed with 128k.
 
 **One context per session.** `claude-local` sets the window of a session to the smallest model
 of the `/model` choice, so a switch does not make any model overflow. The planner therefore
@@ -86,9 +86,6 @@ card or when other programs permanently take graphics memory. `-Verify` loads ev
 checks it with `Test-Model.ps1`; if it does not load or the model process crashes under a
 request, it plans again with 1 GB more reserve per card (at most twice) and remembers the
 reserve in `machine.json` (`planner.reserveMiB`).
-
-To measure other configurations on this computer: `scripts\Measure-Setup.ps1 -Planned` makes
-only certain cards visible and lets the planner compute for exactly those.
 
 ## Measured
 
@@ -159,4 +156,4 @@ choice.
 | `bench` | `tokens 32, repetitions 2, cpuTokens 12` | measuring runs of the calibration |
 
 A computer can override single values in `config\machine.json` under `planner`. After a
-change: `scripts\Plan-Models.ps1 -Verify` and `scripts\Test-Install.ps1`.
+change: `scripts\Plan-Models.ps1 -Verify`.

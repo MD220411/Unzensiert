@@ -74,9 +74,7 @@ A local 27B model follows such rules less reliably than Claude: measured, the RE
 the test came about without being asked in less than half of the runs. That is why the
 closing check asks about them once more at the end of every answer with changes.
 
-The rules were German until 2026-11-18 and are English since then; whether that changes how
-well they are followed is measured in the [development log](devlog.md) (entry of
-2026-11-18).
+The rules were German until 2026-11-18 and are English since then.
 
 ## Closing check
 
@@ -102,7 +100,7 @@ with every request. An error in the hook itself always lets the model stop. The 
 session is in `<installRoot>\run\stop\`; the hook gets the folder through the variable
 `CLAUDE_LOCAL_ROOT` (`scripts\hooks\HookEnvironment.ps1`).
 
-Measured on 15 runs of `local-coder` ([model-choice.md](model-choice.md)): with the closing
+Measured on 15 runs of `local-coder`: with the closing
 check the README names the new feature in 15 instead of 7 runs, a test exists in 15 instead
 of 6. The price is time: with the first version, which always reminded, the runs took 50 %
 longer altogether, because every answer with changes needs at least one more round of the
@@ -184,16 +182,14 @@ then second look (53 s), finding to the author, then the end. Limits: a single c
 Here `local-coder` as reviewer found more, `local-qwen38` was faster. The user chose
 `local-qwen38` (variant A).
 
-**In the benchmark** (run `h3-qwen38`, so far only `extend`, `refactor`, `psscript`, three
-times each, details in the [development log](devlog.md)): 9 reviews, 126 s on average. One
-ERROR finding, and it was real (a test without `test_` that never ran); no false alarm; one
-failed run went unnoticed. The three tasks took 53 % longer altogether than without the
-second look. The measurement with `local-coder` as reviewer and on the tasks from H4 is still
-open ([roadmap](roadmap.md)).
+**In the benchmark** (so far only the tasks `extend`, `refactor` and `psscript`, three times
+each): 9 reviews, 126 s on average. One ERROR finding, and it was real (a test without `test_`
+that never ran); no false alarm; one failed run went unnoticed. The three tasks took 53 %
+longer altogether than without the second look. A measurement with `local-coder` as reviewer
+is still open.
 
 - **Another reviewer:** change `model`, for example to `local-coder`. For a single run it also
-  works through the environment variable `CLAUDE_LOCAL_REVIEW_MODEL`; `Benchmark-Models.ps1
-  -ReviewModel` uses that.
+  works through the environment variable `CLAUDE_LOCAL_REVIEW_MODEL`.
 - **Switching it off:** `enabled` to `false`.
 
 ## Workflows

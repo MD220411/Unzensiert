@@ -16,7 +16,7 @@ for models by their profile name.
 
 The installer decides which model a computer gets by its graphics memory
 ([setup.md](setup.md), hardware tiers). `scripts\Get-Model.ps1 -Model <profile>` downloads
-more; `-List` shows what is installed. Why these models: [model-choice.md](model-choice.md).
+more; `-List` shows what is installed.
 
 ## Structure of `config\models.json`
 
@@ -53,7 +53,7 @@ more; `-List` shows what is installed. Why these models: [model-choice.md](model
   over the cards of a computer (`tensor-split`, `device`, `mmproj-device`, `gpu-layers`,
   `n-cpu-moe`, context) and writes it into `config\machine.json` under
   `models.<profile>.args` ([planner.md](planner.md)). Without a plan llama.cpp distributes the
-  model itself (`--fit`, the default). `Test-Install.ps1` checks that none of it is here.
+  model itself (`--fit`, the default).
 
 After every change: `scripts\Restart-Server.ps1`, then `scripts\Test-Model.ps1 -Model <name>`.
 
@@ -70,8 +70,8 @@ the development computer (RTX 5070 Ti + RTX 3060).
 | `cache-type-k`, `cache-type-v` | `q8_0` | Context cache in 8 bits: about half the memory for the context |
 | `parallel` | `1` | One request at a time. Every further slot shares the context window. |
 | `jinja` | `true` | Evaluate the chat template of the model; needed for tool calls |
-| `ctx-size` | `131072` | Context window in tokens. At least 64k for the agents; with 128k the long task no longer breaks off ([model-choice.md](model-choice.md)). In a session of `claude-local` the smallest window of the profiles in the model choice counts. |
-| `tensor-split` | `70,30` (development computer) | Share of the model for RTX 5070 Ti and RTX 3060. The more lies on the faster card, the faster ([gpu-tuning.md](gpu-tuning.md)). Without it `--fit` distributes. |
+| `ctx-size` | `131072` | Context window in tokens. At least 64k for the agents; with 128k the long task no longer breaks off. In a session of `claude-local` the smallest window of the profiles in the model choice counts. |
+| `tensor-split` | `70,30` (development computer) | Share of the model for RTX 5070 Ti and RTX 3060. The more lies on the faster card, the faster. Without it `--fit` distributes. |
 | `device` | `CUDA1` (development computer) | Put the model on one card only (`CUDA0` = 5070 Ti, `CUDA1` = 3060; list: `llama-server.exe --list-devices`) |
 | `spec-type` | `draft-mtp` | Speculative decoding with the MTP head of the model, see below |
 | `spec-draft-n-max` | `4` | How many tokens the model drafts ahead |
@@ -95,8 +95,8 @@ accepted`). Models without an MTP head do not get the option.
 
 Measured and left out: n-gram drafts in addition to MTP (`spec-type ngram-mod,draft-mtp`), which
 guess passages the model copies from the conversation, and longer MTP drafts (6 tokens with
-`spec-draft-p-min`); in agent work neither was faster than MTP with 4 tokens
-([model-choice.md](model-choice.md), 2026-11-18).
+`spec-draft-p-min`); in agent work neither was faster than MTP with 4 tokens (measured
+2026-11-18).
 
 ## Images
 
@@ -172,9 +172,7 @@ For a new model:
    The test must show `tool calling: OK`, otherwise the agent cannot edit files, and
    `image input: OK`, otherwise it fails on images and on tool results with text attached.
 4. **Try it with the agent:** `unzensiert --model <name>` or `claude-local -Model <name>`.
-5. **Compare (optional):** enter the name in `config\benchmark.json` under `models` and start
-   `scripts\Benchmark-Models.ps1`.
-6. **Add it to the choice (optional):** enter it in `config\agent.json` under `picker` and
+5. **Add it to the choice (optional):** enter it in `config\agent.json` under `picker` and
    `aliases` ([agent.md](agent.md)).
 
 If the GPU memory is not enough, a smaller `ctx-size` or a new plan helps
@@ -183,8 +181,8 @@ the memory in use per card; a few hundred MiB per card should stay free.
 
 ## Removing a model
 
-Delete the entry from `config\models.json` (and from `agent.json`, `benchmark.json`,
-`setups.json`, `continue.config.yaml`, where it appears), restart the server, then delete the
+Delete the entry from `config\models.json` (and from `agent.json`, `setups.json`,
+`continue.config.yaml`, where it appears), restart the server, then delete the
 file in the model folder. To remove it on one computer only: delete the file; the profile is
 then missing from the model list of the server and from `/model`.
 
@@ -193,13 +191,13 @@ then missing from the model list of the server and from `/model`.
 The sources are in the field `download` of each profile: repository, fixed state and SHA-256
 per file, read from the Hugging Face API on 2026-11-17. The files on the development computer
 match: the sizes of all model files are byte-identical, the SHA-256 of the three image
-encoders (`mmproj`) was recomputed on 2026-11-17 and matches. That also settles their source
-(an open point in the [development log](devlog.md) before). Exception: the autocomplete file
+encoders (`mmproj`) was recomputed on 2026-11-17 and matches. Exception: the autocomplete file
 of the development computer (Q4_K_M, from Ollama) has no byte-identical source; new computers
 get the Q8_0 file from `ggml-org`, the development computer keeps its own through
 `machine.json`.
 
 The model folder of the development computer holds a file without a profile:
 `gpt-oss-20b-MXFP4.gguf` (a hard link to the file of another project, takes no extra space).
-The file of qwen3-coder 30B (formerly `local-fast`) was deleted on 2026-11-14. Why both were
-dropped: [model-choice.md](model-choice.md).
+The file of qwen3-coder 30B (formerly `local-fast`) was deleted on 2026-11-14. Both were
+dropped after the benchmark: gpt-oss 20B passed only one of three runs of the harder task, and
+qwen3-coder 30B often did not stop at the end of its answer.

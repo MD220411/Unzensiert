@@ -117,6 +117,55 @@ installer suggests `claude-local` on the drive with the most room and remembers 
   downloads\         downloaded archives
 ```
 
+## The agent Unzensiert: files, pitfalls, tests, releases
+
+Moved here from `unzensiert.md` on 2026-11-18, when the development material became private.
+
+| File | Content |
+|---|---|
+| `scripts\unzensiert.ps1`, `bin\unzensiert.cmd` | starter: arguments, update, model, server, session |
+| `scripts\lib\AgentApi.ps1` | JSON (JavaScriptSerializer of .NET, much faster than `ConvertTo-Json`) and the streamed request |
+| `scripts\lib\AgentTools.ps1` | the tools |
+| `scripts\lib\AgentPrompt.ps1` | system prompt with project instructions |
+| `scripts\lib\AgentSession.ps1` | messages, saved conversations, size of the context |
+| `scripts\lib\AgentUi.ps1` | terminal: texts, colours, welcome, activity line, title and progress of the tab, notes, input (PSReadLine), status line, overviews, end of a request, farewell |
+| `scripts\lib\AgentUiMarkdown.ps1` | the answer: Markdown, wrapping, tables, colours of code |
+| `scripts\lib\AgentUiTools.ps1` | tools, diffs, questions |
+| `config\unzensiert-texts.json` | texts of the terminal |
+| `scripts\Show-AgentDesign.ps1`, `tests\agent-design.json` | all elements of the terminal with a sample session, without a model |
+| `scripts\lib\AgentLoop.ps1` | one request: model, guard, rights, tools, closing check, context |
+| `scripts\lib\AgentRepl.ps1` | conversation, slash commands, one-off run, arguments |
+| `scripts\lib\Update.ps1` | automatic updates |
+| `scripts\hooks\GuardRules.ps1` | rules of the guard, shared with the hook for Claude Code; Unzensiert checks in its own process (2.7 ms per call instead of 280 ms for a hook process, measured) |
+| `scripts\Test-Agent.ps1` | checks without a model (about 5 s), `-WithModel` with a small task |
+| `scripts\New-Release.ps1` | publish a release |
+
+Deliberate peculiarities of PowerShell 5.1 the code takes care of: lists come back from
+functions with a leading comma (otherwise a list with one element becomes that element; the
+call then does not also stand in `@(...)`, that would give a list in a list), indices of a
+two-dimensional array with expressions (`$t[($i + 1), $j]`) go into variables first, because
+PowerShell cannot read them as the argument of a method, data for the server contains no
+values of cmdlets (`New-Object`, `Join-Path`, `Get-Date` wrap them in a PSObject the
+serialiser does not know), contents of files are compared with `-ceq` (`-eq` ignores upper and
+lower case; an edit from `true` to `True` therefore counted as "nothing to change" until
+2026-11-18), variable names are case-insensitive (`$n` is the same as a parameter `$N`, so a
+local variable can overwrite a parameter), and child processes start through
+`Start-ChildProcess` (`lib\Machine.ps1`), because .NET otherwise writes a byte order mark into
+their input on a UTF-8 console.
+
+**Tests of the terminal:**
+
+- **Operation in the terminal** (keys, input line, questions) is only checked by the test
+  scripts up to the output; no script can simulate key presses. One-off runs and the
+  benchmark are measured.
+
+**Releases:**
+
+- **Publishing a release** (only for maintaining the repository):
+  `scripts\New-Release.ps1 -Version 1.1.0 -Notes "..."` checks working state, branch and tag,
+  runs the check scripts, writes `VERSION`, commits, sets the tag, pushes and creates the
+  release with `gh`; `-DryRun` only shows what would happen.
+
 ## Principles
 
 - **Configuration lives in `config\`, not in scripts.** Scripts read all values through

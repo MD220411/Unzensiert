@@ -31,8 +31,7 @@ the [README](../README.md).
 The one-liner (`install.ps1`) puts the program into `%LOCALAPPDATA%\Programs\claude-local`.
 It takes the newest release on GitHub (as long as there is none, the state of `main`): if Git
 is there, it clones its tag, otherwise it downloads its ZIP. Then it starts
-`scripts\Install.ps1`. It runs in the user's PowerShell session and never ends it
-(`Test-Install.ps1` checks that it contains no `exit`).
+`scripts\Install.ps1`. It runs in the user's PowerShell session and never ends it.
 
 If Windows reports "Windows protected your PC" for `Install.cmd`, that is because the file
 came from the internet: "More info", then "Run anyway".
@@ -87,17 +86,17 @@ itself (`--fit`); the values with the planner are in [planner.md](planner.md).
 | from 7 GB | 32 GB | `local-fast`, mostly in main memory | 64k | RTX 3060, 4 GB kept free | 57 tokens/s | 126 s |
 | below | 32 GB | `local-fast` on the processor | 32k | Core i9-14900K | 26 tokens/s | 354 s |
 
-Measured on 2026-11-17 with `scripts\Measure-Setup.ps1`: the script shows llama.cpp only the
-chosen cards (`CUDA_VISIBLE_DEVICES`), keeps memory free on request (`--fit-target`) and
-takes the general settings without the fine-tuning of the development computer.
-"Generation" is the speed from `Test-Model.ps1`, "session start" the time in which the model
-reads the roughly 26,000 tokens Claude Code sends first (Unzensiert sends about 2,800). All
-runs passed tool calls and image input. Raw values: `logs\model-tests.log`.
+Measured on 2026-11-17 on the development computer: llama.cpp saw only the chosen cards
+(`CUDA_VISIBLE_DEVICES`), kept memory free where noted (`--fit-target`) and ran with the
+general settings, without the fine-tuning of the development computer. "Generation" is the
+speed from `Test-Model.ps1`, "session start" the time in which the model reads the roughly
+26,000 tokens Claude Code sends first (Unzensiert sends about 2,800). All runs passed tool
+calls and image input.
 
 - **16 GB: `local-coder` instead of `local-fast`.** On the RTX 5070 Ti alone `local-fast`
   generates 97 tokens/s, `local-coder` only 21. But in the benchmark `local-coder` solved 14
-  of 15 of the hard tasks, `local-fast` 3 of 15 (state before the closing check,
-  [model-choice.md](model-choice.md)). Reliability comes first. The installer names
+  of 15 of the hard tasks, `local-fast` 3 of 15 (state before the closing check). Reliability
+  comes first. The installer names
   `local-fast` as the alternative (`-Model local-fast`).
 - **12 GB: `local-fast`.** On the RTX 3060 alone `local-coder` generates 11 tokens/s and
   needs 143 s for the session start; that is too sluggish for work.
@@ -119,7 +118,6 @@ The files in `config\` apply on every computer and are in the repository.
 | `server` | `server.json` | `installRoot`, `package` |
 | `projects` | `projects.json` | `projectsRoot` |
 | `agent` | `agent.json` | `model` (default model of this computer) |
-| `benchmark` | `benchmark.json` | `workDir` |
 | `modelDefaults` | `defaults` in `models.json` | `gpu-layers` |
 | `models` | a profile in `models.json` | `args` (split, card, context), `file` |
 
@@ -200,7 +198,6 @@ how to remove them. Delete the program folder by hand afterwards.
 | `config\coding-rules.md` | working rules for the local model | [agent.md](agent.md) |
 | `config\style.json`, `config\styles\` | the look of terminal, shell, Unzensiert and Claude Code | [style.md](style.md) |
 | `config\continue.config.yaml` | Continue: chat and autocomplete models | below |
-| `config\benchmark.json` | profiles and tasks of the benchmark | [extending.md](extending.md) |
 | `config\guard.json` | guard rules for tool calls of the local model | [security.md](security.md) |
 
 ## Continue (chat and autocomplete in the editor)

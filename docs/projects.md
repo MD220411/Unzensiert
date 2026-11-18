@@ -1,7 +1,7 @@
 # Projects with the local model
 
 How to create and work on a project so it stays maintainable even when a local model writes
-most of the code. Measurements: [model-choice.md](model-choice.md).
+most of the code.
 
 ## Creating a new project
 
@@ -47,9 +47,8 @@ The templates are in `templates\project\`: `shared\` goes into every project, pl
 folder of the language. Placeholders: `{{NAME}}`, `{{PACKAGE}}`, `{{PURPOSE}}`, `{{DATE}}`; a
 folder `__PACKAGE__` gets the package name.
 
-**Adding a language:** create a folder in `templates\project\`, add its name under
-`languages` in `config\projects.json`, add a built-in error for the language in
-`scripts\Test-Templates.ps1`, then run `Test-Templates.ps1`.
+**Adding a language:** create a folder in `templates\project\` and add its name under
+`languages` in `config\projects.json`.
 
 ## The check command
 
@@ -74,13 +73,11 @@ reports a task as done.
 
 The linter steps (`ruff`, `PSScriptAnalyzer`) are entered as optional. Neither program is
 installed on the development computer; the steps are therefore untried. A search for secrets
-and a check of the dependencies belong to the points S7 and N9 of the
-[roadmap](roadmap.md) and are still missing.
+and a check of the dependencies are still missing.
 
 **Retrofitting an existing project:** copy `scripts\Check.ps1` from
 `templates\project\shared\scripts\`, create `config\check.json` with the commands of the
-project, write a short `CLAUDE.md` following the pattern of the template. That is exactly
-what the benchmark variant `-Overlay project` does ([extending.md](extending.md)).
+project, write a short `CLAUDE.md` following the pattern of the template.
 
 ## Facts: one source of truth
 
@@ -131,14 +128,3 @@ to the check command of the project.
 - **Interfaces:** what other modules may use is in the table in `docs\architecture.md`. When
   an interface, a file format or a dependency changes, a file belongs in `docs\decisions\` and
   an entry in `CHANGELOG.md`.
-
-## Checking the templates
-
-```
-powershell -ExecutionPolicy Bypass -File scripts\Test-Templates.ps1
-```
-
-Creates one project per language in a temporary folder and checks: all placeholders filled,
-the check command passes, the first commit goes through the git hook, built-in errors make the
-check command fail (a copy that contradicts `facts\facts.json`, a fact without a source, a
-failing test), the failing test also the commit.

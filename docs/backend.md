@@ -109,8 +109,7 @@ curl.exe -H "Authorization: Bearer $key" http://127.0.0.1:8080/models
    checks with `--list-devices` that llama.cpp sees the graphics card. Otherwise it tries
    the next package from `packages`. `-Package win-vulkan-x64` forces another package.
 4. `scripts\Restart-Server.ps1`, then `scripts\Test-Model.ps1`.
-5. When in doubt, `scripts\Benchmark-Models.ps1 -Label <build>` and compare with the previous
-   run. To go back, set `build` to the old value again; the old folder stays until you
+5. To go back, set `build` to the old value again; the old folder stays until you
    delete it.
 
 ## Troubleshooting
@@ -132,4 +131,4 @@ The log of the server and of all model processes is `<installRoot>\logs\server.l
 | Continue reports connection errors | The server is not running: `scripts\Start-Server.ps1`. |
 | Error 401 `Invalid API Key` | The caller sends no key or an old one. Continue: `scripts\Install-Continue.ps1` and restart VS Code. Own calls: send the key from `<installRoot>\run\api-key.txt`, see "Interfaces". If a server from before a change of the key is still running: `Restart-Server.ps1`. |
 | A script fails on a configuration file | `scripts\Test-Setup.ps1` names the file and the place that does not fit. |
-| The answer never ends, the model keeps calling tools | The model writes an open `<tool_call>` at the end, and the grammar of llama.cpp forces a complete call out of it. Affected qwen3-coder 30B; use another model ([model-choice.md](model-choice.md)). |
+| The answer never ends, the model keeps calling tools | The model writes an open `<tool_call>` at the end, and the grammar of llama.cpp forces a complete call out of it. Affected qwen3-coder 30B; use another model. |

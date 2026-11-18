@@ -19,7 +19,7 @@ There are two things it explicitly does not do:
 | Key for the server | web pages in the browser and other programs that use the server | `config\server.json` |
 | Guard before every tool call | destructive commands, access to credentials | `config\guard.json` |
 | Git note at start | changes that cannot be undone | `config\agent.json` |
-| Check scripts | configuration errors that silently switch the protection off | `scripts\Test-Setup.ps1`, `scripts\Test-Guard.ps1` |
+| Check script | configuration errors that silently switch the protection off | `scripts\Test-Setup.ps1` |
 
 ## Key for the server
 
@@ -90,24 +90,19 @@ install folder and the projects folder as `%CLAUDE_LOCAL_ROOT%` and
 `%CLAUDE_LOCAL_PROJECTS%`. `scripts\_common.ps1` sets both variables from the settings of the
 computer, and the guard gets them through Claude Code; when you start it by hand,
 `scripts\hooks\HookEnvironment.ps1` reads them itself. An entry with an unknown variable is
-dropped, the other rules still apply. `Test-Guard.ps1` sets fixed sample folders (`machine` in
-`tests\guard-cases.json`) so the cases give the same result on every computer.
+dropped, the other rules still apply.
 
 ### Changing the rules
 
-Edit `config\guard.json`, then run `scripts\Test-Guard.ps1`. Applies from the next session.
+Edit `config\guard.json`, then run `scripts\Test-Setup.ps1`. Applies from the next session.
 
 - **A rule gets in the way:** set `decision` from `deny` to `ask` or remove the entry.
 - **Another folder should be protected:** add it under `criticalPaths` (cannot be deleted as
   a whole) or `secretPaths` (access only after a question).
 - **A new rule for commands:** an entry under `commandRules` with `id`, `decision`, `pattern`
-  (regular expression, case-insensitive) and `reason`. Add cases to `tests\guard-cases.json`
-  as well: at least one that must match and a similar one that must stay free.
+  (regular expression, case-insensitive) and `reason`. Try it on a command that must match and
+  on a similar one that must stay free.
 - **Switching it off:** `"enabled": false`.
-
-`Test-Guard.ps1` hands every case from `tests\guard-cases.json` to the guard the way Claude
-Code does. The first block of cases are normal working steps that must stay free; it keeps a
-new rule from getting in the way of work.
 
 ### Limits
 
@@ -116,7 +111,7 @@ new rule from getting in the way of work.
   from variables, hidden in a script that is first written and then started). Measured on
   2026-11-15: after a blocked command the model looked for another spelling on its own that
   was not blocked. In that case it was harmless; you cannot rely on that. Commands can only
-  really be locked in with WSL2 ([roadmap.md](roadmap.md), S6).
+  really be locked in with WSL2.
 - **Delete targets in variables** (`rm -rf "$DIR"`) cannot be resolved by the guard; they stay
   free, otherwise normal work would be interrupted all the time.
 - **Cost:** with `claude-local` about 0.3 s per tool call (starting PowerShell, measured
@@ -134,11 +129,9 @@ repository or has uncommitted changes (`gitCheck` in `config\agent.json`). With 
 before the session, everything the model changes can be seen with `git diff` and undone with
 `git checkout`. With redirected output (`-p` in scripts) the note does not appear.
 
-## Check scripts
+## Check script
 
-| Script | Checks | Duration |
-|---|---|---|
-| `Test-Setup.ps1` | configuration files valid and consistent with each other, scripts readable (ASCII, syntax), model files and templates present, guard answers | a few seconds |
-| `Test-Guard.ps1` | all cases from `tests\guard-cases.json` | about 25 s |
-
-Neither needs a graphics card, and both end with exit code 1 on an error.
+`scripts\Test-Setup.ps1` checks in a few seconds that the configuration files are valid and
+consistent with each other, the scripts are readable (ASCII, syntax), model files and templates
+are present and the guard answers. It needs no graphics card and ends with exit code 1 on an
+error.

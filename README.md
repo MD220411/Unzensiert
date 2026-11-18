@@ -110,9 +110,7 @@ pink. Answers are Markdown with aligned tables.
 
 </details>
 
-All of it without a model: `powershell -ExecutionPolicy Bypass -File scripts\Show-AgentDesign.ps1`
-(`-Style nightshift` for the other style). Every element is described in
-[docs/style.md](docs/style.md#the-terminal-of-unzensiert).
+Every element is described in [docs/style.md](docs/style.md#the-terminal-of-unzensiert).
 
 ## Compared with Claude Code
 
@@ -130,8 +128,7 @@ benchmark tasks three times each with both agents (run `vergleich2`, 2026-11-18)
 
 Unzensiert was faster on every one of the eleven tasks. The difference in passing is within
 chance (Fisher's exact test, p = 0.73); every failure with a wrong result is a mistake of the
-model that also happened with Claude Code. Per task and assessment:
-[docs/model-choice.md](docs/model-choice.md).
+model that also happened with Claude Code.
 
 ## Which model you get
 
@@ -228,24 +225,21 @@ It is no sandbox; see [docs/security.md](docs/security.md) for the rules and the
 |---|---|
 | Model | `local-coder` = Qwen 3.6 27B, uncensored (Heretic v2), with MTP, 128k context |
 | Speed | `local-coder` 66 to 71 tokens/s with the computed layout (about 60 by hand, 44 with `--fit`), `local-fast` 171, `local-qwen38` 70; all with 128k context (RTX 5070 Ti + RTX 3060) ([planner.md](docs/planner.md)) |
-| Benchmark | `local-coder`: all 24 runs of the four older tasks passed, 14 of 15 of the five harder ones, 89 % of the working rules followed, 91 % with the project template (measured with 64k); the two tasks on faithfulness to facts and consistency across files 6 of 6 ([model-choice.md](docs/model-choice.md)) |
+| Benchmark | `local-coder`: all 24 runs of the four older tasks passed, 14 of 15 of the five harder ones, 89 % of the working rules followed, 91 % with the project template (measured with 64k); the two tasks on faithfulness to facts and consistency across files 6 of 6 |
 | Backend | llama.cpp build b12433 (`llama-server` in router mode), programs and models in the install folder (`config\machine.json`) |
 | Install | installer for any Windows computer: chooses llama.cpp package and model by graphics card, downloads with checksums, measures the cards and computes the layout ([setup.md](docs/setup.md), [planner.md](docs/planner.md)); tried only on the development computer so far |
 | Agent | Unzensiert, its own program (PowerShell 5.1, OpenAI-compatible interface of `llama-server`), version in `VERSION`, automatic updates from the releases, its own terminal in the look of the project ([style.md](docs/style.md#the-terminal-of-unzensiert)); for comparison Claude Code through the Anthropic-compatible interface ([unzensiert.md](docs/unzensiert.md)) |
-| Comparison | Unzensiert against Claude Code, all eleven tasks three times each with `local-coder`: Unzensiert faster on all eleven (sum of the medians 1,629 s instead of 2,160 s, 36 % fewer rounds); passed 27 instead of 29 of 33, a difference within chance (every failure is a mistake of the model that also happened with Claude Code); working rules 88 instead of 86 of 96 ([model-choice.md](docs/model-choice.md)) |
+| Comparison | Unzensiert against Claude Code, all eleven tasks three times each with `local-coder`: Unzensiert faster on all eleven (sum of the medians 1,629 s instead of 2,160 s, 36 % fewer rounds); passed 27 instead of 29 of 33, a difference within chance (every failure is a mistake of the model that also happened with Claude Code); working rules 88 instead of 86 of 96 |
 
 ## Limits
 
 - A local 27B model is much weaker than Claude. Small features, extensions, refactoring
   across a few files, bug hunting and PowerShell scripts go well. README and tests only come
-  reliably through the closing check; it costs about a quarter more time per task (measured,
-  [model-choice.md](docs/model-choice.md)).
+  reliably through the closing check; it costs about a quarter more time per task (measured).
 - Even 128k context fills up. Unzensiert then shortens old tool results and summarises the
   conversation, Claude Code compacts it. For a new task better start a new session
   (`/clear`). Claude Code can break off with "Autocompact is thrashing" on a task that needs
   many files at once; then hand it out in parts.
-- The test scripts check the terminal of Unzensiert (keys, questions) only up to its output;
-  one-off runs and the benchmark are measured.
 - Tested on Windows 11 with an RTX 5070 Ti and an RTX 3060. It has not run on other hardware
   yet: please [open an issue](https://github.com/MD220411/Unzensiert/issues) and tell what
   worked and what did not.
@@ -260,11 +254,8 @@ bin\          the commands unzensiert and claude-local for the PATH
 config\       all settings: server.json, models.json, agent.json, unzensiert.json, updates.json, setups.json, rules, templates, styles;
               machine.json = values of this computer (from the installer, not in the repository)
 scripts\      one script per job; shared building blocks in scripts\lib\
-benchmark\    tasks for the agent benchmark
 templates\    templates for new projects
-tests\        test cases for the scripts
 docs\         documentation
-logs\         measurements
 ```
 
 Programs, model files and the server log are outside the repository in the install folder the
@@ -274,7 +265,7 @@ installer chooses (suggestion: `claude-local` on the drive with the most room).
 
 | File | Content |
 |---|---|
-| [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, context, saved conversations, one-off runs, automatic updates, releases |
+| [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, context, saved conversations, one-off runs, automatic updates |
 | [docs/style.md](docs/style.md) | the look: "Breakout" (colourful, pictures and a wall of characters) or "Night Shift" (calm); shell, terminal of Unzensiert, status line, colour themes for `claude` and `claude-local`, switching the style |
 | [docs/setup.md](docs/setup.md) | the installer step by step, hardware tiers, updating, uninstalling, values of the computer (`machine.json`), overview of the configuration files |
 | [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, measurements, limits |
@@ -283,14 +274,6 @@ installer chooses (suggestion: `claude-local` on the drive with the most room).
 | [docs/projects.md](docs/projects.md) | a new project from the template, check command, facts with sources compared against documentation and code, way of working |
 | [docs/models.md](docs/models.md) | model profiles, MTP, chat templates, adding a new model |
 | [docs/backend.md](docs/backend.md) | llama-server: operating, settings, updating, troubleshooting |
-| [docs/architecture.md](docs/architecture.md) | layers, folders, principles, reasons |
-| [docs/extending.md](docs/extending.md) | signposts for changes, benchmark, new scripts |
-| [docs/model-choice.md](docs/model-choice.md) | assessment of the measurements and the choice of models |
-| [docs/benchmark.md](docs/benchmark.md) | measurements of all tested models (generated) |
-| [docs/gpu-tuning.md](docs/gpu-tuning.md) | splitting a model over two graphics cards, the role of PCIe x4 |
-| [docs/gpu-setups.md](docs/gpu-setups.md) | measurements per GPU split (Ollama, 2026-11-13) |
-| [docs/roadmap.md](docs/roadmap.md) | roadmap: proposals on security, quality, sustainable development, efficiency and speed, in order |
-| [docs/devlog.md](docs/devlog.md) | development log: what was done and measured when, open points |
 
 ## Scripts
 
@@ -309,23 +292,14 @@ Each one is called with `powershell -ExecutionPolicy Bypass -File scripts\<name>
 | `Restart-Server.ps1` | restart, needed after changes to `server.json` or `models.json` |
 | `Test-Model.ps1` | check speed, tool calls, image input and GPU memory of a profile |
 | `Test-Setup.ps1` | check configuration and scripts without loading a model (a few seconds) |
-| `Test-Install.ps1` | check the logic of the installer, without download and without a graphics card: `machine.json`, device list, choice of the tier, download entries, dry run `-Plan`, planner with a simulated memory model |
-| `Test-Guard.ps1` | check the guard rules against the cases in `tests\guard-cases.json` |
-| `Test-Agent.ps1` | check the agent Unzensiert without a model: JSON, streamed answer, tools, rights, repetitions and changes without effect, sessions, commands, closing check, updates, terminal (Markdown, wrapping, diff, colours of code, preview); `-WithModel` solves a small task |
-| `Test-Tasks.ps1` | check the benchmark tasks without a model: the template fails, the reference solution passes |
-| `Test-Templates.ps1` | check the project templates: a new project passes its check command, built-in errors (contradiction to `facts\facts.json`, fact without source, failing test) make it fail |
 | `New-Project.ps1` | create a new project from the template (Python or PowerShell), with check command and first commit |
 | `Invoke-Review.ps1` | second look: a second local model reviews the uncommitted change of a project (also runs in the closing check) |
-| `Benchmark-Models.ps1` | compare profiles: raw values, agent tasks and working rules followed; `-Agent unzensiert` or `claude-local` |
-| `Measure-Setup.ps1` | simulate and measure a hardware tier on this computer (only certain cards visible, layout by llama.cpp or with `-Planned` by the planner), for `measured` in `config\setups.json` |
 | `Install-Path.ps1` | add `bin\` to the PATH |
 | `Install-Continue.ps1` | install Continue and copy its configuration |
 | `Install-Font.ps1` | install the font of the look (IBM Plex Mono) for the user |
 | `Install-Style.ps1` | apply the style chosen in `config\style.json` (`config\styles\`) to Windows Terminal and Claude Code, also after a switch (`-Remove` takes it back) |
-| `Show-AgentDesign.ps1` | show every element of the terminal of Unzensiert with a sample session, without a model; `-Style nightshift` shows another style without switching |
 | `unzensiert.ps1` | starter behind the command `unzensiert` |
 | `claude-local.ps1` | starter behind the command `claude-local` (Claude Code for comparison) |
-| `New-Release.ps1` | publish a new version: checks, `VERSION`, tag, release on GitHub (only for maintaining the repository) |
 
 ## Disclaimer
 

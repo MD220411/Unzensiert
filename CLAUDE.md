@@ -21,7 +21,7 @@ computer with two graphics cards. Overview: `README.md`, structure: `docs\archit
 - **Scripts are repeatable** and have a header comment with purpose and usage.
 - **`.ps1` files ASCII-only**, comments in them in English. Windows PowerShell 5.1 reads files
   without a BOM as ANSI.
-- **Pitfalls of PowerShell 5.1** (section "Structure" in `docs\unzensiert.md`): variable names
+- **Pitfalls of PowerShell 5.1** (section "The agent Unzensiert" in `docs\architecture.md`): variable names
   are case-insensitive (`$ui` is `$script:Ui`, `$agent` is a parameter `-Agent`); a list with
   one element comes back from a function as that element (`@(...)` at the call or
   `return , $list`); values of `New-Object`, `Join-Path`, `Get-Date` are PSObjects and do not
