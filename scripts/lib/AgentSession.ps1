@@ -156,14 +156,18 @@ function Get-EstimatedTokens($Session) {
 
 function Compress-OldToolResults($Session, [int]$KeepRounds, [int]$MaxChars) {
     # Shortens the results of tools older than the last $KeepRounds answers of the model to
-    # their beginning: the cheap way to make room before a summary is needed. Returns the
-    # number of characters saved.
+    # their beginning and drops the thinking of those answers: the cheap way to make room
+    # before a summary is needed. Returns the number of characters saved.
     $assistantSeen = 0
     $saved = 0
     for ($i = $Session.messages.Count - 1; $i -ge 0; $i--) {
         $m = $Session.messages[$i]
         if ($m['role'] -eq 'assistant') { $assistantSeen++ }
         if ($assistantSeen -le $KeepRounds) { continue }
+        if ($m['role'] -eq 'assistant' -and ([System.Collections.IDictionary]$m).Contains('reasoning_content')) {
+            $saved += ([string]$m['reasoning_content']).Length
+            $m.Remove('reasoning_content')
+        }
         if ($m['role'] -eq 'tool' -and $m['content'] -is [string] -and $m['content'].Length -gt $MaxChars) {
             $old = $m['content']
             $m['content'] = $old.Substring(0, $MaxChars) + "`n... [shortened afterwards, was $($old.Length) characters; read the file again if needed]"

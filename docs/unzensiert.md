@@ -166,12 +166,17 @@ the agent (`CLAUDE_LOCAL_AGENT=Unzensiert`). Esc also breaks off a long check.
 The window is `ctx-size` of the model profile. After every answer Unzensiert knows the exact
 token count from the server and only estimates what came since. When the conversation fills
 `compactAt` (80 %) of the window, it first shortens old tool results (older than
-`keepRecentRounds` rounds) to `oldToolResultChars` characters; if that is not enough, the
-model summarises the conversation and keeps working afterwards, with the last request word for
-word. If a request still does not fit, it summarises and tries once more. The thinking of
-earlier requests is dropped (the chat templates leave it out anyway), the thinking of the
-current request goes back to the model, so the server can reuse its cache: in a test run with
-three requests 8,629 of 8,719 tokens came from the cache.
+`keepRecentRounds` rounds) to `oldToolResultChars` characters and drops the thinking of those
+rounds; if that is not enough, the model summarises the conversation and keeps working
+afterwards, with the last request word for word. If a request still does not fit, it
+summarises and tries once more.
+
+The thinking of the model stays in the conversation, also that of earlier requests: the chat
+templates of the Qwen models show it (`preserve_thinking`), so the text the server has cached
+stays the same and only what is new is read in. Measured with `local-coder`: after a request
+of eight tool rounds (21,561 tokens) the next request read 33 tokens; with the thinking of the
+earlier request removed, as Unzensiert did up to version 1.1, it read 21,288 tokens again
+(22 s), because these models can only go back to a saved checkpoint, not to any position.
 
 ## Saved conversations
 

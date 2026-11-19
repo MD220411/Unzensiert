@@ -28,13 +28,14 @@
   "rulesFile": "coding-rules.md",
 
   "stopCheck": {
-    "_comment": "Closing check when the model wants to end an answer in which it changed files (scripts\\hooks\\Check-Stop.ps1). commands: check scripts looked for in the project folder, the first one found is run. maxBlocks: how often a failing check is handed back to the model. reminderFile: text in config\\ the model gets once per answer, empty = no reminder. The text has points of the form '- [name] ...'. reminderPoints: a point is left out when a file changed in this answer matches doneWhenEdited (regular expression on the path); codeOnly: the point only counts when program code was changed (a file that matches no pattern). No open point = no reminder. Without reminderPoints the whole text is always sent.",
+    "_comment": "Closing check when the model wants to end an answer in which it changed files (scripts\\hooks\\Check-Stop.ps1). commands: check scripts looked for in the project folder, the first one found is run. maxBlocks: how often a failing check is handed back to the model. reminderFile: text in config\\ the model gets once per answer, empty = no reminder. The text has points of the form '- [name] ...'. reminderPoints: a point is left out when a file changed in this answer matches doneWhenEdited (regular expression on the path); codeOnly: the point only counts when program code was changed (a file that matches no pattern); a point without doneWhenEdited (task) stays open whenever it counts. No open point = no reminder. Without reminderPoints the whole text is always sent.",
     "enabled": true,
     "commands": ["scripts\\Check.ps1", "Check.ps1"],
     "timeoutSeconds": 180,
     "maxBlocks": 3,
     "reminderFile": "closing-check.md",
     "reminderPoints": [
+      { "name": "task", "codeOnly": true },
       { "name": "test", "codeOnly": true, "doneWhenEdited": "(^|[\\/])tests?[\\/]|(^|[\\/])test_[^\\/]*$|_test\\.[a-z]+$|\\.Tests\\.ps1$|(^|[\\/])Test-[^\\/]*\\.ps1$" },
       { "name": "docs", "doneWhenEdited": "(^|[\\/])README[^\\/]*$|(^|[\\/])docs[\\/]|\\.md$" },
       { "name": "settings", "codeOnly": true, "doneWhenEdited": "(^|[\\/])config[\\/]|\\.(json|ini|toml|ya?ml|cfg)$" }

@@ -100,6 +100,7 @@ $pcfg = Get-PlannerConfig
 $ctxList = @($pcfg.ctxCandidates | ForEach-Object { [int]$_ })
 Assert-That ($ctxList.Count -gt 0 -and @($ctxList | Where-Object { $_ -lt 4096 }).Count -eq 0 -and [int]$pcfg.minCtx -le ($ctxList | Measure-Object -Maximum).Maximum) 'planner.json: context sizes of at least 4096, minCtx not above the largest'
 Assert-That ([double]$pcfg.speedTolerance -ge 0 -and [double]$pcfg.speedTolerance -lt 1 -and [double]$pcfg.reserveMiB -ge 0 -and [double]$pcfg.mtpReserveMiB -ge 0) 'planner.json: tolerance between 0 and 1, reserves not negative'
+Assert-That ($pcfg.PSObject.Properties['cacheRamMaxGiB'] -and [double]$pcfg.cacheRamMaxGiB -ge 0) 'planner.json: upper limit of the conversation cache in main memory (cacheRamMaxGiB) set, not negative'
 if (Test-Path $server.exe) {
     foreach ($tool in 'llama-fit-params', 'llama-bench') { Assert-That (Test-Path (Get-LlamaTool $tool)) "llama.cpp brings $tool.exe (needed by the planner)" }
 }

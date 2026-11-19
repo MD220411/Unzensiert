@@ -65,11 +65,27 @@ computes the default model first; the other models of the choice get at least it
 it fits for them. Otherwise `local-fast` would have got 64k on the development computer
 (200.8 instead of 171.2 tok/s) and every session with `local-coder` would have shrunk to 64k.
 
+**Cache of earlier conversations.** Every model process of `llama-server` keeps the state of
+earlier conversations in main memory, so that a conversation that comes back does not have
+to be read in again (`--cache-ram`, 8 GiB by default). With the Qwen 3.6 models one entry is
+3.4 to 7.4 GB (they keep up to 32 checkpoints of their recurrent state per conversation), so
+the default holds a single conversation: when two conversations take turns, for example two
+sessions or a session and a side request, each one is read in completely every time
+(measured on the development computer: prompts of 53,000 to 60,000 tokens, 63 to 74 s each).
+The planner therefore gives every model what is left of the main memory after `ramReserveGiB`
+and the model's own share there, divided by `modelsMax` of `config\server.json` (that many
+models can be loaded at once), at most `cacheRamMaxGiB`. If that is not more than the 8 GiB of
+llama.cpp, the option stays out. On the development computer (128 GB) that is 32 GiB per
+model. The limit is not reserved: the cache only takes memory for conversations that are
+actually kept. Measured with two conversations of about 33,000 tokens and 37 requests each,
+taking turns: with 8 GiB each one was read in completely when it came back (35 to 36 s), with
+32 GiB only the new 300 tokens (0.8 s).
+
 **Result.** In `config\machine.json` under `models.<profile>.args`: `ctx-size`,
 `gpu-layers`, `device` (slowest card first), `tensor-split` (units per card; the output layer
-counts as one unit), `n-cpu-moe`, `mmproj-device` or `mmproj-offload: false`, and `fit: off`
-so that llama.cpp moves nothing any more. Next to it `plans.<profile>` (prediction, measured
-speed) and `calibration.<profile>` (the measuring runs).
+counts as one unit), `n-cpu-moe`, `mmproj-device` or `mmproj-offload: false`, `cache-ram`, and
+`fit: off` so that llama.cpp moves nothing any more. Next to it `plans.<profile>` (prediction,
+measured speed) and `calibration.<profile>` (the measuring runs).
 
 ## Using it
 
@@ -149,6 +165,7 @@ choice.
 | `reserveMiB` | `1024` | kept free per card, see above |
 | `mtpReserveMiB` | `1408` | addition for MTP drafting on the card with the last layers |
 | `ramReserveGiB` | `6` | main memory for Windows and other programs |
+| `cacheRamMaxGiB` | `32` | upper limit of the cache of earlier conversations per model, see "Cache of earlier conversations" |
 | `mmprojExtraMiB` | `256` | compute buffer of the image encoder |
 | `ctxCandidates` | `131072, 98304, 65536, 32768` | context sizes tried |
 | `minCtx` | `65536` | smaller only when nothing else fits |

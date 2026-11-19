@@ -261,14 +261,6 @@ function Get-CallDecision($Session, [string]$Name, $A, $Guard) {
 
 # --- one request --------------------------------------------------------------------------------
 
-function Clear-OldReasoning($Session) {
-    # The thinking of earlier requests is dropped; the chat templates leave it out anyway,
-    # only the thinking of the current request goes back to the model.
-    foreach ($m in $Session.messages) {
-        if ($m['role'] -eq 'assistant' -and ([System.Collections.IDictionary]$m).Contains('reasoning_content')) { $m.Remove('reasoning_content') }
-    }
-}
-
 function Add-ToolMessage($Session, [string]$Id, [string]$Text) {
     Add-SessionMessage $Session @{ role = 'tool'; tool_call_id = $Id; content = [string]$Text }
 }
@@ -498,7 +490,10 @@ function Invoke-AgentTurn($Session, $Content) {
     $cfg = Get-AgentSettings
     $guard = Get-GuardRules
     $schemas = Get-AgentToolSchemas $Session.gitBash
-    Clear-OldReasoning $Session
+    # The thinking of earlier requests stays in the conversation: the chat templates show it
+    # (preserve_thinking), so removing it would change the text the server has cached and make
+    # it read the whole previous request again (21k tokens, 22 s measured, docs\unzensiert.md).
+    # Compress-OldToolResults drops it from old rounds when room is needed.
     if ($Session.pending) {
         # what the user ran with ! since the last request
         if ($Content -is [string]) { $Content = $Session.pending + "`n`n" + $Content }

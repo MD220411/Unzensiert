@@ -268,7 +268,7 @@ installer chooses (suggestion: `claude-local` on the drive with the most room).
 | [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, context, saved conversations, one-off runs, automatic updates |
 | [docs/style.md](docs/style.md) | the look: "Breakout" (colourful, pictures and a wall of characters) or "Night Shift" (calm); shell, terminal of Unzensiert, status line, colour themes for `claude` and `claude-local`, switching the style |
 | [docs/setup.md](docs/setup.md) | the installer step by step, hardware tiers, updating, uninstalling, values of the computer (`machine.json`), overview of the configuration files |
-| [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, measurements, limits |
+| [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, cache of earlier conversations in main memory, measurements, limits |
 | [docs/security.md](docs/security.md) | protecting your own computer: key for the server, guard before every tool call, git note, check scripts |
 | [docs/agent.md](docs/agent.md) | settings of both agents, working rules, closing check, second look, workflows; `claude-local` (Claude Code for comparison) |
 | [docs/projects.md](docs/projects.md) | a new project from the template, check command, facts with sources compared against documentation and code, way of working |

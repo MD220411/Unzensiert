@@ -10,6 +10,9 @@
   "ramReserveGiB": 6,
   "_ramReserveGiB": "Main memory kept free for Windows and other programs.",
 
+  "cacheRamMaxGiB": 32,
+  "_cacheRamMaxGiB": "Upper limit of the cache of earlier conversations in main memory, per model (llama-server --cache-ram). llama.cpp keeps 8 GiB by default; one conversation of local-coder takes 3.4 to 7.4 GB there (hybrid model with up to 32 checkpoints of its recurrent state), so only one fits, and two conversations in turn are read in again and again (measured 2026-11-18 on the development machine: prompts of 53k to 60k tokens, 63 to 74 s each). The planner gives each model what is left of the main memory after ramReserveGiB and the model's own share, divided by modelsMax of config\\server.json (that many models can be loaded at once), at most this value; if that is not more than the 8 GiB of llama.cpp, it leaves the option out.",
+
   "mmprojExtraMiB": 256,
   "_mmprojExtraMiB": "Memory of the image encoder: its file size plus this (compute buffer). If it fits on no card next to the model, it runs on the processor; images then take longer, everything else stays fast.",
 

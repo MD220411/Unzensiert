@@ -334,11 +334,24 @@ function New-ModelPlan($Model, $Cards, $Speed, $Cfg, [double]$HostCapMiB) {
     return $plan
 }
 
+function Get-CacheRamMiB($Plan, $Cfg, [double]$HostCapMiB, [int]$ModelsMax) {
+    # Limit of the cache of earlier conversations in main memory (--cache-ram) for a plan:
+    # what is left of the main memory after the model's own share there, shared by the
+    # models that can be loaded at once, at most cacheRamMaxGiB, in whole GiB. 0 if that is
+    # not more than the llama.cpp default of 8 GiB: then the option stays out.
+    $maxMiB = 0.0
+    if ($Cfg.PSObject.Properties['cacheRamMaxGiB']) { $maxMiB = [double]$Cfg.cacheRamMaxGiB * 1024.0 }
+    $freeMiB = ($HostCapMiB - (Get-EstimateTotal $Plan.estimate 'Host')) / [math]::Max(1, $ModelsMax)
+    $mib = [math]::Floor([math]::Min($freeMiB, $maxMiB) / 1024.0) * 1024
+    if ($mib -le 8192) { return 0 }
+    return [int]$mib
+}
+
 function Clear-ModelPlan([string]$Name) {
     # Takes the options of a plan out of config\machine.json again, so llama.cpp places the
     # model by itself (--fit); the context size stays. Used when a plan does not work.
     $values = [ordered]@{}
-    foreach ($key in 'fit', 'gpu-layers', 'device', 'tensor-split', 'n-cpu-moe', 'mmproj-device', 'mmproj-offload') { $values[$key] = $null }
+    foreach ($key in 'fit', 'gpu-layers', 'device', 'tensor-split', 'n-cpu-moe', 'mmproj-device', 'mmproj-offload', 'cache-ram') { $values[$key] = $null }
     Set-MachineModelArgs $Name $values
     $machine = Get-MachineConfig
     if ($machine.PSObject.Properties['plans'] -and $machine.plans.PSObject.Properties[$Name]) {
@@ -360,6 +373,7 @@ function ConvertTo-PlanArgs($Plan) {
     if ($Plan.mmproj -eq 'cpu') { $a['mmproj-device'] = $null; $a['mmproj-offload'] = $false }
     elseif ($Plan.mmproj) { $a['mmproj-device'] = $Plan.mmproj; $a['mmproj-offload'] = $null }
     else { $a['mmproj-device'] = $null; $a['mmproj-offload'] = $null }
+    if ($Plan.PSObject.Properties['cacheRamMiB'] -and [int]$Plan.cacheRamMiB -gt 0) { $a['cache-ram'] = [int]$Plan.cacheRamMiB } else { $a['cache-ram'] = $null }
     return $a
 }
 

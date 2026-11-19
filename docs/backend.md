@@ -31,6 +31,10 @@ cache, up to 50 s from disk).
 | Another model needs the room | The server unloads unused models until the new one fits. | `memoryMarginMiB`, `modelsMax` |
 | `Stop-Server.ps1` | Everything freed. | |
 
+Earlier conversations are kept in main memory, not on the cards: when one comes back, the
+server takes its state from there instead of reading it in again. The planner sets how much
+main memory that cache may take per model (`cache-ram`, [planner.md](planner.md#the-computation)).
+
 Without a loaded model the server itself uses no GPU memory. The idle limit is the safety
 net for cases in which `claude-local` cannot clean up: window closed, crash, or the model was
 loaded by Continue. Status queries (`/health`, `/models`, `/props`) do not count as requests.
@@ -124,6 +128,7 @@ The log of the server and of all model processes is `<installRoot>\logs\server.l
 | A model does not load (state stays `loading` or falls back to `unloaded`) | Search the log for `error`. Usually the GPU memory is not enough: close other programs or lower `ctx-size`. |
 | Error `model limit reached, try again later` | The new model only fits when another one is unloaded, and that one is answering a request right now. A model in use is never unloaded. Wait, or end the other session. Check: `curl "http://127.0.0.1:8080/slots?model=<profile>"` (`is_processing`). |
 | Much slower than expected | Parts of the model are in main memory (intended on small cards, see [setup.md](setup.md), hardware tiers). `Test-Model.ps1` shows the GPU memory; lower `ctx-size` for the profile in `machine.json`, or with several cards let the planner compute the split ([planner.md](planner.md)). |
+| A long conversation takes a minute before the answer starts, after another session used the same model | The cache of earlier conversations in main memory was too small, the conversation is read in again (log: `selected slot by LRU`, then `prompt processing` over the whole conversation). Run `scripts\Plan-Models.ps1`, it sets `cache-ram` by the main memory of this computer ([planner.md](planner.md#the-computation)). |
 | Error `System message must be at the beginning` | The model uses its built-in chat template. Give the profile a `chat-template-file`, see [models.md](models.md). |
 | Error 500 `A tool message must follow an assistant or tool message`, Claude Code repeats the request several times | As above: built-in chat template without the block "agent fix". Happens as soon as a tool result arrives together with text, for example after reading an image. [models.md](models.md), section "Chat template". |
 | The model does not recognise images or reads them wrong | Run `Test-Model.ps1`. `image input: not configured`: the profile has no `mmproj`. A warning at start: the `mmproj` file is missing from `modelsDir`. Small images read wrong: raise `image-min-tokens`. |

@@ -50,6 +50,8 @@ function Write-Plan([string]$Name, $Plan, $Cards, $Model) {
     '  {0,-7} {1,-30} {2}  {3,8}' -f 'host', 'main memory', $hostNote, (Format-GB (Get-EstimateTotal $Plan.estimate 'Host'))
     $others = @($Plan.candidates | Where-Object { $_.ctx -ne $Plan.ctx } | ForEach-Object { '{0}: {1} t/s' -f $_.ctx, [math]::Round(1000.0 / [math]::Max(0.001, $_.ms), 1) })
     if ($others) { "  other context sizes: $($others -join ', ')" }
+    if ($Plan.cacheRamMiB -gt 0) { "  cache of earlier conversations in main memory: up to $(Format-GB $Plan.cacheRamMiB)" }
+    else { '  cache of earlier conversations in main memory: llama.cpp default (8 GB)' }
 }
 
 $cfg = Get-PlannerConfig
@@ -148,10 +150,11 @@ function Invoke-Planning([string]$Name, [double]$Reserve) {
     }
     $plan = New-ModelPlan $info $cards $speed $planCfg $hostCap
     if (-not $plan) { Write-Warning "$Name`: no placement fits into the graphics and main memory of this machine."; return }
+    $plan | Add-Member -NotePropertyName cacheRamMiB -NotePropertyValue (Get-CacheRamMiB $plan $cfg $hostCap ([int]$server.modelsMax))
     Set-MachineModelArgs $Name (ConvertTo-PlanArgs $plan)
     Set-MachineValue 'plans' $Name ([pscustomobject][ordered]@{
             date = (Get-Date -Format 's'); ctx = $plan.ctx; devices = ($plan.order -join ','); counts = ($plan.counts -join ',')
-            ncmoe = $plan.ncmoe; mmproj = $plan.mmproj; allOnCards = $plan.allOnCards; reserveMiB = $Reserve
+            ncmoe = $plan.ncmoe; mmproj = $plan.mmproj; allOnCards = $plan.allOnCards; reserveMiB = $Reserve; cacheRamMiB = $plan.cacheRamMiB
             predictedTokensPerSecond = [math]::Round(1000.0 / [math]::Max(0.001, $plan.ms), 1)
         })
     Write-Plan $Name $plan $cards $info

@@ -45,7 +45,7 @@
       }
     },
     "local-coder-q5": {
-      "description": "Like local-coder, but quantised Q5_K_M instead of Q4_K_M. Comparison profile (docs\\model-choice.md).",
+      "description": "Like local-coder, but quantised Q5_K_M instead of Q4_K_M. Comparison profile for the benchmark.",
       "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q5_K_M-mtp.gguf",
       "download": {
@@ -80,7 +80,7 @@
       }
     },
     "local-coder-rb2048": {
-      "description": "Like local-coder, but at most 2048 thinking tokens per answer. Comparison profile (docs\\model-choice.md).",
+      "description": "Like local-coder, but at most 2048 thinking tokens per answer. Comparison profile for the benchmark.",
       "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
       "download": "local-coder",
@@ -99,7 +99,7 @@
       }
     },
     "local-coder-rb512": {
-      "description": "Like local-coder, but at most 512 thinking tokens per answer. Comparison profile (docs\\model-choice.md).",
+      "description": "Like local-coder, but at most 512 thinking tokens per answer. Comparison profile for the benchmark.",
       "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
       "download": "local-coder",
@@ -118,7 +118,7 @@
       }
     },
     "local-coder-rb0": {
-      "description": "Like local-coder, but without thinking tokens (budget 0). Comparison profile (docs\\model-choice.md).",
+      "description": "Like local-coder, but without thinking tokens (budget 0). Comparison profile for the benchmark.",
       "role": "compare",
       "file": "qwen3.6-27b-heretic-v2-Q4_K_M-mtp.gguf",
       "download": "local-coder",
@@ -137,7 +137,7 @@
       }
     },
     "local-fast": {
-      "description": "Qwen 3.6 35B-A3B (mixture of experts), uncensored (Heretic), with MTP. More tokens per second and fits smaller graphics cards, less reliable on harder tasks (docs\\model-choice.md).",
+      "description": "Qwen 3.6 35B-A3B (mixture of experts), uncensored (Heretic), with MTP. More tokens per second and fits smaller graphics cards, less reliable on harder tasks.",
       "role": "agent",
       "file": "qwen3.6-35b-a3b-heretic-Q4_K_M-mtp.gguf",
       "download": {

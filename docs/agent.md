@@ -86,11 +86,14 @@ When the model wants to end an answer in which it changed files, the closing che
    `Check.ps1` (`commands`), it is run. If it fails, the model gets the end of the output
    back and keeps working, at most `maxBlocks` times (3) in a row. After that it may stop, and
    a note appears in the terminal to look for yourself.
-2. **Reminder.** Once per answer the model gets the text from `config\closing-check.md`: test
-   written and run, README updated, fixed values in the configuration file, cleaned up. If
-   something is missing, it makes up for it. A point is left out when the files changed in
-   this answer show that it is done (`reminderPoints`: a test file, a README or file in
-   `docs`, a configuration file). If no point is open, no reminder comes.
+2. **Reminder.** Once per answer the model gets the text from `config\closing-check.md`: the
+   task read once more and checked requirement by requirement against the change, special
+   cases included; test written and run, README updated, fixed values in the configuration
+   file, cleaned up. If something is missing, it makes up for it. A point is left out when the
+   files changed in this answer show that it is done (`reminderPoints`: a test file, a README
+   or file in `docs`, a configuration file). No file settles the point on the task, so
+   whenever program code was changed the reminder comes; after changes to documentation only,
+   no reminder comes.
 
 After answers without file changes nothing happens. Whether files were changed, the hook reads
 from the history of the session (calls of `Edit` and `Write`); changes made only through shell
@@ -106,6 +109,11 @@ of 6. The price is time: with the first version, which always reminded, the runs
 longer altogether, because every answer with changes needs at least one more round of the
 model. The reminder alone does not bring the value into the configuration file (0 of 6); the
 `CLAUDE.md` of the project does that (5 of 6).
+
+The point on the task (since 2026-11-18) was measured on eight benchmark runs that had failed
+because the model overlooked a requirement: continued with it, the model fixed five of them;
+continued with the reminder without that point, none. In a full run over the eleven tasks 10
+instead of 9 passed, and the tasks took about a fifth longer altogether (one run per task).
 
 - **Changing the text:** edit `config\closing-check.md`. Points have the form `- [name] text`;
   which files settle a point is under `reminderPoints` in `config\agent.json`
