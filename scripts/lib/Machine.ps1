@@ -72,7 +72,24 @@ function Get-UsableDevices($Devices) {
 # --- memory and disks ---------------------------------------------------------------------
 
 function Get-SystemMemoryGiB {
+    # Main memory Windows can use. It is a little less than what is installed: firmware and
+    # integrated graphics keep a part (32 GB of modules give about 31.7 GB). The planner
+    # works with this value.
     return [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
+}
+
+function Resolve-InstalledMemoryGiB([double]$ModuleBytes, [double]$UsableGiB) {
+    # Installed main memory from the sum of the memory modules. Without that sum (some
+    # virtual machines report no modules) the usable value rounded up to whole GB.
+    if ($ModuleBytes -le 0) { return [math]::Ceiling($UsableGiB) }
+    return [math]::Max([math]::Round($ModuleBytes / 1GB, 1), $UsableGiB)
+}
+
+function Get-InstalledMemoryGiB {
+    # Installed main memory, as the tiers in config\setups.json count it ("32 GB").
+    $modules = @(Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue)
+    $bytes = [double](($modules | Measure-Object -Property Capacity -Sum).Sum)
+    return Resolve-InstalledMemoryGiB $bytes (Get-SystemMemoryGiB)
 }
 
 function Get-FreeSpaceGiB([string]$Path) {
@@ -145,11 +162,19 @@ function Get-Setups {
 
 function Select-Setup([int]$VramMiB, [double]$RamGiB) {
     # The first setup in config\setups.json whose needs this machine meets. The list runs
-    # from the largest to the smallest, so this is the best one that fits.
+    # from the largest to the smallest, so this is the best one that fits. $RamGiB is the
+    # installed main memory (Get-InstalledMemoryGiB).
     foreach ($setup in (Get-Setups)) {
         if ($VramMiB -ge [int]$setup.minVramMiB -and $RamGiB -ge [double]$setup.minRamGiB) { return $setup }
     }
     return $null
+}
+
+function Get-LeastRamGiB([int]$VramMiB) {
+    # The least main memory a setup asks for that this much graphics memory allows.
+    $fitting = @(Get-Setups | Where-Object { $VramMiB -ge [int]$_.minVramMiB })
+    if ($fitting.Count -eq 0) { return 0 }
+    return [double]($fitting | Measure-Object -Property minRamGiB -Minimum).Minimum
 }
 
 function Set-MachineSetup([string]$ModelName, $Setup) {

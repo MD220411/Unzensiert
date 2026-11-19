@@ -49,8 +49,9 @@ try {
     if (-not [Environment]::Is64BitOperatingSystem -or $os.Major -lt 10 -or ($os.Major -eq 10 -and $os.Build -lt 17763)) {
         throw 'Unzensiert needs 64-bit Windows 10 (version 1809) or newer.'
     }
-    $ram = Get-SystemMemoryGiB
-    Write-Note "Windows build $($os.Build), $ram GB main memory"
+    # installed main memory decides the tier; Windows can use a little less of it
+    $ram = Get-InstalledMemoryGiB
+    Write-Note "Windows build $($os.Build), $ram GB main memory ($(Get-SystemMemoryGiB) GB usable)"
     $nvidia = @(Get-NvidiaGpus)
     foreach ($g in $nvidia) { Write-Note "graphics card: $($g.name), $($g.memoryMiB) MiB, driver $($g.driver)" }
     foreach ($name in @(Get-DisplayAdapters | Where-Object { $_ -notmatch 'NVIDIA' })) { Write-Note "display adapter: $name" }
@@ -164,8 +165,7 @@ try {
         $chosen = [string]$setup.model
     }
     if (-not $chosen) {
-        $least = (Get-Setups | Measure-Object -Property minRamGiB -Minimum).Minimum
-        throw "This machine has too little memory for the models of Unzensiert (at least $least GB main memory). See docs\setup.md."
+        throw "This machine has too little memory for the models of Unzensiert: $ram GB main memory installed, with $vram MiB graphics memory at least $(Get-LeastRamGiB $vram) GB are needed. See docs\setup.md."
     }
     $prof = Get-ModelProfile $chosen
     Write-Note "model: $chosen - $($prof.description)"

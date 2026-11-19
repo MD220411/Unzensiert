@@ -12,7 +12,8 @@ the [README](../README.md).
   **experimental, not tested**. Without a graphics card the model runs on the processor, very
   slowly.
 - **Main memory:** 16 GB from 26 GB of graphics memory, otherwise 32 GB, because parts of the
-  model then lie in main memory.
+  model then lie in main memory. What counts is the installed memory (the memory modules);
+  Windows reports a little less as usable, with 32 GB about 31.7 GB.
 - **Disk space:** about 2 GB for llama.cpp and 17 to 22 GB per model.
 - **Internet** for the installation. After that everything runs offline; only the automatic
   updates look on GitHub at most once a day (can be switched off).
@@ -47,7 +48,7 @@ anything. Enter always takes the suggestion.
 | 2. Install folder | Suggestion: `claude-local` on the drive with the most room, on the system drive `%LOCALAPPDATA%\claude-local`. Never a whole drive, never in the program files folder. A folder chosen earlier stays. |
 | 3. Git, Claude Code | Git for Windows through `winget`. Without Git the agent gets the tool PowerShell instead of Bash ([agent.md](agent.md)). Claude Code only for the comparison command `claude-local`, with Anthropic's official command (`irm https://claude.ai/install.ps1 \| iex`, in a process of its own); the question defaults to no, and `-Yes` does not install it either. |
 | 4. llama.cpp | `Install-LlamaCpp.ps1`: package by graphics card (`packages` in `config\server.json`). Afterwards it checks with `llama-server --list-devices` whether llama.cpp sees the card; if not, it takes the next package ([backend.md](backend.md)). |
-| 5. Model | Tier from `config\setups.json` by graphics memory (sum of all cards without integrated graphics) and main memory, see below. Download with `Get-Model.ps1`. Then `Plan-Models.ps1 -Verify` computes the distribution over cards and main memory and checks it ([planner.md](planner.md)); if that fails, llama.cpp distributes the model itself (`--fit`). An existing plan stays. |
+| 5. Model | Tier from `config\setups.json` by graphics memory (sum of all cards without integrated graphics) and installed main memory (sum of the memory modules), see below. Download with `Get-Model.ps1`. Then `Plan-Models.ps1 -Verify` computes the distribution over cards and main memory and checks it ([planner.md](planner.md)); if that fails, llama.cpp distributes the model itself (`--fit`). An existing plan stays. |
 | 6. Commands, updates | `bin\` onto the user's PATH (`Install-Path.ps1`): commands `unzensiert` and `claude-local`. Once the question whether new releases come automatically (suggestion: yes), remembered in `machine.json` under `updates`; a later run does not ask again. |
 | 7. Test | `Test-Setup.ps1` (only errors are shown), then `Test-Model.ps1 -NoLog` if the planner has not already tested the model |
 
