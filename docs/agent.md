@@ -34,7 +34,7 @@ All further arguments go to Claude Code unchanged.
 | `rulesFile` | `coding-rules.md` | File in `config\` that is appended to the system prompt. Leave it empty or remove it to start without rules. |
 | `stopCheck` | `enabled`, `commands`, `timeoutSeconds`, `maxBlocks`, `reminderFile` | Closing check, see below. `enabled: false` switches it off. |
 | `pluginDir` | `workflows` | Folder in `config\` with the workflows `/feature`, `/bugfix`, `/review` (in `claude-local` `/local:feature` ...). Leave it empty or remove it to start without them. |
-| `tools` | `Bash,Read,Edit,Write,Glob,Grep` | Tools the model may use (with Claude Code `--tools`). Leave empty or remove for the full set of Claude Code; Unzensiert only knows `Bash`, `PowerShell`, `Read`, `Edit`, `Write`, `Glob`, `Grep`. Without Git for Windows both replace `Bash` by `PowerShell`, see "Lean tool set". |
+| `tools` | `Bash,Read,Edit,Write,Glob,Grep` | Tools the model may use (with Claude Code `--tools`). Leave empty or remove for the full set of Claude Code; Unzensiert only knows `Bash`, `PowerShell`, `Read`, `Edit`, `Write`, `Glob`, `Grep` (plus its own `EditLines` when switched on, [unzensiert.md](unzensiert.md#tools)). Without Git for Windows both replace `Bash` by `PowerShell`, see "Lean tool set". |
 | `env` | auto memory and bundled skills off | Switches of Claude Code, set for this process only |
 | `onExit` | `unload` | What happens when the last session ends: `unload` unloads the models of the agent, `stop` stops the server, `keep` leaves everything loaded. See below. |
 | `gitCheck` | `true` | Note at start when the folder is not a git repository or has uncommitted changes ([security.md](security.md)) |

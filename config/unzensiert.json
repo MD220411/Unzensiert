@@ -25,6 +25,9 @@
   "oldToolResultChars": 1500,
   "_compactAt": "When the conversation fills this share of the context window, older tool results are shortened to oldToolResultChars (the last keepRecentRounds rounds stay complete); if that is not enough, the model summarises the conversation.",
 
+  "editLines": false,
+  "_editLines": "true = offer the tool EditLines next to Edit: the model names lines by number and quotes the first and the last of them as proof, so it writes only the new lines instead of copying the old ones into old_string. Guard, rights and closing check treat it as Edit. Off because local-coder did not take it up: in the run edit1 (2026-11-19) it used EditLines once in 89 edits, and that call failed. Switch it on to try it with another model.",
+
   "toolResultChars": 30000,
   "readLines": 2000,
   "commandTimeoutSeconds": 120,

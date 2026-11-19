@@ -63,6 +63,12 @@ function Get-UiToolLabel([string]$Name, $A, [string]$Cwd) {
             }
         }
         { $_ -eq 'Edit' -or $_ -eq 'Write' } { $label = Get-DisplayPath (Resolve-AgentPath (Get-DictValue $A 'file_path') $Cwd) $Cwd }
+        'EditLines' {
+            $label = Get-DisplayPath (Resolve-AgentPath (Get-DictValue $A 'file_path') $Cwd) $Cwd
+            $first = [int](Get-DictValue $A 'start_line')
+            $last = [int](Get-DictValue $A 'end_line')
+            if ($first -gt 0) { $detail = Get-UiText 'tools.range' $first ([math]::Max($first, $last)) }
+        }
         'Glob' {
             $label = [string](Get-DictValue $A 'pattern')
             $p = [string](Get-DictValue $A 'path')

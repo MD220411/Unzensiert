@@ -147,9 +147,16 @@ function Get-ClaudeCodeVersion {
 
 function Get-GpuMemory {
     # Used memory per GPU in MiB as reported by nvidia-smi, e.g. "RTX 5070 Ti 13300, RTX 3060 7631".
-    # Other cards have no such tool: "n/a".
+    # Other cards have no such tool: "n/a". nvidia-smi can also be present without an NVIDIA
+    # card (left over from an earlier driver); it then prints a message such as "No devices
+    # were found" instead of rows, which is no reading either.
     if (-not (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) { return 'n/a (no nvidia-smi)' }
-    $rows = @(& nvidia-smi --query-gpu=name,memory.used --format=csv,noheader,nounits)
+    $rows = @()
+    try {
+        $rows = @(& nvidia-smi --query-gpu=name,memory.used --format=csv,noheader,nounits 2>$null |
+                ForEach-Object { [string]$_ } | Where-Object { $_ -match '^[^,]+,\s*\d+\s*$' })
+    } catch { }
+    if ($rows.Count -eq 0) { return 'n/a (nvidia-smi reports no card)' }
     return (($rows | ForEach-Object {
                 $parts = $_.Split(',')
                 "$($parts[0].Replace('NVIDIA GeForce ', '').Trim()) $($parts[1].Trim())"

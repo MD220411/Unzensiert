@@ -108,7 +108,7 @@ style file), the texts from `config\unzensiert-texts.json`.
 The guard decides first in every mode (`config\guard.json`, [security.md](security.md)):
 what is blocked never runs, what is delicate always asks. After that the mode applies:
 
-| Mode | Reading (Read, Glob, Grep, commands that only read) | Changing files in the project folder (Edit, Write, file commands) | Other commands |
+| Mode | Reading (Read, Glob, Grep, commands that only read) | Changing files in the project folder (Edit, EditLines, Write, file commands) | Other commands |
 |---|---|---|---|
 | `ask` (default) | without a question | question | question |
 | `edits` | without a question | without a question | question |
@@ -140,13 +140,17 @@ what is blocked never runs, what is delicate always asks. After that the mode ap
 The model gets the tools from `tools` in `config\agent.json`, the same lean set as Claude Code
 under `claude-local` (`Bash,Read,Edit,Write,Glob,Grep`; without Git Bash `PowerShell` instead
 of `Bash`). Names and parameters are those of Claude Code, so the same guard checks both
-agents.
+agents. The setting `editLines` adds a tool of Unzensiert's own, `EditLines`; it is off,
+because `local-coder` did not take it up (in a run of all eleven tasks it used it once in 89
+edits). For the guard, the rights of a session and the closing check `EditLines` is an
+`Edit`.
 
 | Tool | What it does |
 |---|---|
 | `Bash` | command in Git Bash, `PowerShell` in Windows PowerShell 5.1; always in the project folder. The command goes into a script file (no trouble with quotes), runs without input, at most `commandTimeoutSeconds` (up to `commandMaxSeconds` when the model asks for more) and is ended with all its child processes. Long output keeps its beginning and end, because that is usually where the error is. Python writes UTF-8 (`PYTHONIOENCODING`); a line that is not UTF-8, such as the localised messages of a `powershell.exe` started from Git Bash, is read in the code page of the console. |
 | `Read` | file with line numbers, parts with `offset`/`limit`; the model sees images as images |
 | `Edit` | replace text; only after `Read` and only if the file has not changed since. The text must appear exactly once (or `replace_all`). Line endings (CR LF), encoding and byte order mark of the file stay as they were. If it does not find the text, it says whether only indentation or line breaks differ. |
+| `EditLines` | only with `editLines`: replace whole lines by their numbers (`start_line` to `end_line`, as `Read` shows them) with `new_text`; the model quotes the first and the last of these lines as proof (`first_line`, `last_line`). If they do not match, nothing changes and the result names the real line and shows the place. The model writes only the new lines instead of copying the old ones into `old_string`. The result names the new numbers, because the lines below move. Same rules as `Edit`: only after `Read`, line endings and encoding stay. |
 | `Write` | new file, or replace a file that was read completely. If the file already has exactly this content, it writes nothing and says so. |
 | `Glob` | files by pattern (`**/*.py`, `src/*.{ts,tsx}`), newest first, without `.git`, `node_modules`, `__pycache__`, `.venv` |
 | `Grep` | content by regular expression (.NET), output `path:line:text`, with `glob`, `ignore_case`, `files_only` |
@@ -243,6 +247,7 @@ starting" go to the error output in a one-off run; standard output only contains
 | `maxToolRounds` | `200` | rounds per request |
 | `maxRepeats` | `3` | threshold for repetitions, changes without effect and refusals |
 | `compactAt`, `keepRecentRounds`, `oldToolResultChars` | `0.80`, `6`, `1500` | context, see above |
+| `editLines` | `false` | `true` offers `EditLines` next to `Edit`, for trying it with another model |
 | `toolResultChars` | `30000` | longest output of a command |
 | `readLines` | `2000` | lines `Read` returns without `limit` |
 | `commandTimeoutSeconds`, `commandMaxSeconds` | `120`, `600` | time limits for commands |

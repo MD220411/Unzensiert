@@ -12,7 +12,14 @@
 
 $script:ModeOrder = @('ask', 'edits', 'all')
 $script:ReadOnlyTools = @('Read', 'Glob', 'Grep')
-$script:FileTools = @('Edit', 'Write')
+$script:FileTools = @('Edit', 'EditLines', 'Write')
+
+function Get-CanonicalToolName([string]$Name) {
+    # EditLines is Unzensiert's own way of editing: for the guard, the rights of a session
+    # and the transcript of the closing check it is an Edit, so no rule is weaker for it.
+    if ($Name -eq 'EditLines') { return 'Edit' }
+    return $Name
+}
 $script:HookPrefix = 'Stop hook feedback:'
 $script:Md5 = [System.Security.Cryptography.MD5]::Create()
 
@@ -182,6 +189,7 @@ function Test-ToolAllowed($Session, [string]$Name, $A) {
     # True if --allowedTools or an "always" answer of this session covers the call. For a
     # command, every part of it must be covered or only read.
     $rules = @($Session.allowedTools) + @($Session.allowed.Keys)
+    $Name = Get-CanonicalToolName $Name
     if ($Name -eq 'Bash' -or $Name -eq 'PowerShell') {
         $parts = @(Split-CommandParts ([string](Get-DictValue $A 'command')))
         if ($parts.Count -eq 0) { return $false }
@@ -210,7 +218,7 @@ function Test-ToolAllowed($Session, [string]$Name, $A) {
 function Get-AlwaysRules([string]$Name, $A) {
     # What an "always" answer allows for the rest of the session: for a command its programs
     # (with the subcommand for git, npm and the like), for a file change all file changes.
-    if ($script:FileTools -contains $Name) { return @('Edit', 'Write') }
+    if ($script:FileTools -contains $Name) { return @('Edit', 'Write') }   # EditLines counts as Edit
     $two = @('git', 'npm', 'npx', 'pnpm', 'yarn', 'pip', 'uv', 'poetry', 'dotnet', 'cargo', 'go', 'docker', 'winget', 'choco', 'mvn', 'gradle')
     $rules = @()
     foreach ($part in @(Split-CommandParts ([string](Get-DictValue $A 'command')))) {
@@ -226,8 +234,11 @@ function Get-AlwaysRules([string]$Name, $A) {
 function Get-CallPreview([string]$Name, $A) {
     # What the question before a call shows: the command, or the path with the change.
     $plain = ConvertTo-PlainHashtable $A
-    $text = Get-GuardSubject $Name $plain
-    if ($Name -eq 'Edit') {
+    $text = Get-GuardSubject (Get-CanonicalToolName $Name) $plain
+    if ($Name -eq 'EditLines') {
+        $text += "`n" + (Get-UiText 'tools.range' ([int]$plain['start_line']) ([int]$plain['end_line']))
+        $text += "`n" + ((@(([string]$plain['new_text']).Replace("`r", '').Split("`n") | ForEach-Object { "+ $_" })) -join "`n")
+    } elseif ($Name -eq 'Edit') {
         $old = @(([string]$plain['old_string']).Replace("`r", '').Split("`n") | ForEach-Object { "- $_" })
         $new = @(([string]$plain['new_string']).Replace("`r", '').Split("`n") | ForEach-Object { "+ $_" })
         $text += "`n" + ((@($old) + @($new)) -join "`n")
@@ -241,8 +252,9 @@ function Get-CallDecision($Session, [string]$Name, $A, $Guard) {
     # How a call goes ahead: @{ action = run, ask or deny; why; guard }. The guard decides
     # first and in every mode; then the mode and the rules of the session.
     $plain = ConvertTo-PlainHashtable $A
-    $verdict = Invoke-GuardCheck $Name $plain $Session.cwd $Guard
-    if ($verdict.decision -ne 'none') { Write-GuardLog $Name (Get-GuardSubject $Name $plain) $verdict }
+    $guardName = Get-CanonicalToolName $Name
+    $verdict = Invoke-GuardCheck $guardName $plain $Session.cwd $Guard
+    if ($verdict.decision -ne 'none') { Write-GuardLog $guardName (Get-GuardSubject $guardName $plain) $verdict }
     if ($verdict.decision -eq 'deny') {
         return @{ action = 'deny'; guard = $true; why = "Blocked by the guard of Unzensiert (rule $($verdict.rule)): $($verdict.reason). It protects the user's computer; do not try to get around it." }
     }
@@ -424,7 +436,7 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
         if ($result.changed) {
             $Session.answerEdits++
             if (-not $Session.changed.Contains($result.changed)) { $null = $Session.changed.Add($result.changed) }
-            Add-HookTranscript $Session $c.name $result.changed $c.id
+            Add-HookTranscript $Session (Get-CanonicalToolName $c.name) $result.changed $c.id
         }
         # the same call with the same result while the changed files hold the same content: a
         # repeat. The content is part of the print (instead of forgetting all prints on every

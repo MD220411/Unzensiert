@@ -147,6 +147,12 @@ function Wait-ModelLoaded([string]$Name) {
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $state = (Get-ServerModels | Where-Object { $_.name -eq $Name }).status
     if (-not $state) { throw "The server does not know the model '$Name'. Check config\models.json and restart the server." }
+    if ($state -eq 'sleeping') {
+        # asleep after sleep-idle-seconds: the router counts it as running and refuses to load
+        # it ("model is already running", 400), and its GPU memory is free; load it afresh
+        Stop-Models @($Name)
+        $state = 'unloaded'
+    }
     if ($state -ne 'loaded' -and $state -ne 'loading') { $null = Invoke-ServerApi '/models/load' @{ model = $Name } 60 }
     while ($watch.Elapsed.TotalSeconds -lt $timeout) {
         $state = (Get-ServerModels | Where-Object { $_.name -eq $Name }).status
@@ -158,9 +164,10 @@ function Wait-ModelLoaded([string]$Name) {
 
 function Stop-Models([string[]]$Names) {
     # Unloads the named models and waits until their GPU memory is free; the router itself
-    # keeps running. Models that are not loaded are skipped.
+    # keeps running. Models that are not loaded are skipped; a sleeping one still has its
+    # process and main memory, so it is unloaded as well.
     foreach ($m in (Get-ServerModels)) {
-        if ($Names -contains $m.name -and ($m.status -eq 'loaded' -or $m.status -eq 'loading')) {
+        if ($Names -contains $m.name -and ($m.status -eq 'loaded' -or $m.status -eq 'loading' -or $m.status -eq 'sleeping')) {
             try { $null = Invoke-ServerApi '/models/unload' @{ model = $m.name } 60 } catch {}
         }
     }

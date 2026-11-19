@@ -165,6 +165,7 @@
       "PowerShell": { "icon": "❯", "ink": "#8FB0D0" },
       "Read": { "icon": "≡", "ink": "#73B7AE" },
       "Edit": { "icon": "✎", "ink": "#FF8A3D" },
+      "EditLines": { "icon": "✎", "ink": "#FF8A3D" },
       "Write": { "icon": "✚", "ink": "#A9C48A" },
       "Glob": { "icon": "⌕", "ink": "#D2A9D0" },
       "Grep": { "icon": "⌕", "ink": "#D2A9D0" }

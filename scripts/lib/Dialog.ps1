@@ -15,14 +15,27 @@ function Write-Note([string]$Text) { Write-Host "      $Text" }
 
 function Write-Warn([string]$Text) { Write-Host "      ! $Text" -ForegroundColor Yellow }
 
+function ConvertFrom-YesNo([string]$Answer, [bool]$Default) {
+    # $true, $false or $null (not understood) for a typed answer; empty takes the default.
+    # A slip like "#y" is not understood rather than taken as no (or as yes: the uninstaller
+    # asks before deleting), so the question comes again.
+    $text = ([string]$Answer).Trim()
+    if (-not $text) { return $Default }
+    if ($text -match '^(y|yes|j|ja)$') { return $true }
+    if ($text -match '^(n|no|nein)$') { return $false }
+    return $null
+}
+
 function Confirm-Step([string]$Question, [bool]$Default = $true) {
-    # A yes/no question; Enter takes the default.
+    # A yes/no question; Enter takes the default, an answer that is neither asks again.
     if ($script:AssumeYes) { return $Default }
     $hint = '[Y/n]'
     if (-not $Default) { $hint = '[y/N]' }
-    $answer = ([string](Read-Host "      $Question $hint")).Trim()
-    if (-not $answer) { return $Default }
-    return ($answer -match '^(y|yes|j|ja)$')
+    while ($true) {
+        $result = ConvertFrom-YesNo (Read-Host "      $Question $hint") $Default
+        if ($null -ne $result) { return $result }
+        Write-Host '      Please answer y (yes) or n (no).'
+    }
 }
 
 function Read-Answer([string]$Question, [string]$Default) {

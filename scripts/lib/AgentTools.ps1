@@ -1,6 +1,8 @@
 # The tools of the agent Unzensiert: Bash, PowerShell, Read, Edit, Write, Glob, Grep. Names
 # and parameters are those the guard (scripts\hooks\GuardRules.ps1) checks and local models
-# know from other agents. Used by lib\AgentLoop.ps1. Needs lib\Config.ps1, lib\Machine.ps1.
+# know from other agents. EditLines (lines by number, "editLines" in config\unzensiert.json)
+# is Unzensiert's own; guard, rights and closing check treat it as Edit (lib\AgentLoop.ps1).
+# Used by lib\AgentLoop.ps1. Needs lib\Config.ps1, lib\Machine.ps1.
 # Keep this file ASCII-only.
 #
 # A tool returns @{ text; error; image = @{ mime; data } or $null; changed = path or ''; diff; noop }
@@ -40,8 +42,17 @@ function Get-AgentToolSchemas([string]$GitBash) {
     }
     $tools += @{ type = 'function'; function = @{ name = 'PowerShell'; description = "Runs a command in Windows PowerShell 5.1 in the project folder and returns its output. Do not start programs that wait for input or never end."; parameters = @{ type = 'object'; properties = $cmdProps; required = @('command') } } }
     $tools += @{ type = 'function'; function = @{ name = 'Read'; description = "Reads a file. Text comes back with line numbers (number, tab, line); for long files read parts with offset (first line, from 1) and limit (number of lines, default $($cfg.readLines)). Images (png, jpg, gif, webp, bmp) are shown to you. Read a file before you change it."; parameters = @{ type = 'object'; properties = @{ file_path = @{ type = 'string'; description = 'Path of the file.' }; offset = @{ type = 'integer'; description = 'First line to read, from 1.' }; limit = @{ type = 'integer'; description = 'Number of lines.' } }; required = @('file_path') } } }
-    $tools += @{ type = 'function'; function = @{ name = 'Edit'; description = 'Replaces text in a file that you have read. old_string must occur exactly once (or set replace_all), with the same spaces and indentation and without the line numbers Read shows; take enough surrounding lines to make it unique.'; parameters = @{ type = 'object'; properties = @{ file_path = @{ type = 'string' }; old_string = @{ type = 'string'; description = 'The exact text to replace.' }; new_string = @{ type = 'string'; description = 'The text to put there.' }; replace_all = @{ type = 'boolean'; description = 'Replace every occurrence.' } }; required = @('file_path', 'old_string', 'new_string') } } }
-    $tools += @{ type = 'function'; function = @{ name = 'Write'; description = 'Creates a file, or replaces the whole content of a file you have read. For changes to an existing file use Edit.'; parameters = @{ type = 'object'; properties = @{ file_path = @{ type = 'string' }; content = @{ type = 'string'; description = 'The complete new content.' } }; required = @('file_path', 'content') } } }
+    $byLines = [bool]$cfg.editLines -and $wanted -contains 'Edit'
+    $editHint = ''
+    $writeHint = 'For changes to an existing file use Edit.'
+    if ($byLines) {
+        $wanted += 'EditLines'
+        $editHint = ' For a change of more than a line or two EditLines is cheaper: you write only the new lines.'
+        $writeHint = 'For changes to an existing file use EditLines or Edit: you then write only what changes.'
+    }
+    $tools += @{ type = 'function'; function = @{ name = 'Edit'; description = "Replaces text in a file that you have read. old_string must occur exactly once (or set replace_all), with the same spaces and indentation and without the line numbers Read shows; take enough surrounding lines to make it unique.$editHint"; parameters = @{ type = 'object'; properties = @{ file_path = @{ type = 'string' }; old_string = @{ type = 'string'; description = 'The exact text to replace.' }; new_string = @{ type = 'string'; description = 'The text to put there.' }; replace_all = @{ type = 'boolean'; description = 'Replace every occurrence.' } }; required = @('file_path', 'old_string', 'new_string') } } }
+    $tools += @{ type = 'function'; function = @{ name = 'EditLines'; description = 'Replaces whole lines of a file you have read: lines start_line to end_line (numbers as Read shows them) become new_text. As proof give the text of the first and the last of these lines (first_line, last_line), without the line number; if they do not match, nothing changes and you get the real position. To insert, replace the line before with itself plus the new lines; to delete lines, give an empty new_text. The lines below move afterwards: take their numbers from the result or read again.'; parameters = @{ type = 'object'; properties = @{ file_path = @{ type = 'string' }; start_line = @{ type = 'integer'; description = 'First line to replace, from 1.' }; end_line = @{ type = 'integer'; description = 'Last line to replace (the same as start_line for one line).' }; first_line = @{ type = 'string'; description = 'The text of line start_line, without the number.' }; last_line = @{ type = 'string'; description = 'The text of line end_line, without the number (needed when end_line is not start_line).' }; new_text = @{ type = 'string'; description = 'The new lines, without line numbers; empty to delete the lines.' } }; required = @('file_path', 'start_line', 'end_line', 'first_line', 'new_text') } } }
+    $tools += @{ type = 'function'; function = @{ name = 'Write'; description = "Creates a file, or replaces the whole content of a file you have read. $writeHint"; parameters = @{ type = 'object'; properties = @{ file_path = @{ type = 'string' }; content = @{ type = 'string'; description = 'The complete new content.' } }; required = @('file_path', 'content') } } }
     $tools += @{ type = 'function'; function = @{ name = 'Glob'; description = 'Finds files by name pattern, such as **/*.py or src/**/test_*.ps1 (newest first, at most 100).'; parameters = @{ type = 'object'; properties = @{ pattern = @{ type = 'string' }; path = @{ type = 'string'; description = 'Folder to search, default the project folder.' } }; required = @('pattern') } } }
     $tools += @{ type = 'function'; function = @{ name = 'Grep'; description = 'Searches the content of files with a regular expression (.NET syntax) and returns path:line:text (at most 200 lines).'; parameters = @{ type = 'object'; properties = @{ pattern = @{ type = 'string' }; path = @{ type = 'string'; description = 'Folder or file, default the project folder.' }; glob = @{ type = 'string'; description = 'Only files whose name matches, such as *.cs.' }; ignore_case = @{ type = 'boolean' }; files_only = @{ type = 'boolean'; description = 'Only the names of the files that match.' } }; required = @('pattern') } } }
     return @($tools | Where-Object { $wanted -contains $_.function.name })
@@ -247,6 +258,96 @@ function Invoke-ToolEdit($Session, $A) {
     $r = New-ToolResult ("Changed $(Get-DisplayPath $path $Session.cwd) ($count place(s)). Now:`n" + (Get-SnippetLines $updated ([math]::Max(1, $line - 2)) ($newLines + 4)))
     $r.changed = $path
     $r.diff = @{ old = $old.Replace("`r", ''); new = $new.Replace("`r", ''); line = $line }
+    return $r
+}
+
+function ConvertTo-QuotedLine([string]$Text) {
+    # A line the model quotes as proof, as compared: without a line number copied from Read
+    # ("    12<tab>"), without the spaces at both ends and without a line break.
+    $t = $Text.Replace("`r", '').Split("`n")[0]
+    $t = [regex]::Replace($t, '^\s*\d+\t', '')
+    return $t.Trim()
+}
+
+function Find-QuotedLine([string[]]$Lines, [string]$Quoted) {
+    # Line numbers (from 1) whose text matches a quoted line, at most five.
+    $found = @()
+    if (-not $Quoted) { return $found }
+    for ($n = 0; $n -lt $Lines.Count -and $found.Count -lt 5; $n++) {
+        if ($Lines[$n].Trim() -ceq $Quoted) { $found += ($n + 1) }
+    }
+    return $found
+}
+
+function Invoke-ToolEditLines($Session, $A) {
+    # Replaces whole lines, named by their numbers; the first and the last of them are quoted
+    # as proof, so a wrong number changes nothing (docs\unzensiert.md, "Tools").
+    $path = Resolve-AgentPath (Get-DictValue $A 'file_path') $Session.cwd
+    $shown = Get-DisplayPath $path $Session.cwd
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return (New-ToolResult "File not found: $path. To create a file use Write." $true) }
+    $why = Test-ReadFirst $Session $path
+    if ($why) { return (New-ToolResult $why $true) }
+    $file = Read-TextFile $path
+    if ($file.binary) { return (New-ToolResult "$path is a binary file." $true) }
+    $norm = $file.text.Replace("`r`n", "`n")
+    $endsWithBreak = $norm.EndsWith("`n")
+    if ($endsWithBreak) { $norm = $norm.Substring(0, $norm.Length - 1) }
+    $lines = $norm.Split("`n")
+    $start = [int](Get-DictValue $A 'start_line')
+    $end = [int](Get-DictValue $A 'end_line')
+    if ($end -le 0) { $end = $start }
+    if ($start -lt 1 -or $end -lt $start -or $end -gt $lines.Count) {
+        return (New-ToolResult "Lines $start to $end do not exist: $shown has $($lines.Count) lines (start_line from 1, end_line not below start_line)." $true)
+    }
+    $firstQuoted = ConvertTo-QuotedLine ([string](Get-DictValue $A 'first_line'))
+    $lastQuoted = ConvertTo-QuotedLine ([string](Get-DictValue $A 'last_line'))
+    if ($end -gt $start -and -not ([System.Collections.IDictionary]$A).Contains('last_line')) {
+        return (New-ToolResult "last_line is missing: for more than one line give the text of line $end as well." $true)
+    }
+    if ($end -eq $start -and -not ([System.Collections.IDictionary]$A).Contains('last_line')) { $lastQuoted = $firstQuoted }
+    $problems = @()
+    foreach ($check in @(@{ name = 'first_line'; n = $start; quoted = $firstQuoted }, @{ name = 'last_line'; n = $end; quoted = $lastQuoted })) {
+        if ($lines[$check.n - 1].Trim() -ceq $check.quoted) { continue }
+        $where = @(Find-QuotedLine $lines $check.quoted)
+        $text = "$($check.name) is not line $($check.n)"
+        if ($where.Count -gt 0) { $text += " but line $($where -join ', ')" } else { $text += ' and occurs nowhere in the file' }
+        $problems += $text
+    }
+    if ($problems.Count -gt 0) {
+        $from = [math]::Max(1, $start - 3)
+        return (New-ToolResult ("Nothing changed: $($problems -join '; '). Lines move after an edit. The place now:`n" + (Get-SnippetLines ($lines -join "`n") $from ([math]::Min(40, $end - $from + 4)))) $true)
+    }
+    $newText = ([string](Get-DictValue $A 'new_text')).Replace("`r`n", "`n")
+    if ($newText.EndsWith("`n")) { $newText = $newText.Substring(0, $newText.Length - 1) }
+    $newLines = @()
+    if ($newText -ne '') { $newLines = @($newText.Split("`n")) }
+    $numbered = @($newLines | Where-Object { $_.Trim() })
+    if ($numbered.Count -gt 0 -and @($numbered | Where-Object { $_ -match '^\s*\d+\t' }).Count -eq $numbered.Count) {
+        return (New-ToolResult 'new_text holds the line numbers Read shows; write the lines without them.' $true)
+    }
+    $oldLines = @($lines[($start - 1)..($end - 1)])
+    if (($oldLines -join "`n") -ceq ($newLines -join "`n")) {
+        $r = New-ToolResult "Lines $start to $end of $shown already are exactly this text, so this edit changes nothing. If a check still fails, the cause is elsewhere: read its error message again." $true
+        $r.noop = $true
+        return $r
+    }
+    $result = New-Object System.Collections.Generic.List[string]
+    if ($start -gt 1) { $result.AddRange([string[]]$lines[0..($start - 2)]) }
+    if ($newLines.Count -gt 0) { $result.AddRange([string[]]$newLines) }
+    if ($end -lt $lines.Count) { $result.AddRange([string[]]$lines[$end..($lines.Count - 1)]) }
+    $break = "`n"
+    if ($file.crlf) { $break = "`r`n" }
+    $updated = [string]::Join($break, $result.ToArray())
+    if ($endsWithBreak -and $result.Count -gt 0) { $updated += $break }
+    Write-TextFile $path $updated $file
+    $Session.reads[$path] = (Get-Item -LiteralPath $path).LastWriteTimeUtc.Ticks
+    $moved = $newLines.Count - $oldLines.Count
+    $text = "Changed $shown`: lines $start to $end ($($oldLines.Count)) replaced by $($newLines.Count) line(s)"
+    if ($moved -ne 0 -and $end -lt $lines.Count) { $text += "; the lines after them moved by $moved" }
+    $text += ". Now:`n" + (Get-SnippetLines $updated ([math]::Max(1, $start - 2)) ([math]::Min(60, $newLines.Count + 4)))
+    $r = New-ToolResult $text
+    $r.changed = $path
+    $r.diff = @{ old = ($oldLines -join "`n"); new = ($newLines -join "`n"); line = $start }
     return $r
 }
 
@@ -487,6 +588,7 @@ function Invoke-AgentTool($Session, [string]$Name, $A, [scriptblock]$ShouldStop)
         switch ($Name) {
             'Read' { return (Invoke-ToolRead $Session $A) }
             'Edit' { return (Invoke-ToolEdit $Session $A) }
+            'EditLines' { return (Invoke-ToolEditLines $Session $A) }
             'Write' { return (Invoke-ToolWrite $Session $A) }
             'Glob' { return (Invoke-ToolGlob $Session $A) }
             'Grep' { return (Invoke-ToolGrep $Session $A) }
