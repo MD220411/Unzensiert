@@ -317,3 +317,5 @@ MIT, see [LICENSE](LICENSE). The chat templates in `config\templates\` are adapt
 the templates from the model files and are under the licence of the respective model. The
 font IBM Plex Mono, which `Install-Font.ps1` downloads, is under the SIL Open Font License.
 
+
+##Co-authored-by: schnipelberger <noobtv@mein.gmx>
