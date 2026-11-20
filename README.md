@@ -1,6 +1,4 @@
-u<div align="center">
-
-Co-authored-by: schnipelberger <noobtv@mein.gmx>
+<div align="center">
 
 
 # Unzensiert
