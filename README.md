@@ -1,4 +1,4 @@
-<div align="center">
+u<div align="center">
 
 # Unzensiert
 
@@ -315,3 +315,5 @@ author is not liable for damage or misuse. Full text: [DISCLAIMER.md](DISCLAIMER
 MIT, see [LICENSE](LICENSE). The chat templates in `config\templates\` are adapted versions of
 the templates from the model files and are under the licence of the respective model. The
 font IBM Plex Mono, which `Install-Font.ps1` downloads, is under the SIL Open Font License.
+
+Co-authored-by: schnipelberger <noobtv@mein.gmx>
