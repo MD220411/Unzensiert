@@ -117,6 +117,66 @@ function ConvertFrom-OutputBytes([byte[]]$Bytes) {
     return $sb.ToString()
 }
 
+# --- co-author of commits -------------------------------------------------------------------
+
+$script:CoAuthorSetup = $null
+# A shell function, because git appends the arguments of the hook ("$@": message file,
+# source, commit) to the command; the function takes only the file. CHERRY_PICK_HEAD exists
+# while rebase and cherry-pick copy commits that already exist: those keep their message.
+# addIfDifferent: an amend, or a message that already has the line, does not get it twice.
+$script:CoAuthorHookCommand = 'add_coauthor() { [ -e "$(git rev-parse --git-path CHERRY_PICK_HEAD)" ] || git interpret-trailers --in-place --if-exists addIfDifferent --trailer "$UNZENSIERT_COAUTHOR" "$1"; }; add_coauthor'
+
+function Get-GitVersionNumber {
+    # The version of git on PATH ("git version 2.56.0.windows.4" -> 2.56.0), or $null.
+    $saved = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return $null }
+        $m = [regex]::Match("$(& cmd /c 'git version 2>nul')", '(\d+)\.(\d+)(?:\.(\d+))?')
+        if (-not $m.Success) { return $null }
+        $patch = 0
+        if ($m.Groups[3].Success) { $patch = [int]$m.Groups[3].Value }
+        return [version]"$($m.Groups[1].Value).$($m.Groups[2].Value).$patch"
+    } finally {
+        $ErrorActionPreference = $saved
+    }
+}
+
+function Get-CoAuthorSetup {
+    # How commits made in a session get the line "Co-authored-by: <coAuthor>" (config\
+    # unzensiert.json), worked out once per run: @{ trailer; hook }. trailer is '' when
+    # coAuthor is empty. hook: git 2.54 or newer runs hooks from its configuration, so the
+    # commands of Unzensiert get one in their environment (Set-CoAuthorHook); with an older
+    # git the system prompt asks the model to add the line (lib\AgentPrompt.ps1).
+    if ($null -eq $script:CoAuthorSetup) {
+        $setup = @{ trailer = ''; hook = $false }
+        $name = ([string](Get-AgentSettings).coAuthor).Trim()
+        if ($name) {
+            $setup.trailer = "Co-authored-by: $name"
+            $version = Get-GitVersionNumber
+            $setup.hook = ($null -ne $version -and $version -ge [version]'2.54.0')
+        }
+        $script:CoAuthorSetup = $setup
+    }
+    return $script:CoAuthorSetup
+}
+
+function Set-CoAuthorHook($Environment, [string]$Trailer) {
+    # Gives the git of a child process a prepare-commit-msg hook through its environment
+    # (GIT_CONFIG_COUNT, GIT_CONFIG_KEY_n, GIT_CONFIG_VALUE_n): it runs next to the hooks of
+    # the project, only for commands of Unzensiert, and nothing is written into the
+    # repository. Settings already passed this way stay; ours come after them.
+    $n = 0
+    $given = [string]$Environment['GIT_CONFIG_COUNT']
+    if ($given -match '^\d+$') { $n = [int]$given }
+    $Environment['UNZENSIERT_COAUTHOR'] = $Trailer
+    $Environment["GIT_CONFIG_KEY_$n"] = 'hook.unzensiert-coauthor.event'
+    $Environment["GIT_CONFIG_VALUE_$n"] = 'prepare-commit-msg'
+    $Environment["GIT_CONFIG_KEY_$($n + 1)"] = 'hook.unzensiert-coauthor.command'
+    $Environment["GIT_CONFIG_VALUE_$($n + 1)"] = $script:CoAuthorHookCommand
+    $Environment['GIT_CONFIG_COUNT'] = [string]($n + 2)
+}
+
 function Read-TextFile([string]$Path) {
     # Content of a text file and how to write it back: @{ text; encoding; bom; crlf; binary }.
     $bytes = [System.IO.File]::ReadAllBytes($Path)
@@ -536,6 +596,9 @@ function Invoke-ToolShell($Session, [string]$Kind, $A, [scriptblock]$ShouldStop)
     # Python writes its output as UTF-8 even into a pipe (otherwise in the code page of
     # Windows, where printing other characters fails)
     $psi.EnvironmentVariables['PYTHONIOENCODING'] = 'utf-8'
+    # commits made here name Unzensiert as co-author ("coAuthor" in config\unzensiert.json)
+    $coAuthor = Get-CoAuthorSetup
+    if ($coAuthor.hook) { Set-CoAuthorHook $psi.EnvironmentVariables $coAuthor.trailer }
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true

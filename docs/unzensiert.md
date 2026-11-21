@@ -85,9 +85,13 @@ The terminal is described with a picture and all its elements in
   with git state, memory of the graphics cards, rights, project instructions and server; a
   quote and the most important keys. With `-c` or `--resume` it says which conversation
   continues.
-- **Status line** before every input: mood and model, context as a gauge, speed of the last
-  answer, rights, graphics cards, folder and git, the time; whatever does not fit into the
-  window is dropped. Your own message stands on a coloured bar after sending.
+- **Status bar** at the bottom, like the status line of Claude Code: mood and model, context
+  as a gauge, rights, every graphics card with its memory (NVIDIA, Intel Arc, AMD Radeon),
+  folder and git, the speed of the last answer, the time. It stays visible under the text
+  while you type and while the model thinks and works; once the window is full, that is its
+  bottom edge. In a narrow window the parts take short forms (the cards as gauges with "GPU")
+  before the least important ones go. Your own message stands on a coloured bar after
+  sending.
 - **Activity line** while the model reads, thinks, writes a tool call, a command runs or the
   closing check works: what is happening, for how long, "Esc stops". Title and progress ring
   of the tab in Windows Terminal show the same, even when the window is in the background.
@@ -155,6 +159,27 @@ edits). For the guard, the rights of a session and the closing check `EditLines`
 | `Glob` | files by pattern (`**/*.py`, `src/*.{ts,tsx}`), newest first, without `.git`, `node_modules`, `__pycache__`, `.venv` |
 | `Grep` | content by regular expression (.NET), output `path:line:text`, with `glob`, `ignore_case`, `files_only` |
 
+## Commits name Unzensiert as co-author
+
+Commits made in a session, by the model or by you with `!git commit`, end with the line
+`Co-authored-by: Unzensiert <359525642+Unzensiert-coder@users.noreply.github.com>` (setting
+`coAuthor`). GitHub lists the co-authors of a commit next to its author.
+
+- **How:** with git 2.54 or newer the commands of the tools `Bash` and `PowerShell` (and
+  `!command`) get a `prepare-commit-msg` hook through their environment (`GIT_CONFIG_COUNT`),
+  which adds the line with `git interpret-trailers`. Nothing is written into the repository,
+  the project's own hooks still run, and commits made outside Unzensiert stay as they are.
+  An amend, or a message that already has the line, does not get it twice. Copies of
+  commits that already exist (`rebase`, `cherry-pick`) keep their message; merges and
+  reverts made in the session get the line.
+- **Older git:** the system prompt asks the model to end each commit message with the line.
+  How reliably a local model does that is not measured.
+- **The address** is the private address that GitHub gives the account
+  [Unzensiert-coder](https://github.com/Unzensiert-coder), a machine account that exists only
+  as the identity of Unzensiert. GitHub links the line to that account and shows its picture
+  (`docs\images\unzensiert-avatar.png`). This has not been checked on a pushed commit yet.
+- **Off:** `"coAuthor": ""`, for one computer in `config\machine.json` under `"unzensiert"`.
+
 ## Closing check and second look
 
 When the model wants to end an answer in which it changed files, the same closing check runs
@@ -197,7 +222,8 @@ shells), plus the instructions of the project (`projectFiles`: `AGENTS.md`, othe
 working rules from `rulesFile` in `config\agent.json`. System prompt and tool descriptions
 have about 8,900 characters together; the first request of a task measured 2,808 tokens.
 Claude Code first sends about 26,000 tokens to the local server ([README](../README.md)). The
-prompt says: answer in the language the user writes in.
+prompt says: answer in the language the user writes in. With git older than 2.54 it also
+asks for the co-author line in commits ([above](#commits-name-unzensiert-as-co-author)).
 
 ## One-off run and JSON
 
@@ -244,6 +270,7 @@ starting" go to the error output in a one-off run; standard output only contains
 | `permissionMode` | `ask` | rights mode at start |
 | `readOnlyCommands`, `readOnlyGit` | list | commands that run without a question |
 | `fileCommands` | list | commands that count as file changes in `edits` |
+| `coAuthor` | `Unzensiert <359525642+Unzensiert-coder@users.noreply.github.com>` | `Co-authored-by:` line in commits of a session ([above](#commits-name-unzensiert-as-co-author)); empty = off |
 | `maxToolRounds` | `200` | rounds per request |
 | `maxRepeats` | `3` | threshold for repetitions, changes without effect and refusals |
 | `compactAt`, `keepRecentRounds`, `oldToolResultChars` | `0.80`, `6`, `1500` | context, see above |

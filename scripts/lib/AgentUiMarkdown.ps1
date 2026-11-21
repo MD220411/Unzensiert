@@ -29,7 +29,7 @@ function Start-UiAnswer {
     $script:Ui.inTable = $false
     $null = $script:Ui.line.Clear()
     $script:Ui.lineStarted = $false
-    if ($script:Ui.on -and -not $script:Ui.gap) { [Console]::Write("`n"); $script:Ui.gap = $true }
+    if ($script:Ui.on -and -not $script:Ui.gap) { Write-UiOut "`n"; $script:Ui.gap = $true }
     Start-UiActivity 'model'
 }
 
@@ -45,12 +45,12 @@ function Add-UiReasoning([string]$Text) {
             Stop-UiActivity
             $script:Ui.thinkLive = $true
             $script:Ui.gap = $false
-            [Console]::Write($bar)
+            Write-UiOut $bar
         }
         $pieces = $Text.Replace("`r", '').Replace("`t", '    ').Split("`n")
         for ($i = 0; $i -lt $pieces.Count; $i++) {
-            if ($i -gt 0) { [Console]::Write("`n" + $bar) }
-            if ($pieces[$i]) { [Console]::Write((Format-UiInk $pieces[$i] $mode.dim -Italic)) }
+            if ($i -gt 0) { Write-UiOut ("`n" + $bar) }
+            if ($pieces[$i]) { $null = Write-UiRaw $pieces[$i] $mode.dim $bar -Italic }
         }
         return
     }
@@ -64,13 +64,13 @@ function Close-UiThinking {
     if (-not $script:Ui.on -or $script:Ui.thinkChars -eq 0 -or $script:Ui.thinkClosed) { return }
     $script:Ui.thinkClosed = $true
     $mode = $script:Ui.mode
-    if ($script:Ui.thinkLive) { [Console]::Write("`n"); $script:Ui.thinkLive = $false }
+    if ($script:Ui.thinkLive) { Write-UiOut "`n"; $script:Ui.thinkLive = $false }
     Clear-UiActivityLine
     if ($script:Ui.act.kind -eq 'think') { $script:Ui.act.kind = '' }
     $secs = ([DateTime]::UtcNow - $script:Ui.thinkStart).TotalSeconds
     $text = Get-UiText 'activity.thought' (Format-UiDuration $secs) (Get-UiCount ([int]($script:Ui.thinkChars / 4)) 'tokens')
     $script:Ui.gap = $false
-    [Console]::Write('  ' + (Format-UiInk (Get-UiMark 'thought' ':') $mode.faint) + ' ' + (Format-UiInk $text $mode.dim -Italic) + "`n")
+    Write-UiOut ('  ' + (Format-UiInk (Get-UiMark 'thought' ':') $mode.faint) + ' ' + (Format-UiInk $text $mode.dim -Italic) + "`n")
 }
 
 function Add-UiToolDraft([string]$Name) {
@@ -92,6 +92,7 @@ function Get-UiPrefix {
 
 function Add-UiContent([string]$Text) {
     # Prints the answer as it arrives; a finished line is printed again in its final form.
+    # The raw line is broken before the right edge (Write-UiRaw), which counts its rows.
     if (-not $script:Ui.on) { return }
     if ($script:Ui.act.kind) { Stop-UiActivity }
     Close-UiThinking
@@ -102,11 +103,12 @@ function Add-UiContent([string]$Text) {
             if (-not $script:Ui.lineStarted) {
                 $script:Ui.lineStarted = $true
                 $script:Ui.gap = $false
+                $script:Ui.rawRows = 0
                 $script:Ui.prefix = Get-UiPrefix
-                [Console]::Write($script:Ui.prefix)
+                Write-UiOut $script:Ui.prefix
             }
             $null = $script:Ui.line.Append($seg)
-            [Console]::Write($seg)
+            $script:Ui.rawRows += Write-UiRaw $seg
         }
         if ($i -lt $parts.Count - 1) { Complete-UiLine -Force }
     }
@@ -118,21 +120,21 @@ function Complete-UiLine([switch]$Force) {
     if (-not $script:Ui.on) { return }
     if (-not $script:Ui.lineStarted) {
         if ($Force -and $script:Ui.answerStarted) {
-            if ($script:Ui.inCode) { [Console]::Write(((Format-UiMarkdownLine '' '  ') -join "`n") + "`n") }
-            else { $script:Ui.inTable = $false; [Console]::Write("`n") }
+            if ($script:Ui.inCode) { Write-UiOut (((Format-UiMarkdownLine '' '  ') -join "`n") + "`n") }
+            else { $script:Ui.inTable = $false; Write-UiOut "`n" }
         }
         return
     }
     $raw = $script:Ui.line.ToString()
     $null = $script:Ui.line.Clear()
     $script:Ui.lineStarted = $false
-    $rows = [int][Math]::Max(1, [Math]::Ceiling((2 + $raw.Length) / [double](Get-UiWidth)))
+    $rows = 1 + $script:Ui.rawRows
     $script:Ui.extraUp = 0
     $out = Format-UiMarkdownLine $raw $script:Ui.prefix
     $rows += $script:Ui.extraUp
     $up = ''
     if ($rows -gt 1) { $up = $script:Esc + '[' + ($rows - 1) + 'A' }
-    [Console]::Write("`r" + $up + $script:Esc + '[J' + (@($out) -join "`n") + "`n")
+    Write-UiOut ("`r" + $up + $script:Esc + '[J' + (@($out) -join "`n") + "`n")
 }
 
 function Complete-UiAnswer {

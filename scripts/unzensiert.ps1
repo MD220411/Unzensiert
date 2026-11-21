@@ -156,6 +156,8 @@ if ($script:Ui.on) {
         $note = Get-GitSafetyNote $cwd
         if ($note) { Write-UiNote $note 'warn' }
     }
+    # from here on the status bar stands under the text (lib\AgentUiBar.ps1)
+    Enable-UiBar $session
 } else {
     $ctx = Get-SessionContextSize $session
     Get-LocalLookBanner $model $server.baseUrl ([int]($ctx * [double]$cfg.compactAt)) $ctx $pickerModels 'unzensiert'

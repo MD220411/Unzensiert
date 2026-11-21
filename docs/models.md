@@ -12,6 +12,8 @@ for models by their profile name.
 | `local-fast` | agent | Qwen 3.6 35B-A3B (mixture of experts), uncensored (Heretic), Q4_K_M with MTP | 22.7 GB | more tokens per second, less reliable on harder tasks; default model below 15 GB of graphics memory, because it is much faster there (measured, [setup.md](setup.md)) |
 | `local-qwen38` | agent | Qwen 3.8 27B, uncensored (Heretic), Q4_K_M with MTP | 17.6 GB | default model until 2026-11-14, reviewer of the second look; needs its own chat template |
 | `qwen2.5-coder-1.5b-base` | autocomplete | Qwen 2.5 Coder 1.5B base model | 1.6 GB | tab completion in Continue |
+| `local-coder-nvfp4` | compare | `local-coder` with NVFP4 weights (4-bit floating point, computed in hardware by Blackwell cards) | 16.9 GB | only for the benchmark; on the development computer slower than Q4_K_M (measured) |
+| `local-next` | compare | Qwen 3.8 Flash-Next (mixture of experts, 125B parameters plus a 51B n-gram table, about 6B active per token), uncensored (abliterated), IQ3_XXS, MTP head in a file of its own | 76.1 GB + 2.2 GB | a large model in graphics and main memory together (about 80 GB); only for the benchmark |
 | `local-coder-q5`, `-rb2048`, `-rb512`, `-rb0` | compare | variants of `local-coder` | | only for the benchmark |
 
 The installer decides which model a computer gets by its graphics memory
@@ -51,7 +53,8 @@ more; `-List` shows what is installed.
 - `defaults` apply to every profile; a value in `args` overrides them, `null` removes it.
 - **No split across particular cards in this file.** The planner computes the distribution
   over the cards of a computer (`tensor-split`, `device`, `mmproj-device`, `gpu-layers`,
-  `n-cpu-moe`, context) and writes it into `config\machine.json` under
+  `n-cpu-moe`, context; with weights in main memory also `ubatch-size` and `batch-size`, with
+  a draft model of its own `spec-draft-device`) and writes it into `config\machine.json` under
   `models.<profile>.args` ([planner.md](planner.md)). Without a plan llama.cpp distributes the
   model itself (`--fit`, the default).
 
@@ -75,6 +78,9 @@ the development computer (RTX 5070 Ti + RTX 3060).
 | `device` | `CUDA1` (development computer) | Put the model on one card only (`CUDA0` = 5070 Ti, `CUDA1` = 3060; list: `llama-server.exe --list-devices`) |
 | `spec-type` | `draft-mtp` | Speculative decoding with the MTP head of the model, see below |
 | `spec-draft-n-max` | `4` | How many tokens the model drafts ahead |
+| `spec-draft-model` | file name in `modelsDir` (`local-next`) | MTP head in a file of its own instead of inside the model, looked for in the model folder like `mmproj`; the planner puts it on the fastest card (`spec-draft-device`, `spec-draft-ngl`) |
+| `ubatch-size`, `batch-size` | `2048` (only when weights stay in main memory) | Tokens read per step. Computed by the planner: the cards fetch weights that lie in main memory once per step, so larger steps read the prompt faster ([planner.md](planner.md)) |
+| `lazy-mode` | `on` (`local-next`) | The n-gram table of Qwen 3.8 Flash-Next stays on the disk and is read row by row when needed (as the profile describes it; not checked here) |
 | `chat-template-file` | `templates\qwen3.6-agent.jinja`, `templates\qwen3.8-agent.jinja` | Own chat template, path relative to `config\`, see below |
 | `mmproj` | file name in `modelsDir` | Image encoder of the model, see "Images" |
 | `mmproj-device` | `CUDA1` (development computer) | Card for the image encoder. On the RTX 3060 it frees 1.2 GB on the RTX 5070 Ti, images stay just as fast (measured). |
@@ -88,7 +94,8 @@ the development computer (RTX 5070 Ti + RTX 3060).
 The Qwen models used here contain an MTP head: the model drafts several tokens ahead and
 checks them in one step. With `spec-type = draft-mtp` llama.cpp uses that as speculative
 decoding, which about doubles the speed. It requires a GGUF file **with** MTP head (often
-`-mtp` in the file name, stated on the model card).
+`-mtp` in the file name, stated on the model card). Some models bring the head as a file of
+its own (`local-next`); it is named in `spec-draft-model`.
 
 `Test-Model.ps1` shows whether MTP runs in the line `speed` (`MTP on, 76 % of drafted tokens
 accepted`). Models without an MTP head do not get the option.

@@ -44,6 +44,90 @@
         "min-p": 0
       }
     },
+    "local-coder-nvfp4": {
+      "description": "Like local-coder, but the weights in NVFP4 (4-bit floating point, computed in hardware by Blackwell cards such as the RTX 50 series; other tensors Q8_0), about the size of Q4_K_M. Comparison profile for the benchmark.",
+      "role": "compare",
+      "file": "qwen3.6-27b-heretic-v2-NVFP4-Q8_0-mtp.gguf",
+      "download": {
+        "repo": "llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-NVFP4-GGUF",
+        "revision": "500bd2be724ba62d753742b870485c8401e84ea8",
+        "files": [
+          {
+            "name": "qwen3.6-27b-heretic-v2-NVFP4-Q8_0-mtp.gguf",
+            "source": "Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-NVFP4-Q8_0.gguf",
+            "size": 16871896000,
+            "sha256": "c4e680075f07a8d1c5f459777ee5313746356a74e0a11164791250160afec8c8"
+          },
+          {
+            "name": "qwen3.6-27b-mmproj-BF16.gguf",
+            "source": "Qwen3.6-27B-mmproj-BF16.gguf",
+            "size": 931146048,
+            "sha256": "c5c8c41da6d155a61edd21b7e3aa50b6ef77f122d502d36afe4a4d5c3e494d4f"
+          }
+        ]
+      },
+      "args": {
+        "mmproj": "qwen3.6-27b-mmproj-BF16.gguf",
+        "image-min-tokens": 256,
+        "ctx-size": 131072,
+        "spec-type": "draft-mtp",
+        "spec-draft-n-max": 4,
+        "chat-template-file": "templates\\qwen3.6-agent.jinja",
+        "temp": 0.6,
+        "top-k": 20,
+        "top-p": 0.95,
+        "min-p": 0
+      }
+    },
+    "local-next": {
+      "description": "Qwen 3.8 Flash-Next, mixture of experts (125B parameters plus a 51B n-gram table, about 6B active per token), uncensored (abliterated by SC117), GSQ-RCO IQ3_XXS, MTP head in a file of its own. Needs about 80 GB of graphics and main memory together: the experts the cards cannot hold stay in main memory, the n-gram table is read from the disk row by row (lazy-mode). Comparison profile for the benchmark.",
+      "role": "compare",
+      "file": "Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00001-of-00002.gguf",
+      "download": {
+        "repo": "SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF",
+        "revision": "90a3350cd800ec1fe0d1660a38414ad9e985782f",
+        "files": [
+          {
+            "name": "Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00001-of-00002.gguf",
+            "source": "IQ3_XXS/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00001-of-00002.gguf",
+            "size": 47342144896,
+            "sha256": "03b11926b41a3d7f7a008882b1bc7a6330a3c9c43d3cad4598d31dc73042fdc5"
+          },
+          {
+            "name": "Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00002-of-00002.gguf",
+            "source": "IQ3_XXS/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00002-of-00002.gguf",
+            "size": 28800138432,
+            "sha256": "316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113"
+          },
+          {
+            "name": "mtp-Qwen3.8-Flash-Next-Q4_0.gguf",
+            "source": "mtp-Qwen3.8-Flash-Next-Q4_0.gguf",
+            "size": 2199652672,
+            "sha256": "70da35359338d15ef5af31f0e0e08998f2a2b3350678be1bbb1a57a376e350c3"
+          },
+          {
+            "name": "qwen3.8-flash-next-mmproj-BF16.gguf",
+            "source": "mmproj-Qwen3.8-Flash-Next-BF16.gguf",
+            "size": 907542944,
+            "sha256": "2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355"
+          }
+        ]
+      },
+      "args": {
+        "mmproj": "qwen3.8-flash-next-mmproj-BF16.gguf",
+        "image-min-tokens": 256,
+        "ctx-size": 131072,
+        "spec-type": "draft-mtp",
+        "spec-draft-model": "mtp-Qwen3.8-Flash-Next-Q4_0.gguf",
+        "spec-draft-n-max": 4,
+        "lazy-mode": "on",
+        "reasoning-effort": "medium",
+        "temp": 1,
+        "top-k": 20,
+        "top-p": 0.95,
+        "min-p": 0
+      }
+    },
     "local-coder-q5": {
       "description": "Like local-coder, but quantised Q5_K_M instead of Q4_K_M. Comparison profile for the benchmark.",
       "role": "compare",

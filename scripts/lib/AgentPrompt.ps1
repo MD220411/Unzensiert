@@ -56,6 +56,12 @@ function New-AgentSystemPrompt($Session) {
     foreach ($k in $facts.Keys) { $text = $text.Replace($k, $facts[$k]) }
     $sb = New-Object System.Text.StringBuilder
     $null = $sb.Append($text.TrimEnd())
+    # git older than 2.54 cannot take the co-author hook (lib\AgentTools.ps1), so the model
+    # writes the line itself
+    $coAuthor = Get-CoAuthorSetup
+    if ($coAuthor.trailer -and -not $coAuthor.hook) {
+        $null = $sb.Append("`n`n# Commits`nWhen you create a git commit, end its message with an empty line and then exactly this line:`n$($coAuthor.trailer)")
+    }
     $project = @(Get-ProjectInstructions $Session.cwd @($cfg.projectFiles))
     if ($project.Count -gt 0) {
         $null = $sb.Append("`n`n# Instructions of this project`nFollow them; they come from the user.")

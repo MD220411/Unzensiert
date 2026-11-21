@@ -22,6 +22,7 @@ compares with the free memory llama.cpp reports:
 |---|---|---|
 | Reserve per card | 1024 MiB | CUDA context of the server (650 MiB measured, 540 of which are already missing from the reported free memory) and room for the measuring processes the router briefly starts for the other models after every start (about 550 MiB each). With 512 MiB a model crashed at that moment. |
 | MTP drafting | 1408 MiB on the card with the last layers | own context and buffers of the draft, measured 1375 MiB at 128k |
+| Draft model of its own (`spec-draft-model`) | file size + 1408 MiB on the fastest card | an MTP head in a file of its own, such as that of Qwen 3.8 Flash-Next |
 | Image encoder | file size + 256 MiB | on the card that still has enough room afterwards, otherwise on the processor |
 
 **Speed.** For every generated token every weight is read once, in a mixture-of-experts model
@@ -81,11 +82,44 @@ actually kept. Measured with two conversations of about 33,000 tokens and 37 req
 taking turns: with 8 GiB each one was read in completely when it came back (35 to 36 s), with
 32 GiB only the new 300 tokens (0.8 s).
 
+**Weights in main memory: measured variants.** When a plan leaves experts or whole layers in
+main memory, two things change the speed that the formula does not know: to read a prompt the
+cards fetch those weights from main memory once per batch of tokens, and while writing every
+token crosses from the card to the processor and back at every layer whose experts are there.
+The planner therefore measures up to three variants with `llama-bench` (writing 32 tokens,
+reading 2,048) and takes the one with the least time per written token, counting 2.2 tokens
+read per token written (`readPerWrittenToken`, the ratio of the agent runs):
+
+1. the plan as computed,
+2. the same with a batch size of 2,048 for reading (`hostUbatch`; the larger buffers are part
+   of the memory estimate, so the plan may move a few more experts to main memory),
+3. with several cards and experts in main memory: batch 2,048 and the **fastest card first**
+   in the device order. It then takes the first layers, those whose experts are in main
+   memory, and the slowest card the last layers with their experts and the output layer.
+
+Measured with Qwen 3.8 Flash-Next (experts of 36 of 48 layers in main memory, RTX 5070 Ti
++ RTX 3060 at PCIe x4, 2026-11-19):
+
+| Variant | Writing | Reading 2,048 tokens |
+|---|---|---|
+| as computed (RTX 3060 first, batch 512) | 22.2 tok/s | 159 tok/s |
+| batch 2,048 | | 398 tok/s |
+| batch 2,048, RTX 5070 Ti first | 29.0 tok/s | 844 tok/s |
+
+In the server with 128k context and MTP the third variant gave 26.7 instead of 22.4 tok/s
+writing and 590 instead of 121 tok/s reading 26,000 tokens. A plan with all weights on the
+cards (`local-coder`) is not touched. A draft model of its own (an MTP head in a file of its own,
+`spec-draft-model`) always goes to the fastest card; the MTP layer inside the model stays on
+the card with the last layers.
+
 **Result.** In `config\machine.json` under `models.<profile>.args`: `ctx-size`,
-`gpu-layers`, `device` (slowest card first), `tensor-split` (units per card; the output layer
-counts as one unit), `n-cpu-moe`, `mmproj-device` or `mmproj-offload: false`, `cache-ram`, and
-`fit: off` so that llama.cpp moves nothing any more. Next to it `plans.<profile>` (prediction,
-measured speed) and `calibration.<profile>` (the measuring runs).
+`gpu-layers`, `device` (slowest card first, or fastest first when measured faster),
+`tensor-split` (units per card; the output layer counts as one unit), `n-cpu-moe`,
+`mmproj-device` or `mmproj-offload: false`, `cache-ram`, `ubatch-size` and `batch-size` (only
+with weights in main memory), `spec-draft-device` and `spec-draft-ngl` (only with a draft
+model of its own), and `fit: off` so that llama.cpp moves nothing any more. Next to it
+`plans.<profile>` (prediction, the variant taken with its measured speeds, measured speed of
+the test) and `calibration.<profile>` (the measuring runs).
 
 ## Using it
 
@@ -148,11 +182,13 @@ choice.
   with several cards the planner takes the card values from the calibration of a dense model
   on the same cards, if there is one. It replaces implausible values (≤ 0 or slower than main
   memory) by a twelfth of the main memory value and reports that.
-- **Prediction too pessimistic with experts moved out.** For `local-fast` the planner
-  predicted 32 % less speed with the experts of one layer in main memory than without; about
-  15 % was measured. The main memory value of a MoE model comes from a run on the processor
-  only, where it is limited by computing. The choice can therefore lean towards a small
-  context.
+- **Prediction wrong with experts moved out.** For `local-fast` the planner predicted 32 %
+  less speed with the experts of one layer in main memory than without; about 15 % was
+  measured. For Qwen 3.8 Flash-Next with the experts of 36 layers there it predicted 67.9
+  tok/s and 22.5 were measured: the processor computes those experts, and every token crosses
+  to it and back at each of these layers. The main memory value of a MoE model comes from a
+  run on the processor only, where it is limited by computing. The choice of the context can
+  therefore be off; the variants above are measured, not predicted.
 - **The formula knows no context depth.** In a long conversation every token also reads the
   context cache; the prediction applies to a short conversation.
 - **Untested:** real computers with other cards, AMD and Intel through Vulkan (the
@@ -170,7 +206,9 @@ choice.
 | `ctxCandidates` | `131072, 98304, 65536, 32768` | context sizes tried |
 | `minCtx` | `65536` | smaller only when nothing else fits |
 | `speedTolerance` | `0.15` | this much slower a larger context may be |
-| `bench` | `tokens 32, repetitions 2, cpuTokens 12` | measuring runs of the calibration |
+| `hostUbatch` | `2048` | batch size tried for reading when weights are in main memory, see "Weights in main memory"; `0` = never |
+| `readPerWrittenToken` | `2.2` | tokens read per token written when the measured variants are compared |
+| `bench` | `tokens 32, repetitions 2, cpuTokens 12, promptTokens 2048` | measuring runs of the calibration and of the variants |
 
 A computer can override single values in `config\machine.json` under `planner`. After a
 change: `scripts\Plan-Models.ps1 -Verify`.

@@ -34,11 +34,15 @@ function Write-Plan([string]$Name, $Plan, $Cards, $Model) {
     "$Name`: context $($Plan.ctx) tokens, predicted $tps tokens/s (generation without MTP)"
     $needs = Get-PlanNeeds $Model $Plan
     $last = Get-LastCardIndex $Plan.counts
+    $draftAt = $last
+    if ($Model.draftMiB -gt 0 -and $Plan.draftIndex -ge 0) { $draftAt = $Plan.draftIndex }
+    if ($Plan.fastFirst) { '  device order: fastest card first (it takes the layers whose experts are in main memory)' }
+    if ($Plan.ubatch -gt 0) { "  batch size for reading: $($Plan.ubatch)" }
     for ($j = $Plan.order.Count - 1; $j -ge 0; $j--) {
         $card = @($Cards | Where-Object { $_.id -eq $Plan.order[$j] })[0]
         $note = ''
         if ($j -eq $last -and $Plan.allOnCards) { $note += ' + output layer' }
-        if ($j -eq $last -and $Model.mtpMiB -gt 0) { $note += ' + MTP draft' }
+        if ($j -eq $draftAt -and $Model.mtpMiB -gt 0) { $note += ' + MTP draft' }
         if ($Plan.mmproj -eq $card.id) { $note += ' + image encoder' }
         '  {0,-7} {1,-30} {2,3} units  {3,8} of {4,8}{5}' -f $card.id, $card.name, $Plan.counts[$j], (Format-GB $needs[$card.id]), (Format-GB $card.capMiB), $note
     }
@@ -150,13 +154,51 @@ function Invoke-Planning([string]$Name, [double]$Reserve) {
     }
     $plan = New-ModelPlan $info $cards $speed $planCfg $hostCap
     if (-not $plan) { Write-Warning "$Name`: no placement fits into the graphics and main memory of this machine."; return }
+    # Weights in main memory: a larger batch for reading and the fastest card first can make
+    # the model much faster in ways the formula above does not know (the cards fetch those
+    # weights once per batch, and every token crosses to the processor and back at every
+    # layer whose experts are there). So these variants are measured (docs\planner.md).
+    $taken = $null
+    if (($plan.ncmoe -gt 0 -or -not $plan.allOnCards) -and [int]$cfg.hostUbatch -gt 0) {
+        $fixed = $planCfg | ConvertTo-Json -Depth 5 | ConvertFrom-Json
+        $fixed.ctxCandidates = @($plan.ctx)
+        $fixed.minCtx = $plan.ctx
+        $withBatch = Copy-PlannerModel $info ([int]$cfg.hostUbatch)
+        $variants = @([pscustomobject]@{ name = 'as computed'; plan = $plan; model = $info; tg = 0.0; pp = 0.0 })
+        $other = New-ModelPlan $withBatch $cards $speed $fixed $hostCap
+        if ($other) { $variants += [pscustomobject]@{ name = "batch $($cfg.hostUbatch)"; plan = $other; model = $withBatch; tg = 0.0; pp = 0.0 } }
+        if (@($cards).Count -ge 2 -and $plan.ncmoe -gt 0) {
+            $other = New-ModelPlan $withBatch $cards $speed $fixed $hostCap $true
+            if ($other) { $variants += [pscustomobject]@{ name = "batch $($cfg.hostUbatch), fastest card first"; plan = $other; model = $withBatch; tg = 0.0; pp = 0.0 } }
+        }
+        "  weights in main memory: measuring $($variants.Count) variants with llama-bench (writing $($cfg.bench.tokens), reading $($cfg.bench.promptTokens) tokens) ..."
+        foreach ($v in $variants) {
+            try {
+                $m = Invoke-BenchPair $v.model $v.plan.order $v.plan.counts $v.plan.ncmoe ([int]$cfg.bench.tokens) ([int]$cfg.bench.promptTokens) 1
+                $v.tg = $m.tg
+                $v.pp = $m.pp
+                '    {0}: {1} on {2}, experts of {3} layers in main memory: writing {4:N1}, reading {5:N0} tokens/s' -f $v.name, ($v.plan.counts -join '/'), ($v.plan.order -join '/'), $v.plan.ncmoe, $v.tg, $v.pp
+            } catch {
+                "    $($v.name): not measured ($($_.Exception.Message))"
+            }
+        }
+        $taken = Select-PlanVariant $variants ([double]$cfg.readPerWrittenToken)
+        if ($taken) {
+            $plan = $taken.plan
+            $info = $taken.model
+            "  taken: $($taken.name)"
+        }
+    }
     $plan | Add-Member -NotePropertyName cacheRamMiB -NotePropertyValue (Get-CacheRamMiB $plan $cfg $hostCap ([int]$server.modelsMax))
     Set-MachineModelArgs $Name (ConvertTo-PlanArgs $plan)
-    Set-MachineValue 'plans' $Name ([pscustomobject][ordered]@{
-            date = (Get-Date -Format 's'); ctx = $plan.ctx; devices = ($plan.order -join ','); counts = ($plan.counts -join ',')
-            ncmoe = $plan.ncmoe; mmproj = $plan.mmproj; allOnCards = $plan.allOnCards; reserveMiB = $Reserve; cacheRamMiB = $plan.cacheRamMiB
-            predictedTokensPerSecond = [math]::Round(1000.0 / [math]::Max(0.001, $plan.ms), 1)
-        })
+    $record = [ordered]@{
+        date = (Get-Date -Format 's'); ctx = $plan.ctx; devices = ($plan.order -join ','); counts = ($plan.counts -join ',')
+        ncmoe = $plan.ncmoe; mmproj = $plan.mmproj; allOnCards = $plan.allOnCards; reserveMiB = $Reserve; cacheRamMiB = $plan.cacheRamMiB
+        ubatch = $plan.ubatch; fastFirst = [bool]$plan.fastFirst
+        predictedTokensPerSecond = [math]::Round(1000.0 / [math]::Max(0.001, $plan.ms), 1)
+    }
+    if ($taken) { $record['variant'] = $taken.name; $record['benchWriting'] = [math]::Round($taken.tg, 1); $record['benchReading'] = [math]::Round($taken.pp, 0) }
+    Set-MachineValue 'plans' $Name ([pscustomobject]$record)
     Write-Plan $Name $plan $cards $info
     $script:PlanMade = $true
 }

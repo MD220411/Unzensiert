@@ -211,6 +211,10 @@ function Get-ModelProfile([string]$Name) {
     if ($modelArgs.Contains('mmproj')) {
         $modelArgs['mmproj'] = Join-Path $modelsDir ([string]$modelArgs['mmproj'])
     }
+    # so does a draft model for speculative decoding (an MTP head in a file of its own)
+    if ($modelArgs.Contains('spec-draft-model')) {
+        $modelArgs['spec-draft-model'] = Join-Path $modelsDir ([string]$modelArgs['spec-draft-model'])
+    }
 
     return [pscustomobject]@{
         name        = $Name

@@ -23,11 +23,18 @@
   "speedTolerance": 0.15,
   "_speedTolerance": "A larger context may make the model at most this much slower than the fastest variant (0.15 = 15 %). Context is worth some speed: in the benchmark the task longcontext only passed with 128k (docs\\model-choice.md); on the development machine 128k costs 10.6 % against 64k.",
 
+  "hostUbatch": 2048,
+  "_hostUbatch": "When a plan leaves weights in main memory (experts or layers), the planner also tries this batch size for reading the prompt (ubatch-size and batch-size): the cards then fetch the weights from main memory once per batch instead of once per 512 tokens. Measured with Qwen 3.8 Flash-Next, experts of 36 of 48 layers in main memory (development machine, 2026-11-19): reading 159 tok/s with 512, 398 with 2048. It costs memory on the cards for larger buffers, which the plan accounts for. 0 = never.",
+
+  "readPerWrittenToken": 2.2,
+  "_readPerWrittenToken": "How the variants of a plan with weights in main memory are compared: seconds per written token plus this many read tokens (1/writing + readPerWrittenToken/reading). In the agent runs of vergleich2 (2026-11-18) the model wrote at about 74 tok/s 86 % of its time and read at about 1,000 tok/s 14 %, that is 2.2 tokens read per token written.",
+
   "bench": {
-    "_comment": "Calibration with llama-bench: tokens generated per run and repetitions. cpuTokens for the run on the processor alone, which is slow.",
+    "_comment": "Calibration with llama-bench: tokens generated per run and repetitions. cpuTokens for the run on the processor alone, which is slow. promptTokens: tokens read when the variants of a plan with weights in main memory are measured.",
     "tokens": 32,
     "repetitions": 2,
     "cpuTokens": 12,
+    "promptTokens": 2048,
     "timeoutSeconds": 300
   }
 }

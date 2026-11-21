@@ -16,6 +16,9 @@
                    "new-item", "ni", "remove-item", "ri", "move-item", "mi", "copy-item", "cpi", "rename-item", "rni"],
   "_fileCommands": "In mode edits these commands count as file changes and run without a question when every target lies inside the project folder (no variables, no redirection). The guard still decides first, for example about deleting the whole project or .git.",
 
+  "coAuthor": "Unzensiert <359525642+Unzensiert-coder@users.noreply.github.com>",
+  "_coAuthor": "Commits made in a session (by the model or with !git) end with the line Co-authored-by: <this>, so GitHub lists Unzensiert as co-author. With git 2.54 or newer a hook adds it, only for the commands of Unzensiert and next to the hooks of the project; with an older git the system prompt asks the model to add it. The address is the private address GitHub gives the machine account Unzensiert-coder, so GitHub links the line to that account and its picture. Empty = off.",
+
   "maxToolRounds": 200,
   "maxRepeats": 3,
   "_maxRepeats": "The same tool call with the same result this often while the changed files hold the same content (a file changed and changed back counts as unchanged; run times like 0.507s and 0x addresses in results do not count): the model gets a note to change its approach; twice as often: the request is stopped. The same for edits and writes in one request that change nothing, whatever their arguments, and for refused calls (stop at three times as many).",

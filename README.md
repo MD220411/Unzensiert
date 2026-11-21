@@ -1,6 +1,5 @@
 <div align="center">
 
-
 # Unzensiert
 
 **A coding agent that runs an uncensored model on your own graphics card.**<br>
@@ -192,6 +191,11 @@ Workflows with fixed steps:
 In `claude-local` they are called `/local:feature`, `/local:bugfix`, `/local:review`;
 Unzensiert understands both spellings.
 
+Commits made in a session (by the model or with `!git commit`) end with a
+`Co-authored-by:` line for the account [Unzensiert-coder](https://github.com/Unzensiert-coder),
+so GitHub lists Unzensiert as co-author. Switch it off with `"coAuthor": ""` in
+`config\machine.json` under `"unzensiert"` ([details](docs/unzensiert.md#commits-name-unzensiert-as-co-author)).
+
 The model gets fixed working rules for maintainable software in every session (structure
 before code, modules, documentation, tests): `config\coding-rules.md`. A new project with a
 fixed structure (README, `CLAUDE.md`, tests, configuration, check command, git) is created by
@@ -229,7 +233,7 @@ It is no sandbox; see [docs/security.md](docs/security.md) for the rules and the
 | Benchmark | `local-coder`: all 24 runs of the four older tasks passed, 14 of 15 of the five harder ones, 89 % of the working rules followed, 91 % with the project template (measured with 64k); the two tasks on faithfulness to facts and consistency across files 6 of 6 |
 | Backend | llama.cpp build b12433 (`llama-server` in router mode), programs and models in the install folder (`config\machine.json`) |
 | Install | installer for any Windows computer: chooses llama.cpp package and model by graphics card, downloads with checksums, measures the cards and computes the layout ([setup.md](docs/setup.md), [planner.md](docs/planner.md)); tried only on the development computer so far |
-| Agent | Unzensiert, its own program (PowerShell 5.1, OpenAI-compatible interface of `llama-server`), version in `VERSION`, automatic updates from the releases, its own terminal in the look of the project ([style.md](docs/style.md#the-terminal-of-unzensiert)); for comparison Claude Code through the Anthropic-compatible interface ([unzensiert.md](docs/unzensiert.md)) |
+| Agent | Unzensiert, its own program (PowerShell 5.1, OpenAI-compatible interface of `llama-server`), version in `VERSION`, automatic updates from the releases, its own terminal in the look of the project with a status bar at the bottom like Claude Code's (model, context, rights, every graphics card: NVIDIA, Intel Arc, AMD Radeon) ([style.md](docs/style.md#the-terminal-of-unzensiert)); for comparison Claude Code through the Anthropic-compatible interface ([unzensiert.md](docs/unzensiert.md)) |
 | Comparison | Unzensiert against Claude Code, all eleven tasks three times each with `local-coder`: Unzensiert faster on all eleven (sum of the medians 1,629 s instead of 2,160 s, 36 % fewer rounds); passed 27 instead of 29 of 33, a difference within chance (every failure is a mistake of the model that also happened with Claude Code); working rules 88 instead of 86 of 96 |
 
 ## Limits
@@ -266,10 +270,10 @@ installer chooses (suggestion: `claude-local` on the drive with the most room).
 
 | File | Content |
 |---|---|
-| [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, context, saved conversations, one-off runs, automatic updates |
+| [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, co-author of commits, context, saved conversations, one-off runs, automatic updates |
 | [docs/style.md](docs/style.md) | the look: "Breakout" (colourful, pictures and a wall of characters) or "Night Shift" (calm); shell, terminal of Unzensiert, status line, colour themes for `claude` and `claude-local`, switching the style |
 | [docs/setup.md](docs/setup.md) | the installer step by step, hardware tiers, updating, uninstalling, values of the computer (`machine.json`), overview of the configuration files |
-| [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, cache of earlier conversations in main memory, measurements, limits |
+| [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, measured variants when weights stay in main memory, cache of earlier conversations in main memory, measurements, limits |
 | [docs/security.md](docs/security.md) | protecting your own computer: key for the server, guard before every tool call, git note, check scripts |
 | [docs/agent.md](docs/agent.md) | settings of both agents, working rules, closing check, second look, workflows; `claude-local` (Claude Code for comparison) |
 | [docs/projects.md](docs/projects.md) | a new project from the template, check command, facts with sources compared against documentation and code, way of working |
@@ -316,5 +320,3 @@ author is not liable for damage or misuse. Full text: [DISCLAIMER.md](DISCLAIMER
 MIT, see [LICENSE](LICENSE). The chat templates in `config\templates\` are adapted versions of
 the templates from the model files and are under the licence of the respective model. The
 font IBM Plex Mono, which `Install-Font.ps1` downloads, is under the SIL Open Font License.
-
-

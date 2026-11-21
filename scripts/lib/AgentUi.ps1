@@ -2,10 +2,11 @@
 # section "agent" of the style file, lib\Style.ps1) and with the texts of
 # config\unzensiert-texts.json: the welcome, the activity line while the model or a tool
 # works (spinner, time so far, window title, the progress mark of Windows Terminal), notes,
-# the input line with the status line above it, the overviews of /help, /status and /model,
-# the line after every request and the farewell. The answer with its Markdown lives in
-# lib\AgentUiMarkdown.ps1, tool calls, changes and questions in lib\AgentUiTools.ps1.
-# Without a terminal (-p) nothing is printed.
+# the input line, the overviews of /help, /status and /model, the line after every request
+# and the farewell. The answer with its Markdown lives in lib\AgentUiMarkdown.ps1, tool calls,
+# changes and questions in lib\AgentUiTools.ps1, the status bar at the bottom (and
+# Write-UiOut, through which everything is printed) in lib\AgentUiBar.ps1. Without a terminal
+# (-p) nothing is printed.
 #
 # Text is built from spans (New-UiSpan: text, colour, background, attributes, link) and
 # turned into escape sequences by Format-UiSpans, so lines can be measured, wrapped and
@@ -18,6 +19,9 @@ $script:UiTextCache = $null
 $script:UiRgbCache = @{}
 $script:UiDots = [string][char]0x2026
 $script:UiMid = [string][char]0x00B7
+# escape sequences that take no room on the screen: colours, cursor moves, links, titles
+$script:UiCsiRe = [regex]($script:Esc + '\[[0-9;?]*[ -/]*[@-~]')
+$script:UiOscRe = [regex]($script:Esc + '\][^\a' + $script:Esc + ']*(?:\a|' + $script:Esc + '\\)')
 
 # --- settings and texts ---------------------------------------------------------------------
 
@@ -168,10 +172,9 @@ function Format-UiSpans($Spans, [string]$Bg = '') {
 }
 
 function Measure-UiText([string]$Text) {
-    # Columns a text takes on the screen: without colours and links.
-    $plain = $Text -replace ($script:Esc + '\[[0-9;]*m'), ''
-    $plain = $plain -replace ($script:Esc + '\]8;;[^' + $script:Esc + ']*' + $script:Esc + '\\'), ''
-    return $plain.Length
+    # Columns a text takes on the screen: without colours, links and cursor moves.
+    if ($Text.IndexOf($script:Esc) -lt 0) { return $Text.Length }
+    return $script:UiCsiRe.Replace($script:UiOscRe.Replace($Text, ''), '').Length
 }
 
 function Limit-UiText([string]$Text, [int]$Max) {
@@ -235,8 +238,11 @@ function Initialize-AgentUi([bool]$Interactive, [bool]$ShowThinking) {
         fixedWidth = 0; wt = [bool]$env:WT_SESSION; links = [bool]$env:WT_SESSION
         showThinking = $ShowThinking; psrl = $false; savedTitle = $null; title = ''; progress = -1
         folder = ''; phase = $script:StyleRandom.NextDouble(); prompts = 0; requests = 0
+        # the column of the cursor, counted by Write-UiOut, and the status bar (lib\AgentUiBar.ps1)
+        col = 0
+        bar = @{ on = $false; shown = $false; session = $null; line = ''; key = ''; gpus = @(); git = $null; readAt = 0; checkAt = 0 }
         # the answer as it streams in (lib\AgentUiMarkdown.ps1)
-        line = (New-Object System.Text.StringBuilder); lineStarted = $false; answerStarted = $false; prefix = ''
+        line = (New-Object System.Text.StringBuilder); lineStarted = $false; answerStarted = $false; prefix = ''; rawRows = 0
         inCode = $false; codeLang = ''; codeFence = ''; codeState = ''; inTable = $false; table = $null; extraUp = 0; gap = $false
         thinkChars = 0; thinkClosed = $false; thinkStart = $null; thinkLive = $false
         # the activity line
@@ -251,9 +257,11 @@ function Initialize-AgentUi([bool]$Interactive, [bool]$ShowThinking) {
 }
 
 function Exit-AgentUi {
-    # Gives the window its title back and takes the progress mark off the tab.
+    # Takes the status bar away, gives the window its title back and takes the progress mark
+    # off the tab.
     if (-not $script:Ui.on) { return }
     Stop-UiActivity
+    Disable-UiBar
     Set-UiProgress 0
     if ($null -ne $script:Ui.savedTitle) { try { [Console]::Title = $script:Ui.savedTitle } catch {} }
 }
@@ -355,7 +363,7 @@ function Update-UiActivity([switch]$Force) {
     if (($now - $act.started).TotalMilliseconds -lt $act.delayMs) { return }
     $act.lastDraw = $now.Ticks
     $act.frame++
-    [Console]::Write("`r" + $script:Esc + '[2K' + (Format-UiActivityLine))
+    Write-UiOut ("`r" + $script:Esc + '[2K' + (Format-UiActivityLine))
     $act.shown = $true
 }
 
@@ -367,7 +375,7 @@ function Add-UiActivityChars([int]$Count) {
 function Clear-UiActivityLine {
     # Takes the activity line off the screen; it comes back with the next update.
     if ($script:Ui.on -and $script:Ui.act.shown) {
-        [Console]::Write("`r" + $script:Esc + '[2K')
+        Write-UiOut ("`r" + $script:Esc + '[2K')
         $script:Ui.act.shown = $false
     }
 }
@@ -381,7 +389,7 @@ function Stop-UiActivity {
 function Test-UiStop {
     # Esc or Ctrl+C pressed while the model works? (Ctrl+C reaches us as a key during a
     # request, see TreatControlCAsInput in lib\AgentRepl.ps1.) Every wait asks this about ten
-    # times a second, so it also keeps the activity line moving.
+    # times a second, so it also keeps the activity line moving and the status bar current.
     if (-not $script:Ui.on) { return $false }
     try {
         while ([Console]::KeyAvailable) {
@@ -391,6 +399,7 @@ function Test-UiStop {
         }
     } catch {}
     Update-UiActivity
+    Update-UiBar
     return $false
 }
 
@@ -419,7 +428,7 @@ function Write-UiNote([string]$Text, [string]$Kind = 'dim') {
     $indent = 2
     if ($icon) { $indent = 4 }
     $lines = Format-UiWrapped @(New-UiSpan $Text $textHex) $first (' ' * $indent) $indent (Get-UiWidth)
-    [Console]::Write((@($lines) -join "`n") + "`n")
+    Write-UiOut ((@($lines) -join "`n") + "`n")
 }
 
 function Write-UiHeading([string]$Text) {
@@ -428,7 +437,7 @@ function Write-UiHeading([string]$Text) {
     Clear-UiActivityLine
     $mode = $script:Ui.mode
     $rest = [Math]::Max(4, [Math]::Min(48, (Get-UiWidth) - $Text.Length - 8))
-    [Console]::Write("`n " + (Format-UiInk (Get-UiMark 'turn' '*') $mode.accent) + ' ' + (Format-UiShimmer $Text ([string](Get-UiLook 'headingInk' 'accent')) $script:Ui.phase -Bold) + ' ' + (Format-UiInk ([string][char]0x2500 * $rest) $mode.faint) + "`n")
+    Write-UiOut ("`n " + (Format-UiInk (Get-UiMark 'turn' '*') $mode.accent) + ' ' + (Format-UiShimmer $Text ([string](Get-UiLook 'headingInk' 'accent')) $script:Ui.phase -Bold) + ' ' + (Format-UiInk ([string][char]0x2500 * $rest) $mode.faint) + "`n")
 }
 
 function Write-UiRows($Rows, [int]$LabelWidth = 10) {
@@ -438,11 +447,11 @@ function Write-UiRows($Rows, [int]$LabelWidth = 10) {
     $mode = $script:Ui.mode
     foreach ($row in $Rows) {
         $label = '   ' + (Format-UiInk (([string]$row[0]).PadRight($LabelWidth)) $mode.dim) + ' '
-        [Console]::Write($label + [string]$row[1] + "`n")
+        Write-UiOut ($label + [string]$row[1] + "`n")
     }
 }
 
-# --- input and status line -------------------------------------------------------------------------
+# --- input -------------------------------------------------------------------------
 
 function Save-UiClipboardImage {
     # The image in the clipboard as a PNG file, '' if there is none.
@@ -470,8 +479,12 @@ function Initialize-UiInput([string]$HistoryFile) {
         $colors = @{}
         foreach ($k in 'Command', 'Comment', 'Keyword', 'String', 'Operator', 'Variable', 'Type', 'Number', 'Member', 'Parameter', 'Default') { $colors[$k] = $plain }
         Set-PSReadLineOption -Colors $colors
-        Set-PSReadLineKeyHandler -Chord 'Shift+Enter' -Function AddLine
-        Set-PSReadLineKeyHandler -Chord 'Ctrl+Enter' -Function AddLine
+        # a new line, a space and pasting also clear what is left of the status bar in the
+        # row of the cursor, once the input has grown into the row of the bar
+        Set-PSReadLineKeyHandler -Chord 'Shift+Enter' -ScriptBlock { [Microsoft.PowerShell.PSConsoleReadLine]::AddLine(); Clear-UiInputTail }
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+Enter' -ScriptBlock { [Microsoft.PowerShell.PSConsoleReadLine]::AddLine(); Clear-UiInputTail }
+        Set-PSReadLineKeyHandler -Chord 'Spacebar' -ScriptBlock { param($key, $arg) [Microsoft.PowerShell.PSConsoleReadLine]::SelfInsert($key, $arg); Clear-UiInputTail }
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+v' -ScriptBlock { param($key, $arg) [Microsoft.PowerShell.PSConsoleReadLine]::Paste($key, $arg); Clear-UiInputTail }
         Set-PSReadLineKeyHandler -Chord 'Alt+v' -ScriptBlock {
             $p = Save-UiClipboardImage
             if ($p) { [Microsoft.PowerShell.PSConsoleReadLine]::Insert("[image: $p] ") }
@@ -497,14 +510,16 @@ function Read-UiLine([string]$Label) {
     # One plain line for a choice; '' without a terminal.
     if (-not $script:Ui.on) { return '' }
     $mode = $script:Ui.mode
-    [Console]::Write('   ' + (Format-UiInk ([string][char]0x203A) $mode.accent -Bold) + ' ' + (Format-UiInk ($Label + ': ') $mode.dim))
+    Write-UiOut ('   ' + (Format-UiInk ([string][char]0x203A) $mode.accent -Bold) + ' ' + (Format-UiInk ($Label + ': ') $mode.dim))
     $l = [Console]::In.ReadLine()
+    $script:Ui.col = 0
     if ($null -eq $l) { return '' }
     return $l.Trim()
 }
 
 function Read-UiPrompt($Session) {
-    # Status line, prompt sign, one input (Enter sends, Shift+Enter starts a new line).
+    # Prompt sign, one input (Enter sends, Shift+Enter starts a new line), the status bar
+    # under it. Without the bar (design preview) the status line comes before the prompt.
     if (-not $script:Ui.on) { return [Console]::In.ReadLine() }
     Stop-UiActivity
     Set-UiIdleTitle
@@ -512,12 +527,14 @@ function Read-UiPrompt($Session) {
         $global:UnzensiertDraft = $false
         Write-UiNote (Get-UiText 'notes.draft')
     }
-    Write-UiStatus $Session
+    $lead = "`n"
+    if ($script:Ui.bar.on) { Update-UiBarReadings }
+    else { Write-UiStatus $Session; $lead = '' }
     $script:Ui.prompts++
     $sign = $script:Ui.glyphs.prompt
     if ($sign -is [array]) { $sign = $sign[$script:StyleRandom.Next($sign.Count)] }
     $hex = Resolve-UiInk ([string](Get-UiLook 'promptInk' 'accent')) ($script:Ui.phase + $script:Ui.prompts / 7.0)
-    [Console]::Write((Format-UiInk ([string]$sign) $hex -Bold) + ' ')
+    Write-UiOut ($lead + (Format-UiInk ([string]$sign) $hex -Bold) + ' ')
     $line = $null
     $read = $false
     if ($script:Ui.psrl) {
@@ -528,6 +545,8 @@ function Read-UiPrompt($Session) {
         }
     }
     if (-not $read) { $line = [Console]::In.ReadLine() }
+    # the input ends with a new line: the cursor is at the start of the row after it
+    $script:Ui.col = 0
     if ($line -and $line.Trim()) { Write-UiEcho $line ([string]$sign) $hex }
     return $line
 }
@@ -554,7 +573,7 @@ function Write-UiEcho([string]$Text, [string]$Sign, [string]$Hex) {
             $null = $out.Add($w)
         }
     }
-    [Console]::Write("`r" + $script:Esc + '[' + $rows + 'A' + $script:Esc + '[J' + ($out -join "`n") + "`n")
+    Write-UiOut ("`r" + $script:Esc + '[' + $rows + 'A' + $script:Esc + '[J' + ($out -join "`n") + "`n")
 }
 
 function Get-UiModeInk([string]$Mode) {
@@ -562,63 +581,6 @@ function Get-UiModeInk([string]$Mode) {
     if ($Mode -eq 'all') { return $script:Ui.ink.warn }
     if ($Mode -eq 'edits') { return $script:Ui.ink.ok }
     return $script:Ui.ink.branch
-}
-
-function Format-UiContextGauge($Session, [int]$Width) {
-    # Gauge and share of the context window in use; yellow from 70 %, red from 85 %.
-    $mode = $script:Ui.mode
-    $ctx = Get-SessionContextSize $Session
-    if ($ctx -le 0) { return '' }
-    $used = [math]::Min(1.0, (Get-EstimatedTokens $Session) / [double]$ctx)
-    $ink = Get-GaugeInk $mode $mode.accent
-    if ($used -ge 0.7) { $ink = $script:Ui.ink.warn }
-    if ($used -ge 0.85) { $ink = $script:Ui.ink.error }
-    return (Format-Gauge $used $Width $ink $mode.faint) + ' ' + (Format-UiInk ('{0} %' -f [int]($used * 100)) $mode.foreground)
-}
-
-function Write-UiStatus($Session) {
-    # One line before every input: look and model, how full the context is, the last speed,
-    # the rights, the graphics cards, folder and git, the time at the right edge. What does
-    # not fit into the window is left out, the least important first.
-    $mode = $script:Ui.mode
-    $parts = New-Object System.Collections.ArrayList
-    $null = $parts.Add(@{ text = (Format-ModeLabel $mode) + '  ' + (Format-UiInk $Session.model $mode.foreground); rank = 100 })
-    $gauge = Format-UiContextGauge $Session 8
-    if ($gauge) { $null = $parts.Add(@{ text = (Format-UiInk (Get-UiText 'status.context') $mode.dim) + ' ' + $gauge; rank = 90 }) }
-    if ($Session.tokensPerSecond -gt 0) { $null = $parts.Add(@{ text = (Format-UiInk ('{0} tok/s' -f [int]$Session.tokensPerSecond) $mode.foreground); rank = 40 }) }
-    $null = $parts.Add(@{ text = (Format-UiInk (Get-UiText 'status.rights') $mode.dim) + ' ' + (Format-UiInk $Session.mode (Get-UiModeInk $Session.mode) -Bold); rank = 80 })
-    $rank = 30
-    try {
-        foreach ($gpu in @(Get-GpuReadings)) {
-            $fraction = 0
-            if ($gpu.totalMiB -gt 0) { $fraction = $gpu.usedMiB / $gpu.totalMiB }
-            $null = $parts.Add(@{ text = (Format-UiInk ($gpu.name -replace '^RTX\s+', '') $mode.dim) + ' ' + (Format-Gauge $fraction 6 (Get-GaugeInk $mode $mode.accent) $mode.faint); rank = $rank })
-            $rank--
-        }
-    } catch {}
-    $where = Format-UiInk (Split-Path -Leaf $Session.cwd) $mode.foreground
-    try {
-        $git = Get-GitSummary $Session.cwd
-        if ($git) { $where += ' ' + (Format-GitSummary $git $mode.dim) }
-    } catch {}
-    $null = $parts.Add(@{ text = $where; rank = 60 })
-    $clock = (Get-Date).ToString('HH:mm')
-    $width = Get-UiWidth
-    $sepWidth = 5
-    while ($true) {
-        $total = 1
-        foreach ($p in $parts) { $total += (Measure-UiText $p.text) }
-        $total += $sepWidth * ($parts.Count - 1)
-        if ($total + $clock.Length + 2 -lt $width -or $parts.Count -le 1) { break }
-        $lowest = $parts[0]
-        foreach ($p in $parts) { if ($p.rank -lt $lowest.rank) { $lowest = $p } }
-        $parts.Remove($lowest)
-    }
-    $line = ' ' + $parts[0].text
-    for ($i = 1; $i -lt $parts.Count; $i++) { $line += (Get-UiSep) + $parts[$i].text }
-    $pad = $width - 1 - (Measure-UiText $line) - $clock.Length
-    if ($pad -ge 2) { $line += (' ' * $pad) + (Format-UiInk $clock $mode.dim) }
-    [Console]::Write("`n" + $line + "`n")
 }
 
 # --- welcome -----------------------------------------------------------------------------------------
@@ -746,7 +708,7 @@ function Write-UiWelcome($Session, $Info) {
         $null = $out.Add('  ' + (Format-UiTrail 3) + ' ' + (Format-UiShimmer $quoted ([string](Get-UiLook 'headingInk' 'accent')) $script:StyleRandom.NextDouble() -Bold))
     }
     $null = $out.Add('  ' + (Format-UiInk (Limit-UiText (Get-UiText 'welcome.keys') ($width - 4)) $mode.dim))
-    [Console]::Write(($out -join "`n") + "`n")
+    Write-UiOut (($out -join "`n") + "`n")
 }
 
 # --- one request, the end of the session ----------------------------------------------------------
@@ -793,7 +755,7 @@ function Complete-UiTurn($Session, $Snap, [string]$Status) {
     $line = '  ' + $head
     if ($parts.Count -gt 0) { $line += (Format-UiInk ('  ' + $script:UiMid + '  ' + ($parts -join ('  ' + $script:UiMid + '  '))) $mode.dim) }
     if ((Measure-UiText $line) + 8 -lt (Get-UiWidth)) { $line += '  ' + (Format-UiTrail ([int](Get-UiLook 'trail' 0))) }
-    [Console]::Write("`n" + $line + "`n")
+    Write-UiOut ("`n" + $line + "`n")
     $script:Ui.gap = $false
     if ($Status -in 'error', 'loop', 'limit') { Set-UiProgress 2 } else { Set-UiProgress 0 }
     Set-UiIdleTitle
@@ -801,9 +763,10 @@ function Complete-UiTurn($Session, $Snap, [string]$Status) {
 
 function Write-UiFarewell($Session, [datetime]$Started, [string]$Closing) {
     # The end of a session: a sprayed line, how long it lasted, what happened in it, and what
-    # became of the models ($Closing, from Complete-AgentSession).
+    # became of the models ($Closing, from Complete-AgentSession). The status bar goes first.
     if (-not $script:Ui.on) { return }
     Stop-UiActivity
+    Disable-UiBar
     $mode = $script:Ui.mode
     $width = Get-UiWidth
     $took = Format-UiDuration ((Get-Date) - $Started).TotalSeconds -Coarse
@@ -824,7 +787,7 @@ function Write-UiFarewell($Session, [datetime]$Started, [string]$Closing) {
     }
     if ($Closing) { $out += '   ' + (Format-UiInk (Limit-UiText $Closing ($width - 4)) $mode.faint) }
     $out += ''
-    [Console]::Write(($out -join "`n") + "`n")
+    Write-UiOut (($out -join "`n") + "`n")
 }
 
 # --- overviews: /help, /status, /model, /resume ------------------------------------------------------
@@ -850,7 +813,7 @@ function Show-UiHelp($Commands) {
             $i++
             $first = '   ' + (Format-UiInk ($key.PadRight(13)) $hex -Bold) + ' '
             $lines = Format-UiWrapped @(New-UiSpan ([string]$row[1]) $mode.foreground) $first (' ' * 17) 17 $width
-            [Console]::Write((@($lines) -join "`n") + "`n")
+            Write-UiOut ((@($lines) -join "`n") + "`n")
         }
     }
 }
@@ -902,7 +865,7 @@ function Show-UiModelList($Rows, [string]$Current) {
         if ($isCurrent) { $mark = (Format-UiInk (Get-UiMark 'answer' '*') $mode.accent -Bold) + ' '; $hex = $mode.accent }
         $desc = [string]$r.description -replace ('^' + [regex]::Escape([string]$r.model) + ':\s*'), ''
         $line = '   ' + $mark + (Format-UiInk ('{0}' -f ($i + 1)) $mode.dim) + '  ' + (Format-UiInk (([string]$r.label).PadRight(12)) $hex -Bold) + ' ' + (Format-UiInk (([string]$r.model).PadRight(14)) $mode.foreground) + (Format-UiInk (Limit-UiText $desc ($width - 40)) $mode.dim)
-        [Console]::Write($line + "`n")
+        Write-UiOut ($line + "`n")
     }
 }
 
@@ -915,6 +878,6 @@ function Show-UiSessionList($Files) {
     for ($i = 0; $i -lt $Files.Count; $i++) {
         $f = $Files[$i]
         $line = '   ' + (Format-UiInk ('{0,3}' -f ($i + 1)) $mode.accent -Bold) + '  ' + (Format-UiInk $f.time.ToString('ddd MMM d HH:mm', $script:StyleCulture) $mode.dim) + '  ' + (Format-UiInk (Limit-UiText ([string]$f.title) ($width - 28)) $mode.foreground)
-        [Console]::Write($line + "`n")
+        Write-UiOut ($line + "`n")
     }
 }

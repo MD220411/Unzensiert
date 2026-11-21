@@ -159,6 +159,8 @@
     "promptInk": "accent",
     "rule": "line",
     "trail": 0,
+    "barRefreshSeconds": 5,
+    "_bar": "The status bar under the text reads the graphics cards again every barRefreshSeconds while something runs (0 = only before every input).",
     "tools": {
       "_comment": "Sign and colour of every tool in its header line.",
       "Bash": { "icon": "❯", "ink": "#E9B44C" },

@@ -210,7 +210,6 @@ this page shows it in colour:
     ' “Freedom runs locally.”
   Enter send · Shift+Enter new line · Esc stop · Shift+Tab rights · /help everything
 
- ✦ Unzensiert  local-coder  :  context $W······ 23 %  +  rights ask  %  my-tool main ±2                         13:59
 » Add a function mul(a, b) to calc.py, write a test for it and run all tests.
 
   ∴ thought for 6.4 s · 365 tokens
@@ -258,6 +257,10 @@ this page shows it in colour:
    tests/test_calc.py │ new, 3 tests
 
   ✦ Put it on the wall in 1 min 24 s  ·  9 rounds  ·  3 files changed  ·  1,873 tokens  ·  61 tok/s  *~
+
+» 
+
+ ✦ Unzensiert  local-coder  :  context $W······ 24 %  +  rights ask  %  5070 Ti *W=$@·  3060 X==@··  ~  my-tool main ±2  14:01
 ```
 
 The elements, from top to bottom:
@@ -265,7 +268,7 @@ The elements, from top to bottom:
 | Element | What it shows | "Breakout" | "Night Shift" |
 |---|---|---|---|
 | **Welcome** | picture of characters (`agent.bannerText`) and next to it the facts of the session: version, date, model with description, context window, project with git state, memory of every graphics card, rights, project instructions, server; in narrow windows (below `bannerWidth` + 52 columns) below it. Then sprayed line, quote and keys | picture FREE, quote in the colours of the wheel | instead of the picture the spaced name `U N Z E N S I E R T` in ember orange, plain line |
-| **Status line** before every input | mood and model, context as a gauge with percent, speed of the last answer, rights (ask calm, edits green, all yellow), graphics cards, folder and git, the time on the right. Whatever does not fit into the window is dropped, the least important first (cards, speed, folder) | sprayed gauges and separators | solid gauges |
+| **Status bar** at the bottom | mood and model, context as a gauge with percent, rights (ask calm, edits green, all yellow), every graphics card with a gauge of its memory, folder and git, speed of the last answer, the time on the right. It always stands under the text, with an empty row between (room for a second row of input): while you type, while the model thinks, writes and works; once the window is full, that is its bottom edge. The cards come from `nvidia-smi` (NVIDIA) and from the memory counters of Windows (Intel Arc, AMD Radeon; integrated graphics left out), read again every `agent.barRefreshSeconds` while something runs. In a narrow window one step after the other until it fits: speed and time go, the folder loses git, the model the name of the mood, the cards their names (`GPU` with gauges), the context its gauge; then folder, cards, context and rights go | sprayed gauges and separators | solid gauges |
 | **Input** | prompt sign in a changing colour; after Enter your message stands on a coloured bar across the whole width | sign and colour change with every input | `»` in brass |
 | **Activity line** | while nothing else is shown: a turning sign, what is happening (an activity word of the style, "thinking · 340 tokens", "writing Write", "running", "closing check", "summarising the conversation"), the time so far, "Esc stops". It disappears as soon as something else appears | sparkling star, the activity word runs through the colour wheel, characters flying away | `◐◓◑◒` in ember orange, a light runs through the word |
 | **Tab and taskbar** | title of the window: what Unzensiert is doing and in which folder; in Windows Terminal also the progress ring on the tab (OSC 9;4), red after an error until the next input. When it ends, the old title comes back | | |
@@ -393,7 +396,8 @@ config\style.json            which style applies, what all styles share
 config\styles\*.json         per style: colours, signs, texts, block font
 scripts\lib\Style.ps1        building blocks: read the style, colours, colour wheel, gauges, tinting the terminal, readings
 scripts\lib\CharArt.ps1      pictures of characters: block font, filling, light, shadow, drips, overspray, sparks, characters breaking out; the wall as PNG
-scripts\lib\AgentUi.ps1      terminal of Unzensiert: welcome, activity line, notes, input, status line, overviews, farewell
+scripts\lib\AgentUi.ps1      terminal of Unzensiert: welcome, activity line, notes, input, overviews, farewell
+scripts\lib\AgentUiBar.ps1   the status bar at the bottom; Write-UiOut, through which everything is printed
 scripts\lib\AgentUiMarkdown.ps1  the answer: Markdown, wrapping, tables, colours of code
 scripts\lib\AgentUiTools.ps1     tools, diffs, questions
 config\unzensiert-texts.json  texts of the terminal of Unzensiert
@@ -451,6 +455,26 @@ mean of several passes after a first one; a benchmark ran at the same time):
 | paragraph of 220 characters with bold, code and link | about 4 ms |
 | line of code with colours | about 1 ms |
 | diff of the sample (3 lines) / 60 lines with 8 changes | about 11 ms / 34 ms |
+
+Status bar of Unzensiert, measured on 2026-11-21 (Windows PowerShell 5.1, 120 columns, written
+into a buffer after a first pass, a model loaded in llama-server):
+
+| | Duration |
+|---|---|
+| building the line of the bar (only when something in it has changed) | about 10 ms |
+| one written line with the bar drawn again under it | about 0.2 ms |
+| an answer of 481 words as it streams in | about 180 ms (about 167 ms without the bar) |
+| reading cards and git (before every input; while something runs the cards every 5 s, git after every tool) | 83 to 357 ms |
+| memory counters of Windows (cards without `nvidia-smi`): first read in the process / later | about 400 ms / about 1 ms |
+
+Checked for the bar: `Test-Agent.ps1` replays a request in a small terminal emulator (the bar
+is the last row, once, nothing of it in the scrollback, the cursor where the text goes on, every
+width fits); a real but hidden console window (conhost) with PSReadLine 2.0.0 was typed into by
+a script and its screen read back: the bar stays at the bottom during the answer, while typing
+one, two and three rows of input and after Enter; the scrollback holds every line once. The
+memory counters were read on this machine with `nvidia-smi` hidden: within 10 MiB of
+`nvidia-smi`. Not checked: the look in a real Windows Terminal window, and a real Intel or AMD
+card (the tests use made-up adapters).
 
 For "Night Shift", measured on 2026-11-14: start of the shell with greeting about 440 ms, one
 prompt in a git folder about 30 ms, one run of the status line about 380 ms.

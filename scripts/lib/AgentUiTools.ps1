@@ -105,7 +105,7 @@ function Write-UiToolStart([string]$Name, $A, [string]$Cwd) {
     if ($Name -eq 'Bash' -or $Name -eq 'PowerShell') { $head += Format-UiCodeLine ([string]$label[0]) (Get-UiShellLang $Name) $room }
     else { $head += Format-UiInk (Limit-UiText ([string]$label[0]) $room) $mode.foreground }
     if ($detail) { $head += '  ' + (Format-UiInk $detail $mode.dim) }
-    [Console]::Write($gap + $head + "`n")
+    Write-UiOut ($gap + $head + "`n")
     $script:Ui.toolName = $Name
     $script:Ui.toolArgs = $A
     $script:Ui.toolCwd = $Cwd
@@ -214,7 +214,9 @@ function Write-UiToolResult($Result, [string]$Name) {
         if (-not $summary) { $summary = ([string]$Result.text).Split("`n")[0] }
         $null = $out.Add($corner + (Get-UiSign 'ok') + ' ' + (Format-UiInk (Limit-UiText $summary ($max - 2)) $mode.dim))
     }
-    [Console]::Write((@($out) -join "`n") + "`n")
+    # a tool may have changed files: the bar reads git again
+    if ($script:Ui.bar.on) { Update-UiBarReadings -Git }
+    Write-UiOut ((@($out) -join "`n") + "`n")
 }
 
 # --- changes ------------------------------------------------------------------------------------------
@@ -493,7 +495,7 @@ function Show-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]
     $out = @($head)
     foreach ($b in $body) { $out += $side + $b }
     $out += '  ' + (Format-UiInk ((Get-UiBox 1) + ($h * ($width - 5))) $hex)
-    [Console]::Write(($out -join "`n") + "`n")
+    Write-UiOut (($out -join "`n") + "`n")
 
     $badge = { param($key) Format-UiSpans @(New-UiSpan (' ' + $key + ' ') $mode.background 'b' $hex) }
     $choices = '  ' + (& $badge 'y') + ' ' + (Format-UiInk (Get-UiText 'permission.yes') $mode.foreground) + '    '
@@ -505,7 +507,7 @@ function Show-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]
         $choices += (& $badge 'a') + ' ' + (Format-UiInk (Limit-UiText $always ($width - 40)) $mode.foreground) + '    '
     }
     $choices += (& $badge 'n') + ' ' + (Format-UiInk (Get-UiText 'permission.no') $mode.foreground) + '   ' + (Format-UiInk ([string][char]0x203A) $hex -Bold) + ' '
-    [Console]::Write($choices)
+    Write-UiOut $choices
 }
 
 function Write-UiPermissionAnswer([string]$Reply) {
@@ -514,7 +516,7 @@ function Write-UiPermissionAnswer([string]$Reply) {
     $answer = (Get-UiSign 'ok') + ' ' + (Format-UiInk (Get-UiText 'permission.allowed') $ink.ok)
     if ($Reply -eq 'always') { $answer = (Get-UiSign 'ok') + ' ' + (Format-UiInk (Get-UiText 'permission.allowedAlways') $ink.ok) }
     if ($Reply -eq 'no') { $answer = (Get-UiSign 'error') + ' ' + (Format-UiInk (Get-UiText 'permission.denied') $ink.error) }
-    [Console]::Write("`r" + $script:Esc + '[2K  ' + $answer + "`n")
+    Write-UiOut ("`r" + $script:Esc + '[2K  ' + $answer + "`n")
 }
 
 function Read-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]$CanAlways, $A = $null) {

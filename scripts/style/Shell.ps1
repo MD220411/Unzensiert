@@ -157,9 +157,12 @@ function Show-StyleGreeting {
             $fraction = 0
             if ($gpu.totalMiB -gt 0) { $fraction = $gpu.usedMiB / $gpu.totalMiB }
             $memory = '{0,5} / {1} GB' -f (Format-Number ($gpu.usedMiB / 1024) 1), (Format-Number ($gpu.totalMiB / 1024) 1)
+            # the temperature only where it is known (nvidia-smi; not for Intel and AMD cards)
+            $heat = ''
+            if ($null -ne $gpu.temperature) { $heat = '   ' + (Format-Ink ('{0} {1}C' -f $gpu.temperature, [char]0xB0) $mode.dim) }
             '  ' + (Format-Ink ($gpu.name.PadRight($nameWidth)) $mode.foreground) + '   ' +
                 (Format-Gauge $fraction ([int]$cfg.shell.gaugeWidth) (Get-GaugeInk $mode $cfg.ink.ember) $mode.faint) + '   ' +
-                (Format-Ink $memory $mode.dim) + '   ' + (Format-Ink ('{0} {1}C' -f $gpu.temperature, [char]0xB0) $mode.dim)
+                (Format-Ink $memory $mode.dim) + $heat
         }
         ''
     }

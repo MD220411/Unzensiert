@@ -89,7 +89,8 @@
 
   "status": {
     "context": "context",
-    "rights": "rights"
+    "rights": "rights",
+    "cards": "GPU"
   },
 
   "farewell": {

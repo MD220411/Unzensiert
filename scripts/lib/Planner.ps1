@@ -115,13 +115,18 @@ function Get-PlannerModel([string]$Name, $Devices) {
     $model = [pscustomobject]@{
         name = $Name; file = $prof.path; memArgs = $memArgs
         nLayerAll = 0; nExpert = 0; nExpertUsed = 0; activeFraction = 1.0
-        expertMiB = 0.0; hostBaseMiB = 0.0; mmprojMiB = 0.0; mtpMiB = 0.0
+        expertMiB = 0.0; hostBaseMiB = 0.0; mmprojMiB = 0.0; mtpMiB = 0.0; draftMiB = 0.0; ubatch = 0
     }
     if ($prof.args.Contains('mmproj') -and (Test-Path $prof.args['mmproj'])) {
         $model.mmprojMiB = [math]::Ceiling((Get-Item $prof.args['mmproj']).Length / 1MB) + [double]$cfg.mmprojExtraMiB
     }
     # guessing ahead with the MTP layer needs memory of its own on the card with the last layers
     if ($prof.args.Contains('spec-type') -and [string]$prof.args['spec-type'] -match 'mtp') { $model.mtpMiB = [double]$cfg.mtpReserveMiB }
+    # an MTP head in a file of its own (spec-draft-model) goes to that card as well
+    if ($prof.args.Contains('spec-draft-model') -and (Test-Path $prof.args['spec-draft-model'])) {
+        $model.draftMiB = [math]::Ceiling((Get-Item $prof.args['spec-draft-model']).Length / 1MB)
+        $model.mtpMiB += $model.draftMiB
+    }
     if ($script:FitEstimator) { $meta = & $script:FitEstimator $model 'meta' $null $null 0 }
     else { $meta = ConvertFrom-ModelMeta (Invoke-NativeLines (Get-LlamaTool 'llama-fit-params') @('-m', $prof.path, '-c', '512', '-fit', 'off', '-ngl', '0', '--fit-print', 'on', '-v') -WithErrors) }
     if ($meta.nLayerAll -le 0) { throw "llama-fit-params did not report the layers of $($prof.path)." }
@@ -205,82 +210,96 @@ function Get-LastCardIndex([int[]]$Counts) {
     return -1
 }
 
-function Get-CardNeed($Model, $Estimate, [string[]]$Ids, [int[]]$Counts, [int]$Index) {
-    # MiB a card needs for a placement: the estimate of llama.cpp, plus the MTP draft on the
-    # card with the last layers. The image encoder comes later (Select-MmprojDevice).
+function Get-CardNeed($Model, $Estimate, [string[]]$Ids, [int[]]$Counts, [int]$Index, [int]$DraftIndex = -1) {
+    # MiB a card needs for a placement: the estimate of llama.cpp, plus the MTP draft: on the
+    # card with the last layers when the MTP layer is part of the model, on card $DraftIndex
+    # (the fastest) when it is a file of its own. The image encoder comes later
+    # (Select-MmprojDevice).
     $need = Get-EstimateTotal $Estimate $Ids[$Index]
-    if ($Model.mtpMiB -gt 0 -and $Index -eq (Get-LastCardIndex $Counts)) { $need += $Model.mtpMiB }
+    $at = Get-LastCardIndex $Counts
+    if ($Model.PSObject.Properties['draftMiB'] -and $Model.draftMiB -gt 0 -and $DraftIndex -ge 0) { $at = $DraftIndex }
+    if ($Model.mtpMiB -gt 0 -and $Index -eq $at) { $need += $Model.mtpMiB }
     return $need
 }
 
-function Test-CardFits($Model, $Estimate, $Order, [int[]]$Counts, [int]$Index) {
+function Test-CardFits($Model, $Estimate, $Order, [int[]]$Counts, [int]$Index, [int]$DraftIndex = -1) {
     $ids = [string[]]@($Order | ForEach-Object { [string]$_.id })
-    return ((Get-CardNeed $Model $Estimate $ids $Counts $Index) -le [double]$Order[$Index].capMiB)
+    return ((Get-CardNeed $Model $Estimate $ids $Counts $Index $DraftIndex) -le [double]$Order[$Index].capMiB)
 }
 
-function Find-Placement($Model, $Cards, [int]$Ctx, [int]$Ncmoe) {
-    # Fills the fastest card first. Cards: objects with id, capMiB, usPerMiB. Returns order,
-    # counts, ncmoe and allOnCards (every layer and the output layer on a card).
-    $order = @(@($Cards) | Sort-Object -Property @{ Expression = { [double]$_.usPerMiB }; Descending = $true }, @{ Expression = { [string]$_.id } })
+function Find-Placement($Model, $Cards, [int]$Ctx, [int]$Ncmoe, [bool]$FastFirst = $false) {
+    # Fills the fastest card first. Cards: objects with id, capMiB, usPerMiB. The fastest card
+    # stands last in the device order, so it also gets the output layer and the MTP layer;
+    # with $FastFirst it stands first and takes the first layers, those whose experts stay in
+    # main memory (Plan-Models.ps1 measures which order is faster). Returns order, counts,
+    # ncmoe, allOnCards (every layer and the output layer on a card), fastFirst and
+    # draftIndex (the fastest card, which takes a draft model of its own).
+    $order = @(@($Cards) | Sort-Object -Property @{ Expression = { [double]$_.usPerMiB }; Descending = (-not $FastFirst) }, @{ Expression = { [string]$_.id } })
     $ids = [string[]]@($order | ForEach-Object { [string]$_.id })
     $n = $order.Count
-    if ($n -eq 0) { return [pscustomobject]@{ order = [string[]]@(); counts = [int[]]@(); ncmoe = 0; allOnCards = $false } }
+    if ($n -eq 0) { return [pscustomobject]@{ order = [string[]]@(); counts = [int[]]@(); ncmoe = 0; allOnCards = $false; fastFirst = $FastFirst; draftIndex = -1 } }
     $units = $Model.nLayerAll + 1
+    # positions in the device order from the fastest card to the slowest
+    $bySpeed = @(($n - 1)..0)
+    if ($FastFirst) { $bySpeed = @(0..($n - 1)) }
+    $fastest = $bySpeed[0]
+    $rest = $bySpeed[-1]
 
-    # A: every unit on a card. Card i (from the fastest) takes as many as fit while the rest
-    # waits on the slowest card; only the slowest card can then be too full.
+    # A: every unit on a card. The cards from the fastest on take as many as fit while the
+    # rest waits on the slowest card; only the slowest card can then be too full.
     $counts = New-Object int[] $n
     $left = $units
-    for ($i = $n - 1; $i -ge 1; $i--) {
+    foreach ($i in $bySpeed) {
+        if ($i -eq $rest) { continue }
         $lo = 0; $hi = $left
         while ($lo -lt $hi) {
             $mid = [int][math]::Ceiling(($lo + $hi) / 2.0)
             $try = [int[]]$counts.Clone()
             $try[$i] = $mid
-            $try[0] = $left - $mid
-            if (Test-CardFits $Model (Invoke-FitEstimate $Model $Ctx $ids $try $Ncmoe) $order $try $i) { $lo = $mid } else { $hi = $mid - 1 }
+            $try[$rest] = $left - $mid
+            if (Test-CardFits $Model (Invoke-FitEstimate $Model $Ctx $ids $try $Ncmoe) $order $try $i $fastest) { $lo = $mid } else { $hi = $mid - 1 }
         }
         $counts[$i] = $lo
         $left -= $lo
     }
-    $counts[0] = $left
+    $counts[$rest] = $left
     $estimate = Invoke-FitEstimate $Model $Ctx $ids $counts $Ncmoe
     $fits = $true
-    for ($j = 0; $j -lt $n; $j++) { if (-not (Test-CardFits $Model $estimate $order $counts $j)) { $fits = $false } }
-    if ($fits) { return [pscustomobject]@{ order = $ids; counts = [int[]]$counts; ncmoe = $Ncmoe; allOnCards = $true } }
+    for ($j = 0; $j -lt $n; $j++) { if (-not (Test-CardFits $Model $estimate $order $counts $j $fastest)) { $fits = $false } }
+    if ($fits) { return [pscustomobject]@{ order = $ids; counts = [int[]]$counts; ncmoe = $Ncmoe; allOnCards = $true; fastFirst = $FastFirst; draftIndex = $fastest } }
 
     # B: not everything fits. The output layer and the first layers stay on the host; the
     # cards take layers from the fastest on, each as many as fit.
     $counts = New-Object int[] $n
     $left = $Model.nLayerAll
-    for ($i = $n - 1; $i -ge 0; $i--) {
+    foreach ($i in $bySpeed) {
         $lo = 0; $hi = $left
         while ($lo -lt $hi) {
             $mid = [int][math]::Ceiling(($lo + $hi) / 2.0)
             $try = [int[]]$counts.Clone()
             $try[$i] = $mid
-            if (Test-CardFits $Model (Invoke-FitEstimate $Model $Ctx $ids $try $Ncmoe) $order $try $i) { $lo = $mid } else { $hi = $mid - 1 }
+            if (Test-CardFits $Model (Invoke-FitEstimate $Model $Ctx $ids $try $Ncmoe) $order $try $i $fastest) { $lo = $mid } else { $hi = $mid - 1 }
         }
         $counts[$i] = $lo
         $left -= $lo
     }
-    return [pscustomobject]@{ order = $ids; counts = [int[]]$counts; ncmoe = $Ncmoe; allOnCards = $false }
+    return [pscustomobject]@{ order = $ids; counts = [int[]]$counts; ncmoe = $Ncmoe; allOnCards = $false; fastFirst = $FastFirst; draftIndex = $fastest }
 }
 
-function Find-BestPlacement($Model, $Cards, [int]$Ctx) {
+function Find-BestPlacement($Model, $Cards, [int]$Ctx, [bool]$FastFirst = $false) {
     # Dense model: Find-Placement. Mixture of experts: the fewest layers whose experts go to
     # the host so that every layer itself stays on a card; reading the few active experts
     # from main memory costs far less than reading whole layers from there.
-    $plain = Find-Placement $Model $Cards $Ctx 0
+    $plain = Find-Placement $Model $Cards $Ctx 0 $FastFirst
     if ($plain.allOnCards -or $Model.expertMiB -le 0 -or @($Cards).Count -eq 0) { return $plain }
-    $most = Find-Placement $Model $Cards $Ctx $Model.nLayerAll
+    $most = Find-Placement $Model $Cards $Ctx $Model.nLayerAll $FastFirst
     if (-not $most.allOnCards) { return $most }
     $lo = 1; $hi = $Model.nLayerAll
     while ($lo -lt $hi) {
         $mid = [int][math]::Floor(($lo + $hi) / 2.0)
-        if ((Find-Placement $Model $Cards $Ctx $mid).allOnCards) { $hi = $mid } else { $lo = $mid + 1 }
+        if ((Find-Placement $Model $Cards $Ctx $mid $FastFirst).allOnCards) { $hi = $mid } else { $lo = $mid + 1 }
     }
-    return (Find-Placement $Model $Cards $Ctx $lo)
+    return (Find-Placement $Model $Cards $Ctx $lo $FastFirst)
 }
 
 function Select-MmprojDevice($Model, $Cards, $Placement, $Estimate) {
@@ -291,7 +310,7 @@ function Select-MmprojDevice($Model, $Cards, $Placement, $Estimate) {
     $bestRoom = -1.0
     for ($j = 0; $j -lt $Placement.order.Count; $j++) {
         $card = @($Cards | Where-Object { $_.id -eq $Placement.order[$j] })[0]
-        $room = [double]$card.capMiB - (Get-CardNeed $Model $Estimate $Placement.order $Placement.counts $j)
+        $room = [double]$card.capMiB - (Get-CardNeed $Model $Estimate $Placement.order $Placement.counts $j ([int]$Placement.draftIndex))
         if ($room -ge $Model.mmprojMiB -and $room -gt $bestRoom) { $best = [string]$card.id; $bestRoom = $room }
     }
     if ($best) { return $best }
@@ -302,25 +321,28 @@ function Get-PlanNeeds($Model, $Plan) {
     # MiB every card needs for a finished plan, image encoder included (for the report).
     $needs = @{}
     for ($j = 0; $j -lt $Plan.order.Count; $j++) {
-        $need = Get-CardNeed $Model $Plan.estimate $Plan.order $Plan.counts $j
+        $need = Get-CardNeed $Model $Plan.estimate $Plan.order $Plan.counts $j ([int]$Plan.draftIndex)
         if ($Plan.mmproj -eq $Plan.order[$j]) { $need += $Model.mmprojMiB }
         $needs[$Plan.order[$j]] = $need
     }
     return $needs
 }
 
-function New-ModelPlan($Model, $Cards, $Speed, $Cfg, [double]$HostCapMiB) {
+function New-ModelPlan($Model, $Cards, $Speed, $Cfg, [double]$HostCapMiB, [bool]$FastFirst = $false) {
     # The plan for one model: every context size from ctxCandidates is placed and timed;
     # among those of at least minCtx (or, if none fits, all) the largest one is taken whose
-    # time is at most speedTolerance above the fastest. $null if nothing fits.
+    # time is at most speedTolerance above the fastest. $null if nothing fits. $FastFirst: the
+    # fastest card first in the device order (Find-Placement). The batch size the model was
+    # estimated with ($Model.ubatch, 0 = the default of llama.cpp) goes into the plan.
     $found = @()
     foreach ($ctx in @($Cfg.ctxCandidates | ForEach-Object { [int]$_ } | Sort-Object -Descending)) {
-        $p = Find-BestPlacement $Model $Cards $ctx
+        $p = Find-BestPlacement $Model $Cards $ctx $FastFirst
         $est = Invoke-FitEstimate $Model $ctx $p.order $p.counts $p.ncmoe
         if ((Get-EstimateTotal $est 'Host') -gt $HostCapMiB) { continue }
         $reads = Get-PlacementReads $Model $p.order $p.counts $p.ncmoe $est
         $found += [pscustomobject]@{
             ctx = $ctx; order = $p.order; counts = $p.counts; ncmoe = $p.ncmoe; allOnCards = $p.allOnCards
+            fastFirst = $p.fastFirst; draftIndex = $p.draftIndex
             estimate = $est; reads = $reads; ms = (Get-PlacementMs $reads $Speed); mmproj = ''
         }
     }
@@ -330,8 +352,42 @@ function New-ModelPlan($Model, $Cards, $Speed, $Cfg, [double]$HostCapMiB) {
     $fastest = ($pool | Measure-Object -Property ms -Minimum).Minimum
     $plan = @($pool | Where-Object { $_.ms -le $fastest * (1.0 + [double]$Cfg.speedTolerance) } | Sort-Object ctx -Descending)[0]
     $plan.mmproj = Select-MmprojDevice $Model $Cards $plan $plan.estimate
+    # a draft model of its own goes to the fastest card
+    $draftDevice = ''
+    if ($Model.PSObject.Properties['draftMiB'] -and $Model.draftMiB -gt 0 -and $plan.draftIndex -ge 0) { $draftDevice = [string]$plan.order[$plan.draftIndex] }
+    $ubatch = 0
+    if ($Model.PSObject.Properties['ubatch']) { $ubatch = [int]$Model.ubatch }
+    $plan | Add-Member -NotePropertyName draftDevice -NotePropertyValue $draftDevice
+    $plan | Add-Member -NotePropertyName ubatch -NotePropertyValue $ubatch
     $plan | Add-Member -NotePropertyName candidates -NotePropertyValue $found
     return $plan
+}
+
+function Copy-PlannerModel($Model, [int]$Ubatch) {
+    # The same model, estimated and measured with another batch size for reading the prompt
+    # (ubatch-size and batch-size); 0 = the default of llama.cpp.
+    $copy = $Model.PSObject.Copy()
+    $memArgs = @()
+    for ($i = 0; $i -lt @($Model.memArgs).Count; $i += 2) {
+        if (@('-ub', '-b') -notcontains $Model.memArgs[$i]) { $memArgs += @($Model.memArgs[$i], $Model.memArgs[$i + 1]) }
+    }
+    if ($Ubatch -gt 0) { $memArgs += @('-ub', [string]$Ubatch, '-b', [string]$Ubatch) }
+    $copy.memArgs = $memArgs
+    if ($copy.PSObject.Properties['ubatch']) { $copy.ubatch = $Ubatch } else { $copy | Add-Member -NotePropertyName ubatch -NotePropertyValue $Ubatch }
+    return $copy
+}
+
+function Select-PlanVariant($Variants, [double]$ReadPerWritten) {
+    # The variant with the least time per written token, counting the tokens read with it:
+    # 1/writing + ReadPerWritten/reading (tokens per second as llama-bench measured them).
+    $best = $null
+    $bestScore = [double]::MaxValue
+    foreach ($v in @($Variants)) {
+        if ($v.tg -le 0 -or $v.pp -le 0) { continue }
+        $score = 1.0 / [double]$v.tg + $ReadPerWritten / [double]$v.pp
+        if ($score -lt $bestScore) { $best = $v; $bestScore = $score }
+    }
+    return $best
 }
 
 function Get-CacheRamMiB($Plan, $Cfg, [double]$HostCapMiB, [int]$ModelsMax) {
@@ -351,7 +407,7 @@ function Clear-ModelPlan([string]$Name) {
     # Takes the options of a plan out of config\machine.json again, so llama.cpp places the
     # model by itself (--fit); the context size stays. Used when a plan does not work.
     $values = [ordered]@{}
-    foreach ($key in 'fit', 'gpu-layers', 'device', 'tensor-split', 'n-cpu-moe', 'mmproj-device', 'mmproj-offload', 'cache-ram') { $values[$key] = $null }
+    foreach ($key in 'fit', 'gpu-layers', 'device', 'tensor-split', 'n-cpu-moe', 'mmproj-device', 'mmproj-offload', 'cache-ram', 'spec-draft-device', 'spec-draft-ngl', 'ubatch-size', 'batch-size') { $values[$key] = $null }
     Set-MachineModelArgs $Name $values
     $machine = Get-MachineConfig
     if ($machine.PSObject.Properties['plans'] -and $machine.plans.PSObject.Properties[$Name]) {
@@ -374,6 +430,10 @@ function ConvertTo-PlanArgs($Plan) {
     elseif ($Plan.mmproj) { $a['mmproj-device'] = $Plan.mmproj; $a['mmproj-offload'] = $null }
     else { $a['mmproj-device'] = $null; $a['mmproj-offload'] = $null }
     if ($Plan.PSObject.Properties['cacheRamMiB'] -and [int]$Plan.cacheRamMiB -gt 0) { $a['cache-ram'] = [int]$Plan.cacheRamMiB } else { $a['cache-ram'] = $null }
+    if ($Plan.PSObject.Properties['draftDevice'] -and $Plan.draftDevice) { $a['spec-draft-device'] = [string]$Plan.draftDevice; $a['spec-draft-ngl'] = 'all' }
+    else { $a['spec-draft-device'] = $null; $a['spec-draft-ngl'] = $null }
+    if ($Plan.PSObject.Properties['ubatch'] -and [int]$Plan.ubatch -gt 0) { $a['ubatch-size'] = [int]$Plan.ubatch; $a['batch-size'] = [int]$Plan.ubatch }
+    else { $a['ubatch-size'] = $null; $a['batch-size'] = $null }
     return $a
 }
 
@@ -397,6 +457,30 @@ function Invoke-BenchSpeed($Model, [string[]]$Order, [int[]]$Counts, [int]$Ncmoe
         }
     }
     throw "llama-bench gave no result for $($Model.name) ($($a -join ' '))."
+}
+
+function Invoke-BenchPair($Model, [string[]]$Order, [int[]]$Counts, [int]$Ncmoe, [int]$Tokens, [int]$PromptTokens, [int]$Repetitions) {
+    # Writing and reading speed llama-bench measures for one placement, with the batch sizes
+    # of $Model (Copy-PlannerModel): @{ tg; pp } in tokens per second (no MTP).
+    $ngl = 0
+    foreach ($c in $Counts) { $ngl += $c }
+    $a = @('-m', $Model.file, '-p', [string]$PromptTokens, '-n', [string]$Tokens, '-r', [string]$Repetitions, '-o', 'jsonl')
+    for ($i = 0; $i -lt @($Model.memArgs).Count; $i += 2) {
+        if ($Model.memArgs[$i] -ne '-np') { $a += @($Model.memArgs[$i], $Model.memArgs[$i + 1]) }
+    }
+    if ($ngl -gt 0) { $a += @('-ngl', [string]$ngl, '-dev', ($Order -join '/'), '-ts', ($Counts -join '/')) }
+    else { $a += @('-ngl', '0') }
+    if ($Ncmoe -gt 0) { $a += @('-ncmoe', [string]$Ncmoe) }
+    $result = @{ tg = 0.0; pp = 0.0 }
+    foreach ($line in (Invoke-NativeLines (Get-LlamaTool 'llama-bench') $a)) {
+        if ($line -notmatch '^\s*\{') { continue }
+        $r = $line | ConvertFrom-Json
+        if (-not $r.avg_ts) { continue }
+        if ([int]$r.n_prompt -gt 0 -and [int]$r.n_gen -eq 0) { $result.pp = [double]$r.avg_ts }
+        elseif ([int]$r.n_gen -gt 0) { $result.tg = [double]$r.avg_ts }
+    }
+    if ($result.tg -le 0 -or $result.pp -le 0) { throw "llama-bench gave no result for $($Model.name) ($($a -join ' '))." }
+    return $result
 }
 
 function Solve-LinearSystem([double[][]]$A, [double[]]$B) {

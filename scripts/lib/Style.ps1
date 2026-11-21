@@ -426,25 +426,117 @@ function Get-LocalLookFarewell([datetime]$Started) {
 
 # --- readings -------------------------------------------------------------------------
 
-function Get-GpuReadings {
-    # One object per graphics card: name, usedMiB, totalMiB, temperature, load.
-    # Empty if nvidia-smi is missing.
+function ConvertTo-ShortGpuName([string]$Name) {
+    # The name of a card without maker and marks: "NVIDIA GeForce RTX 5070 Ti" -> "RTX 5070 Ti",
+    # "Intel(R) Arc(TM) B580 Graphics" -> "Arc B580", "AMD Radeon RX 7900 XTX" -> "RX 7900 XTX".
+    $n = ($Name -replace '\((R|TM|C)\)', '' -replace '\s+', ' ').Trim()
+    $n = $n -replace '^(NVIDIA|AMD|ATI|Intel) ', '' -replace '^(GeForce|Radeon) (?=(RTX|GTX|RX|Pro) )', '' -replace ' Graphics$', ''
+    return $n.Trim()
+}
+
+function Get-NvidiaReadings {
+    # One object per NVIDIA card as nvidia-smi reports it. Empty without nvidia-smi, and when
+    # it finds no card (it can be left over from an earlier driver and then prints a message).
     if (-not (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) { return @() }
     $rows = @()
     try {
         $lines = & nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>$null
-        foreach ($line in $lines) {
-            $f = @($line -split ',' | ForEach-Object { $_.Trim() })
-            if ($f.Count -lt 5) { continue }
+        foreach ($line in @($lines)) {
+            $f = @(([string]$line) -split ',' | ForEach-Object { $_.Trim() })
+            if ($f.Count -lt 5 -or $f[1] -notmatch '^\d' -or $f[2] -notmatch '^\d') { continue }
+            $temperature = 0
+            $load = 0
+            if (-not [int]::TryParse($f[3], [ref]$temperature)) { $temperature = $null }
+            if (-not [int]::TryParse($f[4], [ref]$load)) { $load = $null }
             $rows += [pscustomobject]@{
-                name        = ($f[0] -replace '^NVIDIA\s+', '' -replace '^GeForce\s+', '')
+                name        = (ConvertTo-ShortGpuName $f[0])
                 usedMiB     = [double]$f[1]
                 totalMiB    = [double]$f[2]
-                temperature = [int]$f[3]
-                load        = [int]$f[4]
+                temperature = $temperature
+                load        = $load
             }
         }
     } catch { }
+    return $rows
+}
+
+$script:StyleAdapterCache = $null
+$script:StyleGpuCounters = $null
+
+function Get-DisplayAdapterList {
+    # The graphics adapters DirectX has seen, from HKLM\SOFTWARE\Microsoft\DirectX\{...}: name,
+    # LUID, dedicated memory in MiB, vendor id (0x10DE NVIDIA, 0x1002 AMD, 0x8086 Intel,
+    # 0x1414 Microsoft) and kind (flags of the driver: 0x4 software, 0x20 the integrated
+    # graphics of a machine that also has a graphics card). Read once per process.
+    if ($null -ne $script:StyleAdapterCache) { return $script:StyleAdapterCache }
+    $list = @()
+    try {
+        $root = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\DirectX')
+        if ($root) {
+            foreach ($sub in $root.GetSubKeyNames()) {
+                $k = $root.OpenSubKey($sub)
+                if (-not $k) { continue }
+                $luid = $k.GetValue('AdapterLuid')
+                $desc = [string]$k.GetValue('Description')
+                if ($null -ne $luid -and $desc) {
+                    $list += [pscustomobject]@{
+                        name = $desc; luid = [long]$luid
+                        memoryMiB = [double]$k.GetValue('DedicatedVideoMemory', 0) / 1MB
+                        vendor = [int]$k.GetValue('VendorId', 0); kind = [int]$k.GetValue('AdapterType', 0)
+                    }
+                }
+                $k.Close()
+            }
+            $root.Close()
+        }
+    } catch { }
+    $script:StyleAdapterCache = $list
+    return $list
+}
+
+function Get-AdapterMemoryUsage {
+    # Dedicated graphics memory in use per adapter in bytes, from the counters of Windows
+    # ("GPU Adapter Memory", the numbers of the task manager), keyed by the LUID as the
+    # counters write it ("luid_0x00000000_0x0001a2b3"). The first read in a process takes about
+    # half a second, later ones about a millisecond. Empty if the counters are missing.
+    $usage = @{}
+    try {
+        if (-not $script:StyleGpuCounters) { $script:StyleGpuCounters = New-Object System.Diagnostics.PerformanceCounterCategory 'GPU Adapter Memory' }
+        $data = $script:StyleGpuCounters.ReadCategory()
+        foreach ($d in $data['Dedicated Usage'].Values) {
+            if (([string]$d.InstanceName).ToLowerInvariant() -match '^(luid_0x[0-9a-f]{8}_0x[0-9a-f]{8})') {
+                $usage[$Matches[1]] = [double]$usage[$Matches[1]] + [double]$d.RawValue
+            }
+        }
+    } catch { }
+    return $usage
+}
+
+function Get-GpuReadings {
+    # One object per graphics card: name, usedMiB, totalMiB, temperature, load (the last two
+    # $null where unknown). NVIDIA cards come from nvidia-smi; every other card (Intel Arc, AMD
+    # Radeon), and NVIDIA cards when nvidia-smi reports none, from the adapters of DirectX and
+    # the memory counters of Windows. Left out: software adapters, the integrated graphics of
+    # a machine with a graphics card, adapters with almost no memory of their own (integrated
+    # graphics) and adapters not seen since Windows started. Empty if nothing is known.
+    $rows = @(Get-NvidiaReadings)
+    $others = @()
+    foreach ($a in @(Get-DisplayAdapterList)) {
+        if ($a.vendor -eq 0x1414 -or ($a.kind -band 0x4) -or ($a.kind -band 0x20) -or $a.memoryMiB -lt 256) { continue }
+        if ($a.vendor -eq 0x10DE -and $rows.Count -gt 0) { continue }
+        $others += $a
+    }
+    if ($others.Count -eq 0) { return $rows }
+    $usage = Get-AdapterMemoryUsage
+    foreach ($a in $others) {
+        $high = [long][Math]::Floor($a.luid / 4294967296.0)
+        $key = 'luid_0x{0:x8}_0x{1:x8}' -f $high, ([long]$a.luid - $high * 4294967296)
+        if (-not $usage.ContainsKey($key)) { continue }
+        $rows += [pscustomobject]@{
+            name = (ConvertTo-ShortGpuName $a.name); usedMiB = [double]$usage[$key] / 1MB; totalMiB = $a.memoryMiB
+            temperature = $null; load = $null
+        }
+    }
     return $rows
 }
 
