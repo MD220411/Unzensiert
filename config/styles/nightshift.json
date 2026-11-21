@@ -150,7 +150,7 @@
     "spinnerInk": "accent",
     "verbInk": "shimmer",
     "doneVerbs": ["Forged", "Filed", "Hardened", "Soldered", "Fitted", "Measured", "Polished"],
-    "marks": { "answer": "●", "thought": "∴", "corner": "⎿", "turn": "●", "stopped": "■", "thinking": "┊" },
+    "marks": { "answer": "●", "thought": "∴", "corner": "⎿", "turn": "●", "stopped": "■", "thinking": "┊", "todoDone": "✓", "todoActive": "▸", "todoOpen": "□" },
     "notes": { "dim": "·", "ok": "✓", "warn": "!", "error": "✗" },
     "bullets": ["•", "◦", "▪"],
     "quote": "│",
@@ -170,7 +170,12 @@
       "EditLines": { "icon": "✎", "ink": "#FF8A3D" },
       "Write": { "icon": "✚", "ink": "#A9C48A" },
       "Glob": { "icon": "⌕", "ink": "#D2A9D0" },
-      "Grep": { "icon": "⌕", "ink": "#D2A9D0" }
+      "Grep": { "icon": "⌕", "ink": "#D2A9D0" },
+      "TodoWrite": { "icon": "☰", "ink": "#D2A9D0" },
+      "AskUserQuestion": { "icon": "?", "ink": "#E9B44C" },
+      "PresentPlan": { "icon": "◆", "ink": "#A9C48A" },
+      "WebSearch": { "icon": "◎", "ink": "#8FB0D0" },
+      "WebFetch": { "icon": "⇣", "ink": "#73B7AE" }
     },
     "diffTint": 0.82,
     "diffStrong": 0.62

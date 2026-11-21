@@ -41,7 +41,7 @@ a wrong result are mistakes of the model that also happened with Claude Code.
 | `unzensiert -p --output-format json ...` | the same as one JSON line (see below) |
 | `unzensiert -c` | continue the last conversation in this folder |
 | `unzensiert --resume` | choose an earlier conversation (`--resume <id>` directly) |
-| `unzensiert --permission-mode edits` | rights mode `ask`, `edits` or `all` (the names of Claude Code work too) |
+| `unzensiert --permission-mode edits` | rights mode `ask`, `edits`, `plan` or `all` (the names of Claude Code work too) |
 | `unzensiert --allowedTools "Bash(python:*)"` | allow these calls without a question, written as in Claude Code |
 | `unzensiert --max-turns 30` | at most this many rounds with tool calls |
 | `unzensiert -OnExit keep` | keep the models loaded after the end (`unload`, `stop`, `keep`) |
@@ -61,12 +61,14 @@ session ends, the models are unloaded as with `claude-local` (`onExit` in
 | Shift+Enter (or Ctrl+Enter) | new line |
 | Up/Down arrow | earlier input (saved in `<installRoot>\unzensiert-history.txt`) |
 | Esc or Ctrl+C while the model works | stop; a running command is ended with all its child processes |
-| Shift+Tab | switch the rights mode (`ask` → `edits` → `all`); text you had started goes into the list of earlier input |
+| Shift+Tab | switch the rights mode (`ask` → `edits` → `plan` → `all`); text you had started goes into the list of earlier input |
 | Alt+V | paste an image from the clipboard; the model sees it |
 | `!command` | run a command yourself; the model sees command and output with the next message |
 | `/help` | all commands |
 | `/model [name or number]` | switch the model (entries of `picker` in `config\agent.json`) |
-| `/mode [ask, edits, all]` | set the rights mode or move to the next one |
+| `/gpu [numbers, ids or all]` | choose the graphics cards llama.cpp may use, one or several (`/gpu 2`, `/gpu 1 2`, `/gpu CUDA1`, `/gpu all`); without an argument it lists the cards and asks. The choice is kept in `config\machine.json`; then the planner spreads every agent model over the chosen cards again (a few minutes, llama-server stops for that, Esc stops), see [planner.md](planner.md#choosing-the-cards) |
+| `/mode [ask, edits, plan, all]` | set the rights mode or move to the next one |
+| `/plan [task]` | plan mode ([below](#planning-before-the-work)); with a task after it, that task goes to the model right away |
 | `/compact [what to keep]` | summarise the conversation now |
 | `/clear` | new conversation |
 | `/resume [number]` | continue an earlier conversation of this folder |
@@ -99,8 +101,13 @@ The terminal is described with a picture and all its elements in
   links), wrapped at word boundaries; code blocks in a frame with the colours of their
   language. After thinking a line "∴ thought for 6.4 s · 365 tokens".
 - **Tools** with sign and colour, tick or cross and duration; commands with the beginning and
-  end of their output, changes as a diff with line numbers and marked characters.
-- **Questions** in a frame, see Rights.
+  end of their output, changes as a diff with line numbers and marked characters; a web
+  search with its best results, a web page with its title and how much of it was read.
+- **Task list** under every `TodoWrite`: done steps ticked and struck through, the step in
+  progress bright, the open ones plain. While the model works on a step, the activity line
+  names that step.
+- **Questions** in a frame: before a call (see Rights), the questions of the model with
+  numbered choices, and the plan with the keys to approve it ([below](#planning-before-the-work)).
 - After every request a line with duration, rounds, changed files, tokens and speed; at the
   end of the session a summary.
 
@@ -112,12 +119,19 @@ style file), the texts from `config\unzensiert-texts.json`.
 The guard decides first in every mode (`config\guard.json`, [security.md](security.md)):
 what is blocked never runs, what is delicate always asks. After that the mode applies:
 
-| Mode | Reading (Read, Glob, Grep, commands that only read) | Changing files in the project folder (Edit, EditLines, Write, file commands) | Other commands |
-|---|---|---|---|
-| `ask` (default) | without a question | question | question |
-| `edits` | without a question | without a question | question |
-| `all` | without a question | without a question | without a question |
+| Mode | Reading (Read, Glob, Grep, commands that only read) | Changing files in the project folder (Edit, EditLines, Write, file commands) | Other commands | Web (WebSearch, WebFetch) |
+|---|---|---|---|---|
+| `ask` (default) | without a question | question | question | question |
+| `edits` | without a question | without a question | question | question |
+| `plan` | without a question | refused until you approve the plan | question | question |
+| `all` | without a question | without a question | without a question | without a question |
 
+- **Task list, questions and the plan** (`TodoWrite`, `AskUserQuestion`, `PresentPlan`) change
+  nothing and reach nobody; they run in every mode without a question.
+- **Web:** the question shows the search terms or the address. `a` (always) allows every
+  search, or every page of that host (`WebFetch(domain:docs.python.org)`, also the hosts below
+  it), for the rest of the session; `--allowedTools "WebFetch(domain:python.org)"` does the
+  same from the start.
 - **Commands that only read** (`readOnlyCommands`, `readOnlyGit` in `config\unzensiert.json`:
   `ls`, `cat`, `grep`, `git status`, `git diff`, `Get-ChildItem` ...) also run as part of a
   longer line (`cd src && ls`). A redirection into a file (`>`) or a command substitution
@@ -144,10 +158,27 @@ what is blocked never runs, what is delicate always asks. After that the mode ap
 The model gets the tools from `tools` in `config\agent.json`, the same lean set as Claude Code
 under `claude-local` (`Bash,Read,Edit,Write,Glob,Grep`; without Git Bash `PowerShell` instead
 of `Bash`). Names and parameters are those of Claude Code, so the same guard checks both
-agents. The setting `editLines` adds a tool of Unzensiert's own, `EditLines`; it is off,
-because `local-coder` did not take it up (in a run of all eleven tasks it used it once in 89
-edits). For the guard, the rights of a session and the closing check `EditLines` is an
-`Edit`.
+agents. On top come the tools of Unzensiert's own in `addTools` of `config\unzensiert.json`:
+`TodoWrite`, `AskUserQuestion`, `PresentPlan`, `WebSearch` and `WebFetch` (the names Claude
+Code uses for its tools of the same kind, except `PresentPlan`). A session only
+offers what can work in it: questions and the plan only with someone at the terminal; in a
+run without a terminal (`-p`) the web tools only when they would be allowed (mode `all` or
+`--allowedTools`), because there every question becomes a refusal. The set stays the same
+within a session, so the text the server has cached stays valid. The setting `editLines`
+adds `EditLines`; it is off, because `local-coder` did not take it up (in a run of all eleven
+tasks it used it once in 89 edits). For the guard, the rights of a session and the closing
+check `EditLines` is an `Edit`.
+
+**Several calls in one answer:** the model may put several tool calls into one answer (it does
+so now and then by itself, for example to read several files at once). They run one after the
+other in the given order, each with its own question where one is needed; after a no the rest
+of the answer does not run. The setting `parallelToolCalls` (off) also asks for it in the
+system prompt and in the description of `TodoWrite`, and a list update that came alone gets a
+note to send the next one with the next step. Measured with `local-coder` on the eleven
+benchmark tasks, four runs with and four without it: the model groups its calls (1.6 instead
+of 1.4 per answer, the list update together with the next step in 130 of 283 cases instead of
+never) and needs 13 % fewer rounds, but the time, the written tokens and the share of passed
+tasks stay within the spread between runs. It makes nothing faster or better, so it stays off.
 
 | Tool | What it does |
 |---|---|
@@ -158,6 +189,11 @@ edits). For the guard, the rights of a session and the closing check `EditLines`
 | `Write` | new file, or replace a file that was read completely. If the file already has exactly this content, it writes nothing and says so. |
 | `Glob` | files by pattern (`**/*.py`, `src/*.{ts,tsx}`), newest first, without `.git`, `node_modules`, `__pycache__`, `.venv` |
 | `Grep` | content by regular expression (.NET), output `path:line:text`, with `glob`, `ignore_case`, `files_only` |
+| `TodoWrite` | the task list: the model always sends the whole list, each step `pending`, `in_progress` or `completed` (other words such as "done" or "in progress" are understood). The terminal shows it; it survives a summary of the conversation and comes back with `-c` and `--resume`. |
+| `AskUserQuestion` | one to four questions with two to six choices each, the recommendation first; only with someone at the terminal ([below](#planning-before-the-work)) |
+| `PresentPlan` | the plan in Markdown for your approval; only with someone at the terminal ([below](#planning-before-the-work)) |
+| `WebSearch` | the best results of a search engine (title, address, excerpt), by default `searchResults` (8) of DuckDuckGo ([below](#research-on-the-web)) |
+| `WebFetch` | a web page as text: headings, lists, links, code blocks; `pageChars` (20,000) characters per call, the rest with `offset`. A page is fetched once per session and kept for its further parts. |
 
 ## Commits name Unzensiert as co-author
 
@@ -180,6 +216,86 @@ Commits made in a session, by the model or by you with `!git commit`, end with t
   (`docs\images\unzensiert-avatar.png`). This has not been checked on a pushed commit yet.
 - **Off:** `"coAuthor": ""`, for one computer in `config\machine.json` under `"unzensiert"`.
 
+## Planning before the work
+
+The system prompt gives the model an order for larger tasks (a new feature, changes in
+several files, a new project, more than a few steps); small, clear tasks it does directly:
+
+1. **Research:** read the README, the instructions and the files concerned, look up what it
+   is not sure of: with `--help`, in the installed packages and, when the web tools are
+   offered, on the web.
+2. **Clarify:** where the request leaves decisions open that change the result (behaviour,
+   scope, special cases, technology), it asks you with `AskUserQuestion`: up to four
+   questions at once, each with concrete choices, its recommendation first. Not what it can
+   find out itself or what has a usual answer.
+3. **Plan:** the steps go into the task list (`TodoWrite`), small and checkable, tests and
+   documentation included; then it shows the plan with `PresentPlan` and waits.
+4. **Work:** it goes through the list on its own, one step at a time, and marks each as done
+   once it is checked. It asks again only when something comes up that only you can decide.
+5. **Check:** before the final report it goes through the request once more, requirement by
+   requirement.
+
+**Questions** stand in a frame with numbered choices and what each means. A number chooses,
+Enter takes the first (the recommendation), the last number or `o` lets you type an answer of
+your own, Esc stops the request. When several choices are allowed, you type their numbers
+(`1,3`) or your own text.
+
+**The plan** stands between two edges, written like an answer. Keys: `y` or Enter start;
+`e` start and let file changes in the project folder run without asking (mode `edits`); `n`
+say what should change (the model revises the plan and shows it again; Enter alone stops);
+Esc stops.
+
+**Plan mode** (Shift+Tab, `/plan`, `--permission-mode plan`) holds the model to the first
+three steps: every request gets a note that it should research, ask and present a plan;
+Edit, EditLines, Write and file commands are refused, commands that only read run, other
+commands ask (some only look something up). Once you approve the plan, the session goes back
+to the mode you had before plan mode (`ask` if it started in plan mode, `edits` with `e`).
+Without a terminal the model gives the plan as its answer.
+
+**Open steps:** when the model wants to end a request in which it used tools while its task
+list still has open steps, it gets a note with these steps and goes on, at most
+`todoReminders` (2) times per request and not in plan mode. A step it can no longer do it
+takes off the list and names in its report. This note comes before the closing check.
+
+**Without a terminal** (`-p`, the benchmark) nobody can answer: the system prompt says so,
+`AskUserQuestion` and `PresentPlan` are not offered, and the model decides open questions
+itself and names its assumptions in the final report.
+
+**Measured** with `local-coder` on the eleven benchmark tasks, once each, against the version
+before on the same evening (so only the task list and the order were in it): the model kept a
+task list in all eight larger tasks, after reading the files first, and never in the two small
+ones. The tasks passed as before (one failure came from an empty answer of the model, which is
+now caught, see [loops](#built-in-help-against-loops)); the time went up by about 10 %,
+because every tick in the list is a round of its own. Whether questions and the plan give
+better results in real work is not measured; the benchmark has no one to answer.
+
+## Research on the web
+
+`WebSearch` and `WebFetch` are the only way content of the internet gets in and search terms
+or addresses get out; everything else stays on the computer. Both ask before they run, except
+in mode `all`, and the question shows the search terms or the address
+([security.md](security.md#web-access)).
+
+- **Search:** by default the page of DuckDuckGo for browsers without scripts
+  (`duckduckgoUrl`), no key needed. Should DuckDuckGo ask for a human check, the search fails
+  with that message and the model is told to read known pages with `WebFetch` instead;
+  Unzensiert does not try to get around the check. With `"searchEngine": "searxng"` and
+  `searxngUrl` it asks a SearXNG instance of your own (JSON format switched on; not tried
+  against a real instance yet).
+- **Pages:** HTML becomes text: scripts, styles, navigation, footer and side columns go, and
+  when the page marks its main part (`<main>`, `<article>`, `role="main"`), only that stays.
+  Headings become `#`, list items `-`, links Markdown links with the full address, code
+  blocks keep their lines.
+  Plain text and JSON stay as they are; other files (PDF, images) are refused.
+- **Information, not instructions:** every page and every list of results comes with that
+  note, and the system prompt tells the model not to follow instructions it finds there and
+  never to put secrets or personal data into search terms or addresses.
+- **Requests** name the program honestly (`Unzensiert/<version> (local coding agent)`), wait
+  at most `timeoutSeconds` (20) and read at most `maxBytes` (5 MB); Esc stops them.
+- **Off:** remove `WebSearch` and `WebFetch` from `addTools` (for one computer in
+  `config\machine.json` under `"unzensiert"`); then the system prompt says again that nothing
+  leaves the computer.
+
 ## Closing check and second look
 
 When the model wants to end an answer in which it changed files, the same closing check runs
@@ -197,8 +313,8 @@ token count from the server and only estimates what came since. When the convers
 `compactAt` (80 %) of the window, it first shortens old tool results (older than
 `keepRecentRounds` rounds) to `oldToolResultChars` characters and drops the thinking of those
 rounds; if that is not enough, the model summarises the conversation and keeps working
-afterwards, with the last request word for word. If a request still does not fit, it
-summarises and tries once more.
+afterwards, with the last request and the task list word for word. If a request still does
+not fit, it summarises and tries once more.
 
 The thinking of the model stays in the conversation, also that of earlier requests: the chat
 templates of the Qwen models show it (`preserve_thinking`), so the text the server has cached
@@ -212,18 +328,24 @@ earlier request removed, as Unzensiert did up to version 1.1, it read 21,288 tok
 Every conversation is in `<installRoot>\sessions\<project folder>\<start>.jsonl`, one message
 per line; images are not saved, only a note. After a summary there is a mark; continuing
 (`-c`, `--resume`, `/resume`) begins behind it and gets a fresh system prompt (date, git
-state, today's rules).
+state, today's rules). The task list comes back from the last `TodoWrite` call.
 
 ## System prompt
 
-`config\unzensiert-prompt.md` with the facts of the session (date, Windows, folder, git,
-shells), plus the instructions of the project (`projectFiles`: `AGENTS.md`, otherwise
-`CLAUDE.md`, from the project folder and every folder above it, the nearest last) and the
-working rules from `rulesFile` in `config\agent.json`. System prompt and tool descriptions
-have about 8,900 characters together; the first request of a task measured 2,808 tokens.
-Claude Code first sends about 26,000 tokens to the local server ([README](../README.md)). The
-prompt says: answer in the language the user writes in. With git older than 2.54 it also
-asks for the co-author line in commits ([above](#commits-name-unzensiert-as-co-author)).
+`config\unzensiert-prompt.md` with the facts of the session (date, Windows, folder, git with
+the branch, shells, whether someone is at the terminal), plus the instructions of the project
+(`projectFiles`: `AGENTS.md`, otherwise `CLAUDE.md`, from the project folder and every folder
+above it, the nearest last) and the working rules from `rulesFile` in `config\agent.json`.
+Parts in `{{if Name}}...{{end}}` (also `{{if !Name}}`, nested) stay only when the session
+offers that tool, or for `web` one of the web tools, for `terminal` someone at the terminal:
+the order for larger tasks, the questions, the plan, the warning about the web. System
+prompt and tool descriptions have about 10,800 characters together in a run without a
+terminal and about 14,200 at the terminal with all tools of `addTools` (before the planning
+tools 8,900, when the first request of a task measured 2,808 tokens; at the same ratio about
+3,400 and 4,500 tokens, not measured). Claude Code first sends about 26,000 tokens to the
+local server ([README](../README.md)). The prompt says: answer in the language the user
+writes in. With git older than 2.54 it also asks for the co-author line in commits
+([above](#commits-name-unzensiert-as-co-author)).
 
 ## One-off run and JSON
 
@@ -257,6 +379,11 @@ starting" go to the error output in a one-off run; standard output only contains
   times unchanged and tried 16 edits without effect; because every change cleared the counter
   for repetitions, it ran until the time limit.
 - **Refused calls:** see Rights.
+- **Empty answers:** an answer with neither text nor a tool call does not end the request;
+  the model thought but gave no result. It gets a note and goes on, at most
+  `emptyAnswerNotes` (2) times per request. That happened in about one of 40 runs of the
+  benchmark, also before the planning tools, and once ended a task after two rounds without
+  a single change.
 - **Cut-off calls:** if an answer ends at the token limit in the middle of a tool call, the
   model learns that it should write smaller pieces.
 - **Maximum:** `maxToolRounds` rounds per request (200), `--max-turns` for one run.
@@ -271,6 +398,13 @@ starting" go to the error output in a one-off run; standard output only contains
 | `readOnlyCommands`, `readOnlyGit` | list | commands that run without a question |
 | `fileCommands` | list | commands that count as file changes in `edits` |
 | `coAuthor` | `Unzensiert <359525642+Unzensiert-coder@users.noreply.github.com>` | `Co-authored-by:` line in commits of a session ([above](#commits-name-unzensiert-as-co-author)); empty = off |
+| `addTools` | `TodoWrite`, `AskUserQuestion`, `PresentPlan`, `WebSearch`, `WebFetch` | tools of Unzensiert's own on top of `tools` in `config\agent.json` ([above](#tools)); remove a name to switch it off |
+| `todoReminders` | `2` | how often per request open steps of the task list send the model back ([above](#planning-before-the-work)) |
+| `emptyAnswerNotes` | `2` | how often per request an answer without text and without a tool call sends the model back ([above](#built-in-help-against-loops)) |
+| `parallelToolCalls` | `false` | `true` asks the model to put calls that do not depend on each other into one answer ([above](#tools)); measured: fewer rounds, but neither faster nor better, so off |
+| `web.searchEngine`, `web.duckduckgoUrl`, `web.searxngUrl` | `duckduckgo`, its page without scripts, empty | where `WebSearch` searches ([above](#research-on-the-web)) |
+| `web.searchResults`, `web.pageChars` | `8`, `20000` | results per search, characters of a page per `WebFetch` call |
+| `web.maxBytes`, `web.timeoutSeconds` | `5000000`, `20` | largest page that is read, time limit of a web request |
 | `maxToolRounds` | `200` | rounds per request |
 | `maxRepeats` | `3` | threshold for repetitions, changes without effect and refusals |
 | `compactAt`, `keepRecentRounds`, `oldToolResultChars` | `0.80`, `6`, `1500` | context, see above |
@@ -309,7 +443,12 @@ running, and restarts itself.
 
 - **While the model works,** Unzensiert reads the keyboard for Esc; whatever you type during
   that time is lost.
-- No subagents, no web search, no MCP servers: the tool set is the lean one of `claude-local`.
+- No subagents and no MCP servers: research happens in the same conversation, so long web
+  pages and many files fill its context (old tool results are shortened, see Context).
+- **The planning order** is a request in the system prompt; how well the local model asks,
+  plans and keeps its list depends on the model.
+- **The question frames** read single keys; they have been checked as output and with fixed
+  answers, not yet by typing into a real window.
 - **Images** only go to models with an image encoder (`mmproj`); otherwise Unzensiert replaces
   them by a note and asks again.
 - **Without PSReadLine** (very old systems) there is only a simple input line without history

@@ -1,7 +1,8 @@
 # The system prompt of the agent Unzensiert: config\unzensiert-prompt.md with the facts of
-# this session filled in, then the instructions of the project (AGENTS.md or CLAUDE.md in
-# the project folder and the folders above it) and the working rules ("rulesFile" in
-# config\agent.json). Needs lib\Config.ps1. Keep this file ASCII-only.
+# this session filled in and only the parts that fit its tools ({{if ...}}), then the
+# instructions of the project (AGENTS.md or CLAUDE.md in the project folder and the folders
+# above it) and the working rules ("rulesFile" in config\agent.json). Needs lib\Config.ps1
+# and lib\AgentPlan.ps1. Keep this file ASCII-only.
 
 function Get-ProjectInstructions([string]$Cwd, $Names) {
     # Instruction files from the outermost folder down to the project folder; per folder
@@ -31,7 +32,9 @@ function Get-GitFact([string]$Cwd) {
         if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return 'Git is not installed.' }
         $inside = & cmd /c "git -C `"$Cwd`" rev-parse --is-inside-work-tree 2>nul"
         if ("$inside".Trim() -ne 'true') { return 'The project folder is not a git repository, so changes cannot be undone with git.' }
-        $branch = ("$(& cmd /c "git -C `"$Cwd`" rev-parse --abbrev-ref HEAD 2>nul")").Trim()
+        # not inside "$(...)": quotes escaped in a command inside a string come out empty in 5.1
+        $branch = [string](& cmd /c "git -C `"$Cwd`" rev-parse --abbrev-ref HEAD 2>nul" | Select-Object -First 1)
+        $branch = $branch.Trim()
         $changes = @(& cmd /c "git -C `"$Cwd`" status --porcelain 2>nul").Count
         return "Git repository, branch $branch, $changes uncommitted change(s)."
     } finally {
@@ -39,12 +42,45 @@ function Get-GitFact([string]$Cwd) {
     }
 }
 
+function Expand-PromptConditions([string]$Text, [hashtable]$Flags) {
+    # Parts of the prompt that only fit some sessions: {{if Name}}...{{end}} stays when the
+    # flag Name is set (a tool that is offered, "web", "terminal"), {{if !Name}} when it is
+    # not. Blocks may be nested; a mark alone on its line takes its line break along, so a
+    # left-out block leaves no empty line in a list.
+    $Text = [regex]::Replace($Text, '(?m)^[ \t]*(\{\{if !?\w+\}\}|\{\{end\}\})[ \t]*\r?\n', '$1')
+    $inner = New-Object System.Text.RegularExpressions.Regex('\{\{if (!?)(\w+)\}\}((?:(?!\{\{if ).)*?)\{\{end\}\}', 'Singleline')
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator] {
+        param($m)
+        $on = [bool]$Flags[$m.Groups[2].Value]
+        if ($m.Groups[1].Value -eq '!') { $on = -not $on }
+        if ($on) { return $m.Groups[3].Value }
+        return ''
+    }
+    while ($inner.IsMatch($Text)) { $Text = $inner.Replace($Text, $evaluator) }
+    return [regex]::Replace($Text, '(\r?\n){3,}', "`n`n")
+}
+
+function Get-PromptFlags($Session) {
+    # What the conditions of the prompt ask about: every tool of Unzensiert's own that this
+    # session offers (lib\AgentPlan.ps1, Get-AgentOwnTools), "web" when one of the web tools is
+    # among them, "terminal" when someone is there to answer, "parallel" when several tool
+    # calls in one answer are welcome ("parallelToolCalls" in config\unzensiert.json).
+    $flags = @{ terminal = [bool]$script:Ui.on; web = $false; parallel = [bool](Get-AgentSettings).parallelToolCalls }
+    foreach ($name in @(Get-AgentOwnTools $Session)) { $flags[$name] = $true }
+    $flags.web = [bool]($flags['WebSearch'] -or $flags['WebFetch'])
+    return $flags
+}
+
 function New-AgentSystemPrompt($Session) {
     $cfg = Get-AgentSettings
     $agent = Get-AgentConfig
     $text = [System.IO.File]::ReadAllText((Join-Path $script:ConfigDir ([string]$cfg.promptFile)))
+    $flags = Get-PromptFlags $Session
+    $text = Expand-PromptConditions $text $flags
     $shells = 'Windows PowerShell 5.1 (tool PowerShell); Git Bash is not installed, there is no Bash tool'
     if ($Session.gitBash) { $shells = 'Git Bash (tool Bash) and Windows PowerShell 5.1 (tool PowerShell)' }
+    $terminal = 'No one is at the terminal (a run without a terminal): nobody can answer questions or approve a plan, so decide yourself and name your assumptions in your final report.'
+    if ($flags.terminal) { $terminal = 'The user is at the terminal and can answer questions.' }
     $facts = @{
         '{{date}}' = (Get-Date).ToString('yyyy-MM-dd')
         '{{os}}' = [string][Environment]::OSVersion.Version
@@ -52,6 +88,7 @@ function New-AgentSystemPrompt($Session) {
         '{{git}}' = (Get-GitFact $Session.cwd)
         '{{shells}}' = $shells
         '{{timeout}}' = [string]$cfg.commandTimeoutSeconds
+        '{{terminal}}' = $terminal
     }
     foreach ($k in $facts.Keys) { $text = $text.Replace($k, $facts[$k]) }
     $sb = New-Object System.Text.StringBuilder

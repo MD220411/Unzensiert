@@ -264,7 +264,7 @@
     "spinnerInk": "rainbow",
     "verbInk": "rainbow",
     "doneVerbs": ["Sprayed", "Broke out", "Painted", "Tagged", "Painted over", "Coloured in", "Struck sparks", "Put it on the wall", "Emptied the can"],
-    "marks": { "answer": "✦", "thought": "∴", "corner": "⎿", "turn": "✦", "stopped": "■", "thinking": "┊" },
+    "marks": { "answer": "✦", "thought": "∴", "corner": "⎿", "turn": "✦", "stopped": "■", "thinking": "┊", "todoDone": "✓", "todoActive": "▸", "todoOpen": "□" },
     "notes": { "dim": "·", "ok": "✓", "warn": "!", "error": "✗" },
     "bullets": ["•", "◦", "▪"],
     "quote": "▌",
@@ -284,7 +284,12 @@
       "EditLines": { "icon": "✎", "ink": "#FF3D9A" },
       "Write": { "icon": "✚", "ink": "#8CFF3D" },
       "Glob": { "icon": "⌕", "ink": "#B45CFF" },
-      "Grep": { "icon": "⌕", "ink": "#FFE03D" }
+      "Grep": { "icon": "⌕", "ink": "#FFE03D" },
+      "TodoWrite": { "icon": "☰", "ink": "#B45CFF" },
+      "AskUserQuestion": { "icon": "?", "ink": "#FFE03D" },
+      "PresentPlan": { "icon": "◆", "ink": "#8CFF3D" },
+      "WebSearch": { "icon": "◎", "ink": "#4D8DFF" },
+      "WebFetch": { "icon": "⇣", "ink": "#2EE6E6" }
     },
     "diffTint": 0.80,
     "diffStrong": 0.58,

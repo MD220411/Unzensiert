@@ -34,6 +34,12 @@ function New-AgentSession([string]$Cwd, [string]$Model) {
         stopActive = $false; answerEdits = 0; fingerprints = @{}; denials = 0; noEffect = 0
         lastPrompt = ''; lastAnswer = ''; pending = ''
         instructionFiles = @(); started = [datetime]::Now
+        # planning (lib\AgentPlan.ps1): the task list, how often this request was sent back to
+        # it, the tool calls of this request, the mode to return to after plan mode; pages of
+        # WebFetch for their further parts (lib\AgentWeb.ps1)
+        todos = @(); todoReminders = 0; requestTools = 0; modeBeforePlan = ''; webCache = @{}
+        # answers without text and without a tool call in this request (lib\AgentLoop.ps1)
+        emptyAnswers = 0
     }
 }
 
@@ -88,8 +94,15 @@ function Import-AgentSession($Session, [string]$File) {
         if ($m -and (Get-DictValue $m 'role')) { $null = $Session.messages.Add($m) }
     }
     foreach ($m in $Session.messages) {
-        if ($m['role'] -eq 'user' -and $m['content'] -is [string] -and -not $m['content'].StartsWith('Stop hook feedback')) { $Session.lastPrompt = [string]$m['content'] }
+        if ($m['role'] -ne 'user' -or -not ($m['content'] -is [string])) { continue }
+        $text = [string]$m['content']
+        # notes of the closing check and of Unzensiert (open steps, plan mode) are no request
+        if ($text.StartsWith('Stop hook feedback') -or $text.StartsWith('[Note from Unzensiert')) { continue }
+        $at = $text.IndexOf("`n`n[Note from Unzensiert")
+        if ($at -ge 0) { $text = $text.Substring(0, $at) }
+        $Session.lastPrompt = $text
     }
+    Restore-SessionTodos $Session
     $Session.file = $File
     $Session.hookTranscript = $File -replace '\.jsonl$', '.hook.jsonl'
     $Session.id = [System.IO.Path]::GetFileNameWithoutExtension($File)

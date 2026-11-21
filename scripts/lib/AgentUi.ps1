@@ -247,8 +247,9 @@ function Initialize-AgentUi([bool]$Interactive, [bool]$ShowThinking) {
         thinkChars = 0; thinkClosed = $false; thinkStart = $null; thinkLive = $false
         # the activity line
         act = @{ kind = ''; shown = $false; started = [DateTime]::UtcNow; lastDraw = 0; frame = 0; verb = ''; detail = ''; delayMs = 0; chars = 0 }
-        # the running tool and the request (lib\AgentUiTools.ps1)
-        toolName = ''; toolStarted = [DateTime]::UtcNow; toolPath = ''; turnFiles = @{}
+        # the running tool and the request (lib\AgentUiTools.ps1); the step in progress of the
+        # task list (lib\AgentUiPlan.ps1)
+        toolName = ''; toolStarted = [DateTime]::UtcNow; toolPath = ''; turnFiles = @{}; step = ''
     }
     if ($script:Ui.on) {
         try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
@@ -298,7 +299,9 @@ function Start-UiActivity([string]$Kind, [string]$Detail = '', [int]$DelayMs = 0
     # The line at the cursor that shows what is going on while nothing else moves: spinner,
     # what happens, the time so far, "Esc stops". It vanishes as soon as something else is
     # printed. Kinds: model (waiting for the model), think, call (the model writes a tool
-    # call), tool, check (closing check), compact, server. Test-UiStop keeps it moving.
+    # call), tool, check (closing check), compact, server, plan (/gpu). While the model works
+    # on a step of its task list, that step stands there instead of a word of the style.
+    # Test-UiStop keeps it moving.
     if (-not $script:Ui.on) { return }
     $act = $script:Ui.act
     Clear-UiActivityLine
@@ -311,9 +314,11 @@ function Start-UiActivity([string]$Kind, [string]$Detail = '', [int]$DelayMs = 0
     $act.lastDraw = 0
     Set-UiProgress 3
     $what = $act.verb
+    if ($script:Ui.step -and $Kind -in 'model', 'think', 'call') { $what = $script:Ui.step }
     if ($Kind -eq 'tool') { $what = $script:Ui.toolName }
     elseif ($Kind -eq 'check') { $what = Get-UiText 'activity.check' }
     elseif ($Kind -eq 'compact') { $what = Get-UiText 'activity.compact' }
+    elseif ($Kind -eq 'plan') { $what = Get-UiText 'activity.plan' $Detail }
     Set-UiTitle ((Get-UiMark 'turn' '*') + ' ' + $what + ' ' + $script:UiDots + ' ' + $script:UiMid + ' ' + $script:Ui.folder)
     Update-UiActivity -Force
 }
@@ -329,6 +334,7 @@ function Format-UiActivityLine {
     $secs = ([DateTime]::UtcNow - $act.started).TotalSeconds
     $lead = '  '
     $what = $act.verb
+    if ($script:Ui.step -and $act.kind -in 'model', 'think', 'call') { $what = $script:Ui.step }
     $parts = @()
     switch ($act.kind) {
         'think' { $parts += (Get-UiText 'activity.think') + ' ' + (Get-UiCount ([int]($act.chars / 4)) 'tokens') }
@@ -343,6 +349,7 @@ function Format-UiActivityLine {
             if ($act.chars -gt 0) { $parts += (Get-UiCount ([int]($act.chars / 4)) 'tokens') }
         }
         'server' { $what = Get-UiText 'activity.server' }
+        'plan' { $what = Get-UiText 'activity.plan' $act.detail }
     }
     $line = $lead + $spin + ' ' + (Format-UiShimmer $what $verbInk $phase -Bold) + (Format-UiInk $script:UiDots $mode.dim) + '  ' + (Format-UiInk (Format-UiElapsed $secs) $mode.foreground)
     foreach ($p in $parts) { $line += (Format-UiInk ('  ' + $script:UiMid + '  ' + $p) $mode.dim) }
@@ -577,9 +584,10 @@ function Write-UiEcho([string]$Text, [string]$Sign, [string]$Hex) {
 }
 
 function Get-UiModeInk([string]$Mode) {
-    # Colour of a permission mode: ask calm, edits green, all a warning.
+    # Colour of a permission mode: ask calm, edits green, plan the accent, all a warning.
     if ($Mode -eq 'all') { return $script:Ui.ink.warn }
     if ($Mode -eq 'edits') { return $script:Ui.ink.ok }
+    if ($Mode -eq 'plan') { return $script:Ui.mode.accent }
     return $script:Ui.ink.branch
 }
 
@@ -717,6 +725,7 @@ function Start-UiTurn($Session) {
     # A snapshot before a request of the user, for the line after it.
     $script:Ui.turnFiles = @{}
     $script:Ui.requests++
+    Set-UiStep $Session.todos
     if ($script:Ui.on) { Set-UiProgress 3 }
     return @{ at = [DateTime]::UtcNow; turns = $Session.turns; out = $Session.outputTokens }
 }
@@ -867,6 +876,34 @@ function Show-UiModelList($Rows, [string]$Current) {
         $line = '   ' + $mark + (Format-UiInk ('{0}' -f ($i + 1)) $mode.dim) + '  ' + (Format-UiInk (([string]$r.label).PadRight(12)) $hex -Bold) + ' ' + (Format-UiInk (([string]$r.model).PadRight(14)) $mode.foreground) + (Format-UiInk (Limit-UiText $desc ($width - 40)) $mode.dim)
         Write-UiOut ($line + "`n")
     }
+}
+
+function Show-UiGpuList($Devices, [string[]]$Used) {
+    # /gpu: the cards llama.cpp can use with number, id, name and memory; the ones in use
+    # carry the mark of the style.
+    if (-not $script:Ui.on) { return }
+    $mode = $script:Ui.mode
+    $width = Get-UiWidth
+    Write-UiHeading (Get-UiText 'gpuPanel.title')
+    $list = @($Devices)
+    for ($i = 0; $i -lt $list.Count; $i++) {
+        $d = $list[$i]
+        $mark = '  '
+        $hex = $mode.foreground
+        if (@($Used) -contains [string]$d.id) { $mark = (Format-UiInk (Get-UiMark 'answer' '*') $mode.accent -Bold) + ' '; $hex = $mode.accent }
+        $memory = Get-UiText 'gpuPanel.memory' (Format-Number ([double]$d.memoryMiB / 1024.0) 1) (Format-Number ([double]$d.freeMiB / 1024.0) 1)
+        $line = '   ' + $mark + (Format-UiInk ('{0}' -f ($i + 1)) $mode.dim) + '  ' + (Format-UiInk (([string]$d.id).PadRight(9)) $hex -Bold) + ' ' + (Format-UiInk (Limit-UiText ([string]$d.name) ([Math]::Max(10, $width - 50))) $mode.foreground) + '  ' + (Format-UiInk $memory $mode.dim)
+        Write-UiOut ($line + "`n")
+    }
+}
+
+function Write-UiDimLine([string]$Text) {
+    # One line of a program that runs for the session (the planner of /gpu), dim and cut at
+    # the window edge; the activity line comes back under it.
+    if (-not $script:Ui.on) { return }
+    Clear-UiActivityLine
+    Write-UiOut ('    ' + (Format-UiInk (Limit-UiText $Text ((Get-UiWidth) - 6)) $script:Ui.mode.dim) + "`n")
+    Update-UiActivity -Force
 }
 
 function Show-UiSessionList($Files) {

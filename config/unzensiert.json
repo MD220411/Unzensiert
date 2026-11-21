@@ -6,7 +6,7 @@
   "_projectFiles": "Instructions of a project, read from the project folder and every folder above it (the nearest last).",
 
   "permissionMode": "ask",
-  "_permissionMode": "ask = commands and file changes need a yes; edits = file changes run without asking; all = everything runs without asking. The guard (config\\guard.json) decides first in every mode. Shift+Tab switches in a session.",
+  "_permissionMode": "ask = commands and file changes need a yes; edits = file changes run without asking; all = everything runs without asking; plan = the model researches and plans, file changes are refused until the user approves its plan (PresentPlan). The guard (config\\guard.json) decides first in every mode. Shift+Tab switches in a session (ask, edits, plan, all).",
 
   "readOnlyCommands": ["cd", "ls", "dir", "pwd", "echo", "cat", "head", "tail", "wc", "grep", "rg", "find", "which", "where", "type", "file", "stat", "tree", "du", "df", "date", "whoami", "sort", "uniq", "cut", "diff", "cmp", "basename", "dirname", "realpath", "nl",
                        "get-childitem", "gci", "get-content", "gc", "get-location", "gl", "get-item", "gi", "select-string", "sls", "test-path", "resolve-path", "split-path", "join-path", "measure-object", "select-object", "sort-object", "where-object", "format-table", "format-list", "out-string", "write-output", "get-command", "gcm", "get-date", "get-filehash"],
@@ -18,6 +18,25 @@
 
   "coAuthor": "Unzensiert <359525642+Unzensiert-coder@users.noreply.github.com>",
   "_coAuthor": "Commits made in a session (by the model or with !git) end with the line Co-authored-by: <this>, so GitHub lists Unzensiert as co-author. With git 2.54 or newer a hook adds it, only for the commands of Unzensiert and next to the hooks of the project; with an older git the system prompt asks the model to add it. The address is the private address GitHub gives the machine account Unzensiert-coder, so GitHub links the line to that account and its picture. Empty = off.",
+
+  "addTools": ["TodoWrite", "AskUserQuestion", "PresentPlan", "WebSearch", "WebFetch"],
+  "_addTools": "Tools of Unzensiert's own, added to the set of \"tools\" in config\\agent.json (which claude-local shares): the task list, questions with choices, the plan for approval, web search and reading web pages. AskUserQuestion and PresentPlan are only offered with someone at the terminal; in a run without a terminal WebSearch and WebFetch only when they would be allowed (mode all or --allowedTools). Remove a name to switch the tool off; without WebSearch and WebFetch nothing leaves the computer.",
+  "parallelToolCalls": false,
+  "_parallelToolCalls": "true = the model is told that independent tool calls belong in one answer (several files read at once, the task list updated together with the next step), a list update that came alone gets a note, and the request says parallel_tool_calls. The calls still run one after the other, in the given order. Off: measured on 2026-11-21/22 with local-coder (eleven tasks, four runs with and four without), 13 % fewer rounds, but the time, the written tokens and the passed tasks stayed within the spread between runs; the model still makes several calls in one answer now and then without it.",
+  "todoReminders": 2,
+  "emptyAnswerNotes": 2,
+  "_emptyAnswerNotes": "An answer with neither text nor a tool call is no end of the request: the model thought but gave no result (about one in 40 runs of the benchmark, also before the planning tools; once a task failed that way after two rounds). It gets a note and goes on, this often per request at most.",
+  "_todoReminders": "When the model wants to end a request in which it used tools while its task list (TodoWrite) still has open steps, it is sent back to them this often per request at most. Not in plan mode.",
+  "web": {
+    "searchEngine": "duckduckgo",
+    "duckduckgoUrl": "https://html.duckduckgo.com/html/",
+    "searxngUrl": "",
+    "searchResults": 8,
+    "pageChars": 20000,
+    "maxBytes": 5000000,
+    "timeoutSeconds": 20
+  },
+  "_web": "WebSearch and WebFetch (lib\\AgentWeb.ps1). searchEngine: duckduckgo (its page for browsers without scripts at duckduckgoUrl, no key needed; when it asks for a human check, the search fails with that message) or searxng (an instance of your own at searxngUrl, with the JSON format switched on). searchResults: results per search. pageChars: characters of a page per WebFetch call, the rest with offset. maxBytes: larger pages are cut. Both ask before they run except in mode all; the question shows the search terms or the address.",
 
   "maxToolRounds": 200,
   "maxRepeats": 3,

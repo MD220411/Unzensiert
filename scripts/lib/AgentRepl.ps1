@@ -9,6 +9,9 @@ $script:InitPrompt = 'Look at this project and write the file AGENTS.md in the p
     'conventions of code and style that are not obvious, and what to be careful about. Keep it short (about 60 lines at most), concrete and correct; ' +
     'read the files instead of guessing. If AGENTS.md or CLAUDE.md exists already, improve that file instead.'
 
+# The planner /gpu runs for the chosen cards (the tests put a script of their own here).
+$script:PlannerScript = Join-Path $script:ProjectRoot 'scripts\Plan-Models.ps1'
+
 # --- sessions -----------------------------------------------------------------------------------
 
 function Initialize-AgentSession($Session) {
@@ -20,10 +23,12 @@ function Reset-AgentSession($Session, [string]$File = '') {
     # Starts over in the same object (/clear), or with an earlier session (/resume). Model,
     # mode and the "always" answers stay.
     $fresh = New-AgentSession $Session.cwd $Session.model
-    foreach ($k in 'mode', 'allowed', 'allowedTools', 'showThinking', 'maxTurns') { $fresh[$k] = $Session[$k] }
+    foreach ($k in 'mode', 'modeBeforePlan', 'allowed', 'allowedTools', 'showThinking', 'maxTurns') { $fresh[$k] = $Session[$k] }
     foreach ($k in @($fresh.Keys)) { $Session[$k] = $fresh[$k] }
     Initialize-AgentSession $Session
     if ($File) { Import-AgentSession $Session $File }
+    # the activity line shows the step in progress of the task list (none after /clear)
+    if ($script:Ui.on) { Set-UiStep $Session.todos }
 }
 
 function Select-SessionFile($Session, [string]$Choice) {
@@ -143,6 +148,102 @@ function Switch-AgentModel($Session, [string]$Choice) {
     Invoke-AutoCompact $Session
 }
 
+function Invoke-PlannerProcess([string[]]$Arguments) {
+    # Runs the planner (Plan-Models.ps1) in a process of its own and shows its lines as they
+    # come. Esc or Ctrl+C stops it with its child processes (llama-bench, llama-server);
+    # machine.json is never left half written (Save-MachineConfig). Returns the exit code,
+    # -1 = stopped.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'powershell.exe'
+    $psi.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $script:PlannerScript + '" ' + (@($Arguments) -join ' ')
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.RedirectStandardInput = $true
+    $proc = Start-ChildProcess $psi
+    $proc.StandardInput.Close()
+    $errors = $proc.StandardError.ReadToEndAsync()
+    $next = $proc.StandardOutput.ReadLineAsync()
+    $stopped = $false
+    while ($true) {
+        if ($next.Wait(100)) {
+            $line = $next.Result
+            if ($null -eq $line) { break }
+            if ($line.Trim()) { Write-UiDimLine $line }
+            $next = $proc.StandardOutput.ReadLineAsync()
+        }
+        if (Test-UiStop) { $stopped = $true; break }
+    }
+    if ($stopped) {
+        & cmd /c "taskkill /PID $($proc.Id) /T /F >nul 2>&1"
+        $null = $proc.WaitForExit(5000)
+        return -1
+    }
+    $proc.WaitForExit()
+    if ($proc.ExitCode -ne 0 -and $errors.Wait(5000)) {
+        # the message of a PowerShell error comes first, its position after it
+        foreach ($l in @(([string]$errors.Result) -split '\r?\n' | Where-Object { $_.Trim() } | Select-Object -First 3)) { Write-UiDimLine $l }
+    }
+    return $proc.ExitCode
+}
+
+function Invoke-AgentPlanner($Session) {
+    # Spreads the models over the chosen cards again: every installed agent model and the
+    # model of this session, each with Plan-Models.ps1 (the default model first, the others
+    # of /model get at least its context). The model of this session is loaded and tested
+    # as well (-Verify). A model that cannot be planned loses its plan, so llama.cpp places
+    # it on the chosen cards by itself (lib\Server.ps1). Returns $false if Esc stopped it.
+    $targets = @(Get-PlannerTargets)
+    if ($targets -notcontains $Session.model -and (Test-ModelInstalled $Session.model)) { $targets += $Session.model }
+    $saved = $false
+    try { $saved = [Console]::TreatControlCAsInput; [Console]::TreatControlCAsInput = $true } catch {}
+    try {
+        foreach ($name in $targets) {
+            $a = @('-Model', $name)
+            if ($name -eq $Session.model) { $a += '-Verify' }
+            Start-UiActivity 'plan' $name
+            $code = Invoke-PlannerProcess $a
+            Stop-UiActivity
+            if ($code -lt 0) { return $false }
+            if ($code -ne 0) { Clear-ModelPlan $name; Write-UiNote (Get-UiText 'notes.gpuPlanFailed' $name) 'warn' }
+        }
+    } finally {
+        try { [Console]::TreatControlCAsInput = $saved } catch {}
+        Stop-UiActivity
+    }
+    return $true
+}
+
+function Select-AgentGpus($Session, [string]$Choice) {
+    # /gpu: which graphics cards llama.cpp may use, by number of the list, id or "all". The
+    # choice goes into config\machine.json (Set-DeviceChoice); how much of a model goes on
+    # which card the planner decides again (Invoke-AgentPlanner).
+    $devices = @(Get-UsableDevices (Get-LlamaDevices))
+    if ($devices.Count -eq 0) { Write-UiNote (Get-UiText 'notes.noGpus') 'warn'; return }
+    if (-not $Choice) {
+        $used = @((Resolve-DeviceChoice $devices @(Get-DeviceChoice)).devices | ForEach-Object { [string]$_.id })
+        Show-UiGpuList $devices $used
+        $Choice = Read-UiLine (Get-UiText 'notes.chooseGpus')
+        if (-not $Choice) { return }
+    }
+    $sel = ConvertFrom-DeviceSelection $Choice $devices
+    if ($sel.bad -or @($sel.ids).Count -eq 0) {
+        $bad = [string]$sel.bad
+        if (-not $bad) { $bad = $Choice }
+        Write-UiNote (Get-UiText 'notes.unknownGpu' $bad) 'warn'
+        return
+    }
+    if ($sel.all) { Set-DeviceChoice @() } else { Set-DeviceChoice @($sel.ids) }
+    $names = @($devices | Where-Object { @($sel.ids) -contains [string]$_.id } | ForEach-Object { '{0} {1}' -f $_.id, (ConvertTo-ShortGpuName ([string]$_.name)) }) -join ', '
+    Write-UiNote (Get-UiText 'notes.gpusChosen' $names) 'ok'
+    if (-not (Invoke-AgentPlanner $Session)) { Write-UiNote (Get-UiText 'notes.gpusStopped') 'warn'; return }
+    # the plan may have changed the context of the session model
+    $Session.ctxModel = ''
+    Write-UiNote (Get-UiText 'notes.gpusPlanned' $names $Session.model (Format-Number (Get-SessionContextSize $Session) 0)) 'ok'
+    Invoke-AutoCompact $Session
+}
+
 function Set-AgentMode($Session, [string]$Choice) {
     if ($Choice) {
         $mode = ConvertTo-PermissionMode $Choice
@@ -151,6 +252,8 @@ function Set-AgentMode($Session, [string]$Choice) {
         $i = [array]::IndexOf($script:ModeOrder, $Session.mode)
         $mode = $script:ModeOrder[($i + 1) % $script:ModeOrder.Count]
     }
+    # an approved plan returns to the mode the user had before plan mode
+    if ($mode -eq 'plan' -and $Session.mode -ne 'plan') { $Session.modeBeforePlan = $Session.mode }
     $Session.mode = $mode
     $kind = 'ok'
     if ($mode -eq 'all') { $kind = 'warn' }
@@ -174,7 +277,13 @@ function Invoke-SlashCommand($Session, [string]$Line) {
         { $_ -in 'clear', 'new' } { Reset-AgentSession $Session; Write-UiNote (Get-UiText 'notes.newConversation') 'ok' }
         'compact' { $null = Invoke-Compaction $Session $rest }
         'model' { Switch-AgentModel $Session $rest }
+        { $_ -in 'gpu', 'gpus' } { Select-AgentGpus $Session $rest }
         'mode' { Set-AgentMode $Session $rest }
+        'plan' {
+            # plan mode, and with a task after it that task goes to the model right away
+            if ($Session.mode -ne 'plan') { Set-AgentMode $Session 'plan' }
+            $result.prompt = $rest
+        }
         'resume' {
             $file = Select-SessionFile $Session $rest
             if ($file) {

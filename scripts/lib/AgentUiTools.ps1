@@ -80,16 +80,35 @@ function Get-UiToolLabel([string]$Name, $A, [string]$Cwd) {
             foreach ($k in 'path', 'glob') { $v = [string](Get-DictValue $A $k); if ($v) { $where += $v } }
             if ($where.Count -gt 0) { $detail = Get-UiText 'tools.in' ($where -join ' ') }
         }
+        'TodoWrite' {
+            $todos = @((ConvertTo-TodoList (Get-DictValue $A 'todos')).todos)
+            $done = @($todos | Where-Object { $_.status -eq 'completed' }).Count
+            $label = Get-UiText 'tools.todo' $done $todos.Count
+        }
+        'WebSearch' { $label = [string](Get-DictValue $A 'query') }
+        'WebFetch' {
+            $label = [string](Get-DictValue $A 'url')
+            $from = [int](Get-DictValue $A 'offset')
+            if ($from -gt 0) { $detail = Get-UiText 'tools.fromChar' (Format-Number $from 0) }
+        }
     }
     return @($label, $detail)
 }
 
 function Write-UiToolStart([string]$Name, $A, [string]$Cwd) {
-    # The header of a tool call; the activity line under it shows that it runs.
+    # The header of a tool call; the activity line under it shows that it runs. A question and
+    # the plan have a frame of their own instead (lib\AgentUiPlan.ps1).
     if (-not $script:Ui.on) { return }
     Stop-UiActivity
     Close-UiThinking
     Complete-UiLine
+    if ($Name -eq 'AskUserQuestion' -or $Name -eq 'PresentPlan') {
+        $script:Ui.toolName = $Name
+        $script:Ui.toolArgs = $A
+        $script:Ui.toolCwd = $Cwd
+        $script:Ui.toolStarted = [DateTime]::UtcNow
+        return
+    }
     $mode = $script:Ui.mode
     $look = Get-UiToolLook $Name
     $label = @('', '')
@@ -125,6 +144,8 @@ function Write-UiToolResult($Result, [string]$Name) {
     # The result under the header: sign and time, then what the tool found or changed.
     if (-not $script:Ui.on) { return }
     Stop-UiActivity
+    # a question and the plan show their answer in their own frame already
+    if (($Name -eq 'AskUserQuestion' -or $Name -eq 'PresentPlan') -and -not $Result.error) { return }
     $mode = $script:Ui.mode
     $width = Get-UiWidth
     $secs = ([DateTime]::UtcNow - $script:Ui.toolStarted).TotalSeconds
@@ -209,6 +230,36 @@ function Write-UiToolResult($Result, [string]$Name) {
             }
             if ($row -and $rowsShown -lt 2) { $null = $out.Add($pad + (Format-UiInk $row $mode.foreground)) }
         }
+    } elseif ($Name -eq 'TodoWrite' -and $info) {
+        $todos = Get-DictValue $info 'todos'
+        $todos = @($todos)
+        Set-UiStep $todos
+        $rows = @(Get-UiTodoRows $todos $max)
+        if ($rows.Count -eq 0) { $null = $out.Add($corner + (Get-UiSign 'ok') + ' ' + (Format-UiInk (Get-UiText 'tools.todoEmpty') $mode.dim)) }
+        for ($i = 0; $i -lt $rows.Count; $i++) {
+            $lead = $pad
+            if ($i -eq 0) { $lead = $corner }
+            $null = $out.Add($lead + $rows[$i])
+        }
+    } elseif ($Name -eq 'WebSearch' -and $info) {
+        $found = Get-DictValue $info 'results'
+        $found = @($found)
+        if ($found.Count -eq 0) {
+            $null = $out.Add($corner + (Format-UiInk ([string](Get-UiValue (Get-UiLook 'notes' $null) 'dim' '-')) $mode.faint) + ' ' + (Format-UiInk (Get-UiText 'tools.nothing') $mode.dim))
+        } else {
+            $null = $out.Add($corner + (Get-UiSign 'ok') + ' ' + (Format-UiInk ((Get-UiCount $found.Count 'results') + ' ' + (Get-UiText 'tools.via' (Get-DictValue $info 'engine'))) $mode.dim))
+            foreach ($f in ($found | Select-Object -First 3)) {
+                $hostName = Get-WebHost ([string]$f.url)
+                $title = Limit-UiText ([string]$f.title) ([Math]::Max(10, $max - $hostName.Length - 3))
+                $null = $out.Add($pad + (Format-UiSpans @(New-UiSpan $title $mode.foreground '' '' ([string]$f.url))) + '  ' + (Format-UiInk $hostName $mode.dim))
+            }
+            if ($found.Count -gt 3) { $null = $out.Add($pad + (Format-UiInk ($script:UiDots + ' ' + (Get-UiText 'tools.more' (Get-UiCount ($found.Count - 3) 'results'))) $mode.faint -Italic)) }
+        }
+    } elseif ($Name -eq 'WebFetch' -and $info) {
+        $what = [string](Get-DictValue $info 'title')
+        if (-not $what) { $what = Get-UiText 'tools.page' }
+        $part = Get-UiText 'tools.chars' (Format-Number ([int](Get-DictValue $info 'to') - [int](Get-DictValue $info 'from')) 0) (Format-Number ([int](Get-DictValue $info 'total')) 0)
+        $null = $out.Add($corner + (Get-UiSign 'ok') + ' ' + (Format-UiInk (Limit-UiText $what ([Math]::Max(10, $max - $part.Length - 6))) $mode.foreground) + $sep + (Format-UiInk $part $mode.dim))
     } else {
         $summary = [string]$Result.summary
         if (-not $summary) { $summary = ([string]$Result.text).Split("`n")[0] }
@@ -489,6 +540,9 @@ function Show-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]
     if ($Why) {
         $reason = $Why
         if ($reason -eq 'outside the project folder') { $reason = Get-UiText 'permission.outside' }
+        elseif ($reason -eq 'web' -and $Name -eq 'WebSearch') { $reason = Get-UiText 'permission.webSearch' }
+        elseif ($reason -eq 'web') { $reason = Get-UiText 'permission.webFetch' }
+        elseif ($reason -eq 'plan') { $reason = Get-UiText 'permission.planMode' }
         $label = (Get-UiText 'permission.why') + ': '
         foreach ($l in (Format-UiWrapped @(New-UiSpan $reason $mode.dim 'i') (Format-UiInk $label $hex) (' ' * $label.Length) $label.Length $inner)) { $null = $body.Add($l) }
     }

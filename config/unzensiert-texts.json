@@ -9,7 +9,9 @@
     "tokens": ["1 token", "{0} tokens"],
     "matches": ["1 match", "{0} matches"],
     "changed": ["1 file changed", "{0} files changed"],
-    "messages": ["1 message", "{0} messages"]
+    "messages": ["1 message", "{0} messages"],
+    "steps": ["1 step", "{0} steps"],
+    "results": ["1 result", "{0} results"]
   },
 
   "welcome": {
@@ -32,8 +34,9 @@
     "ask": "asks before commands and changes",
     "edits": "changes files without asking, commands ask",
     "all": "everything without asking – the guard decides first",
+    "plan": "researches and plans, changes nothing until you approve the plan",
     "switched": "Rights {0}: {1}",
-    "unknown": "Unknown mode {0} (ask, edits, all)"
+    "unknown": "Unknown mode {0} (ask, edits, plan, all)"
   },
 
   "activity": {
@@ -43,6 +46,7 @@
     "check": "closing check",
     "compact": "summarising the conversation",
     "server": "llama-server is starting",
+    "plan": "planning {0}",
     "stop": "Esc stops",
     "thought": "thought for {0} · {1}",
     "thinkingLive": "thinking aloud"
@@ -61,7 +65,14 @@
     "replaced": "replaced",
     "at": "line {0}",
     "image": "image",
-    "nothing": "nothing found"
+    "nothing": "nothing found",
+    "todo": "{0} of {1} done",
+    "todoEmpty": "the task list is empty",
+    "doneBefore": "{0} done before",
+    "via": "via {0}",
+    "page": "page",
+    "chars": "{0} of {1} characters",
+    "fromChar": "from character {0}"
   },
 
   "permission": {
@@ -75,7 +86,35 @@
     "allowed": "allowed",
     "allowedAlways": "allowed, also from now on in this session",
     "denied": "denied – the model waits for you",
-    "outside": "file outside the project folder"
+    "outside": "file outside the project folder",
+    "webSearch": "the search terms go out to the search engine on the internet",
+    "webFetch": "the address goes out to the internet",
+    "planMode": "plan mode: the model wants to run this while it plans"
+  },
+
+  "question": {
+    "title": "Question",
+    "count": "{0} of {1}",
+    "own": "type your own answer",
+    "multi": "several possible: numbers separated by commas, or your own answer",
+    "numbers": "Numbers (such as 1,3) or your own answer",
+    "ownPrompt": "Your answer",
+    "choose": "choose",
+    "stop": "stop",
+    "none": "no answer",
+    "stopped": "stopped – the model waits for you"
+  },
+
+  "plan": {
+    "title": "Plan",
+    "yes": "start",
+    "edits": "start, allow edits",
+    "no": "change something",
+    "feedback": "What should change (Enter alone = stop)",
+    "approved": "plan approved – the model starts",
+    "approvedEdits": "plan approved – the model starts, file changes run without asking",
+    "rejected": "not approved – the model revises the plan",
+    "stopped": "stopped – the model waits for you"
   },
 
   "turn": {
@@ -130,6 +169,15 @@
     "thinkingShown": "The model's thinking is now shown.",
     "thinkingHidden": "The model's thinking is now hidden.",
     "unknownCommand": "Unknown command /{0} – /help shows them all.",
+    "noGpus": "llama.cpp sees no graphics card; the models run on the processor.",
+    "chooseGpus": "Numbers such as 1 2, or all (Enter = keep)",
+    "unknownGpu": "Not a card of the list: {0} – /gpu shows them.",
+    "gpusChosen": "Cards: {0} · the planner spreads the models over them again (llama-server stops for that; Esc stops) …",
+    "gpuPlanFailed": "{0} could not be planned (see above); llama.cpp places it on the chosen cards by itself.",
+    "gpusStopped": "Planning stopped. Models not planned yet are placed by llama.cpp on the chosen cards; /gpu plans again.",
+    "gpusPlanned": "Done: the models use {0} · {1} has {2} tokens of context; it loads with the next request",
+    "todoOpen": "Task list: {0} still open – the model goes on",
+    "emptyAnswer": "The answer was empty – the model is sent back to the task",
     "userCommand": "Your command"
   },
 
@@ -142,13 +190,15 @@
       ["Shift+Enter", "new line (also Ctrl+Enter)"],
       ["Esc, Ctrl+C", "stop the model, also a running command"],
       ["Up arrow", "earlier input"],
-      ["Shift+Tab", "switch rights: ask → edits → all"],
+      ["Shift+Tab", "switch rights: ask → edits → plan → all"],
       ["Alt+V", "paste an image from the clipboard"],
       ["!command", "run a command yourself; the model sees it with your next message"]
     ],
     "commands": [
       ["/model", "switch model"],
-      ["/mode", "set rights: ask, edits, all"],
+      ["/gpu", "choose the graphics cards (numbers or all); the planner spreads the models over them"],
+      ["/mode", "set rights: ask, edits, plan, all"],
+      ["/plan", "plan mode: research, questions and a plan before any change (after it: the task)"],
       ["/compact", "summarise the conversation (after it: what to keep)"],
       ["/clear", "new conversation"],
       ["/resume", "continue an earlier conversation of this folder"],
@@ -178,6 +228,11 @@
 
   "modelPanel": {
     "title": "Choose a model"
+  },
+
+  "gpuPanel": {
+    "title": "Graphics cards",
+    "memory": "{0} GB · {1} GB free"
   },
 
   "resumePanel": {

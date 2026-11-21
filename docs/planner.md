@@ -137,6 +137,37 @@ checks it with `Test-Model.ps1`; if it does not load or the model process crashe
 request, it plans again with 1 GB more reserve per card (at most twice) and remembers the
 reserve in `machine.json` (`planner.reserveMiB`).
 
+### Choosing the cards
+
+`/gpu` in `unzensiert` chooses which cards llama.cpp may use, one or several: `/gpu` alone
+lists the cards with numbers and asks, `/gpu 2` takes the second, `/gpu 1 2` both, `/gpu
+CUDA1` a card by its id, `/gpu all` every card again. How much of a model goes on which of
+them stays the planner's decision. The choice is stored in `config\machine.json` (section
+`server`, `devices`; "all" takes the key out, so a card added later is used as well). Then
+`/gpu` runs `Plan-Models.ps1` once per agent model (the default model first, see "One context
+per session"); the model of the session is loaded and tested as well (`-Verify`). A model
+that cannot be planned loses its plan, so llama.cpp places it by itself. Esc stops; models
+not planned yet are then placed by llama.cpp on the chosen cards.
+
+- **The planner** only reads and plans the chosen cards and lists the others as "not used".
+  A calibration of more cards serves a choice of fewer of them: the time per MiB is a
+  property of the card. Going back to cards that were not calibrated measures again.
+- **The server** starts every model with the chosen cards only (`--device`, generated in
+  `<installRoot>\run\models.ini`). A model whose plan names another card (one of another
+  role, or planning was stopped) loses the options of that plan there and llama.cpp fits it
+  onto the chosen cards; a comment in `models.ini` says so. An id that no card has any more
+  (another llama.cpp package) is ignored; if none of the chosen cards is there, every card is
+  used.
+- **The installer** counts only the chosen cards when it suggests a model.
+
+Measured on the development computer (2026-11-21), `/gpu 2` (only the RTX 3060): the three
+agent models were planned in 317 s including the test of `local-fast`, without a new
+calibration. `local-fast` 128k: every layer on the card, experts of 32 layers in main memory,
+batch 2,048, **47.3 tok/s**; the RTX 5070 Ti stayed at 7 MiB during the test. `local-coder` and
+`local-qwen38` keep 45 and 40 of their layers in main memory there (predicted 4.5 and 5.1
+tok/s, not measured). `/gpu all` went back in 228 s to exactly the former plans (the options
+in `machine.json` were the same as before), `local-coder` 68.9 tok/s.
+
 ## Measured
 
 All runs on 2026-11-17 on the development computer, with `Test-Model.ps1` (speed with MTP

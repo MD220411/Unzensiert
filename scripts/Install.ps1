@@ -143,10 +143,13 @@ try {
 
     # --- 5. model -----------------------------------------------------------------------------
     Write-Step 'Model' $steps
-    $devices = @(Get-UsableDevices (Get-LlamaDevices))
+    # only the cards chosen with /gpu in unzensiert, if a choice was made on this machine
+    $choice = Resolve-DeviceChoice (Get-UsableDevices (Get-LlamaDevices)) @(Get-DeviceChoice)
+    $devices = @($choice.devices)
     if ($devices.Count -gt 0) {
         $vram = [int](($devices | Measure-Object -Property memoryMiB -Sum).Sum)
         foreach ($d in $devices) { Write-Note "llama.cpp uses $($d.id): $($d.name), $($d.memoryMiB) MiB" }
+        foreach ($d in $choice.left) { Write-Note "not used (chosen with /gpu): $($d.id): $($d.name)" }
     } else {
         # before llama.cpp is there (plan), the driver's numbers have to do
         $vram = [int](($nvidia | Measure-Object -Property memoryMiB -Sum).Sum)

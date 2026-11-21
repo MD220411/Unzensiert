@@ -29,7 +29,10 @@ installed, and no account is needed.
 ## Highlights
 
 - **Local and private.** Model, server and agent run on your computer. After the install
-  everything works offline.
+  everything works offline; a web search or a web page only goes out when you allow it.
+- **Plans before it works.** For larger tasks it looks things up first (in the project and,
+  if you allow it, on the web), asks about open requirements with choices, shows you a plan
+  to approve, then works through its task list on its own ([planning](docs/unzensiert.md#planning-before-the-work)).
 - **Uncensored models** (Qwen 3.6 27B and 35B-A3B, Qwen 3.8 27B, "Heretic" variants) with
   128k context and speculative decoding (MTP): 66–71 tokens/s on an RTX 5070 Ti + RTX 3060.
 - **Faster than Claude Code with the same model:** in the benchmark Unzensiert finished all
@@ -81,8 +84,11 @@ unzensiert
 ```
 
 Type what you want; Enter sends, Shift+Enter starts a new line, Esc stops the model. `/help`
-lists the commands, `/model` switches between the models you have installed, Shift+Tab
-switches how much the agent may do without asking (`ask`, `edits`, `all`).
+lists the commands, `/model` switches between the models you have installed, `/gpu` chooses
+which graphics cards the models may use (for example to keep one free for a game), Shift+Tab
+switches how much the agent may do without asking (`ask`, `edits`, `plan`, `all`). For a
+larger task it asks you about open points with choices and shows a plan before it starts;
+answer with a number key, approve the plan with `y`.
 `unzensiert -p "question"` answers once without a session.
 
 **Updates.** `unzensiert` looks for a new release at most once a day and installs it (only
@@ -174,10 +180,12 @@ In a terminal (also the one in VS Code) in your project folder. All details:
 |---|---|
 | Enter, Shift+Enter | send, new line |
 | Esc | stop the model, end a running command |
-| Shift+Tab, `/mode` | rights: `ask` (changes and commands ask), `edits` (files without asking), `all` (everything without asking); the guard always decides first |
+| Shift+Tab, `/mode` | rights: `ask` (changes and commands ask), `edits` (files without asking), `plan` (research and a plan, no changes until you approve it), `all` (everything without asking); the guard always decides first |
+| `/plan <task>` | plan mode for this task: the model researches, asks, and shows its plan before it changes anything |
 | Alt+V | paste an image from the clipboard; the model reads screenshots and sketches |
 | `!command` | run a command yourself, the model sees it |
 | `/model` | switch between "Unzensiert", "Fast" and "Qwen 3.8" without ending the session |
+| `/gpu` | choose the graphics cards the models may use (`/gpu 2`, `/gpu 1 2`, `/gpu all`); how much goes on which card the planner works out again |
 | `/compact`, `/clear`, `/resume`, `/status`, `/think`, `/init`, `/help`, `/exit` | summarise, start over, continue, state, show thinking, let it write an `AGENTS.md`, help, quit |
 
 Workflows with fixed steps:
@@ -220,7 +228,9 @@ your data:
 - a **guard** checks every tool call before it runs: what would destroy data (formatting a
   drive, deleting your user folder) is blocked, sensitive things (`git reset --hard`, the
   registry, your SSH keys) ask you, normal work in the project folder stays free;
-- a **git note** at start warns when your work is not committed.
+- a **git note** at start warns when your work is not committed;
+- **web searches and web pages** ask before they go out and show the search terms or the
+  address (except in the mode `all`); switch them off in `config\unzensiert.json`.
 
 It is no sandbox; see [docs/security.md](docs/security.md) for the rules and their limits.
 
@@ -233,7 +243,7 @@ It is no sandbox; see [docs/security.md](docs/security.md) for the rules and the
 | Benchmark | `local-coder`: all 24 runs of the four older tasks passed, 14 of 15 of the five harder ones, 89 % of the working rules followed, 91 % with the project template (measured with 64k); the two tasks on faithfulness to facts and consistency across files 6 of 6 |
 | Backend | llama.cpp build b12433 (`llama-server` in router mode), programs and models in the install folder (`config\machine.json`) |
 | Install | installer for any Windows computer: chooses llama.cpp package and model by graphics card, downloads with checksums, measures the cards and computes the layout ([setup.md](docs/setup.md), [planner.md](docs/planner.md)); tried only on the development computer so far |
-| Agent | Unzensiert, its own program (PowerShell 5.1, OpenAI-compatible interface of `llama-server`), version in `VERSION`, automatic updates from the releases, its own terminal in the look of the project with a status bar at the bottom like Claude Code's (model, context, rights, every graphics card: NVIDIA, Intel Arc, AMD Radeon) ([style.md](docs/style.md#the-terminal-of-unzensiert)); for comparison Claude Code through the Anthropic-compatible interface ([unzensiert.md](docs/unzensiert.md)) |
+| Agent | Unzensiert, its own program (PowerShell 5.1, OpenAI-compatible interface of `llama-server`), version in `VERSION`, automatic updates from the releases, its own terminal in the look of the project with a status bar at the bottom like Claude Code's (model, context, rights, every graphics card: NVIDIA, Intel Arc, AMD Radeon) ([style.md](docs/style.md#the-terminal-of-unzensiert)); a task list, questions with choices, a plan to approve and plan mode, web search and web pages with a question before each ([unzensiert.md](docs/unzensiert.md#planning-before-the-work)); for comparison Claude Code through the Anthropic-compatible interface ([unzensiert.md](docs/unzensiert.md)) |
 | Comparison | Unzensiert against Claude Code, all eleven tasks three times each with `local-coder`: Unzensiert faster on all eleven (sum of the medians 1,629 s instead of 2,160 s, 36 % fewer rounds); passed 27 instead of 29 of 33, a difference within chance (every failure is a mistake of the model that also happened with Claude Code); working rules 88 instead of 86 of 96 |
 
 ## Limits
@@ -270,11 +280,11 @@ installer chooses (suggestion: `claude-local` on the drive with the most room).
 
 | File | Content |
 |---|---|
-| [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, co-author of commits, context, saved conversations, one-off runs, automatic updates |
+| [docs/unzensiert.md](docs/unzensiert.md) | the agent: operation, keys, commands, rights, tools, planning (task list, questions, plan mode), research on the web, co-author of commits, context, saved conversations, one-off runs, automatic updates |
 | [docs/style.md](docs/style.md) | the look: "Breakout" (colourful, pictures and a wall of characters) or "Night Shift" (calm); shell, terminal of Unzensiert, status line, colour themes for `claude` and `claude-local`, switching the style |
 | [docs/setup.md](docs/setup.md) | the installer step by step, hardware tiers, updating, uninstalling, values of the computer (`machine.json`), overview of the configuration files |
 | [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, measured variants when weights stay in main memory, cache of earlier conversations in main memory, measurements, limits |
-| [docs/security.md](docs/security.md) | protecting your own computer: key for the server, guard before every tool call, git note, check scripts |
+| [docs/security.md](docs/security.md) | protecting your own computer: key for the server, guard before every tool call, web access, git note, check scripts |
 | [docs/agent.md](docs/agent.md) | settings of both agents, working rules, closing check, second look, workflows; `claude-local` (Claude Code for comparison) |
 | [docs/projects.md](docs/projects.md) | a new project from the template, check command, facts with sources compared against documentation and code, way of working |
 | [docs/models.md](docs/models.md) | model profiles, MTP, chat templates, adding a new model |

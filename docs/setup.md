@@ -116,7 +116,7 @@ The files in `config\` apply on every computer and are in the repository.
 
 | Section | overrides | Example |
 |---|---|---|
-| `server` | `server.json` | `installRoot`, `package` |
+| `server` | `server.json` | `installRoot`, `package`, `devices` (the cards chosen with `/gpu`) |
 | `projects` | `projects.json` | `projectsRoot` |
 | `agent` | `agent.json` | `model` (default model of this computer) |
 | `modelDefaults` | `defaults` in `models.json` | `gpu-layers` |

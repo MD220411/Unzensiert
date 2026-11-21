@@ -14,6 +14,9 @@
 
   "modelsDir": "",
 
+  "_devices": "The graphics cards llama.cpp may use, by their ids of 'llama-server --list-devices' (CUDA0, Vulkan1). Empty = every usable card. A machine chooses with /gpu in unzensiert (config\\machine.json, section server); how much goes on which card the planner decides (docs\\planner.md).",
+  "devices": [],
+
   "host": "127.0.0.1",
   "port": 8080,
   "requireApiKey": true,

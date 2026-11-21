@@ -11,7 +11,7 @@
 #   unzensiert -p --output-format json    ... as one JSON line (the benchmark reads it)
 #   unzensiert -c | --continue            continue the last conversation in this folder
 #   unzensiert --resume [id]              continue an earlier one (without id: choose)
-#   unzensiert --permission-mode edits    ask, edits or all (the names of Claude Code work too)
+#   unzensiert --permission-mode edits    ask, edits, plan or all (Claude Code's names work too)
 #   unzensiert --allowedTools "Bash(python:*)" ...   allowed without a question
 #   unzensiert --max-turns 30             at most this many rounds of tool calls
 #   unzensiert -OnExit keep               unload, stop or keep (default: "onExit" in agent.json)
@@ -92,7 +92,7 @@ $cwd = (Get-Location).ProviderPath
 $session = New-AgentSession $cwd $model
 if ($opt.mode) {
     $mode = ConvertTo-PermissionMode $opt.mode
-    if (-not $mode) { [Console]::Error.WriteLine("unzensiert: unknown permission mode '$($opt.mode)' (ask, edits, all)"); [Console]::OutputEncoding = $savedEncoding; exit 1 }
+    if (-not $mode) { [Console]::Error.WriteLine("unzensiert: unknown permission mode '$($opt.mode)' (ask, edits, plan, all)"); [Console]::OutputEncoding = $savedEncoding; exit 1 }
     $session.mode = $mode
 }
 if (-not (ConvertTo-PermissionMode $session.mode)) { $session.mode = 'ask' }

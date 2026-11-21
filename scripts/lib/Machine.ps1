@@ -69,6 +69,67 @@ function Get-UsableDevices($Devices) {
     return @(@($Devices) | Where-Object { $_ -and (-not $pattern -or $_.name -notmatch $pattern) })
 }
 
+# --- which cards llama.cpp may use (/gpu in unzensiert) ------------------------------------
+
+function Get-DeviceChoice {
+    # The ids of the cards llama.cpp may use on this machine ("devices" in config\server.json,
+    # set in config\machine.json by /gpu); empty = every usable card. How much goes on which
+    # of them the planner decides (docs\planner.md).
+    return [string[]]@(@((Get-ServerConfig).devices) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+}
+
+function Resolve-DeviceChoice($Devices, [string[]]$Ids) {
+    # Splits $Devices into the chosen cards and the ones left out. Without a choice every card
+    # is chosen. Chosen ids no card has any more (another llama.cpp package, a card taken out)
+    # come back in missing; if none of the chosen cards is there, every card is used again.
+    $all = @(@($Devices) | Where-Object { $_ })
+    $wanted = @(@($Ids) | Where-Object { $_ })
+    $known = @($all | ForEach-Object { [string]$_.id })
+    $chosen = $all
+    $missing = @()
+    if ($wanted.Count -gt 0) {
+        $chosen = @($all | Where-Object { $wanted -contains [string]$_.id })
+        $missing = @($wanted | Where-Object { $known -notcontains $_ })
+        if ($chosen.Count -eq 0) { $chosen = $all }
+    }
+    $chosenIds = @($chosen | ForEach-Object { [string]$_.id })
+    $left = @($all | Where-Object { $chosenIds -notcontains [string]$_.id })
+    return @{ devices = $chosen; left = $left; missing = $missing }
+}
+
+function ConvertFrom-DeviceSelection([string]$Text, $Devices) {
+    # What the user typed after /gpu: numbers of the list ("1 2", "1,2"), ids ("CUDA1") or
+    # "all". Returns @{ ids (in the order of the list); all (every card); bad (a word that
+    # names no card, '' if none) }.
+    $all = @(@($Devices) | Where-Object { $_ })
+    $result = @{ ids = @(); all = $false; bad = '' }
+    $picked = @()
+    foreach ($word in @($Text -split '[\s,;]+' | Where-Object { $_ })) {
+        $n = 0
+        if ($word -in 'all', 'alle', '*') { $picked = @($all | ForEach-Object { [string]$_.id }); continue }
+        if ([int]::TryParse($word, [ref]$n) -and $n -ge 1 -and $n -le $all.Count) { $picked += [string]$all[$n - 1].id; continue }
+        $hit = @($all | Where-Object { [string]$_.id -eq $word })
+        if ($hit.Count -gt 0) { $picked += [string]$hit[0].id; continue }
+        $result.bad = $word
+        return $result
+    }
+    $result.ids = @($all | ForEach-Object { [string]$_.id } | Where-Object { $picked -contains $_ })
+    $result.all = ($all.Count -gt 0 -and $result.ids.Count -eq $all.Count)
+    return $result
+}
+
+function Set-DeviceChoice([string[]]$Ids) {
+    # Saves which cards llama.cpp may use on this machine. No ids = every card: the key is
+    # taken out of config\machine.json, so a card added later is used as well.
+    $wanted = @(@($Ids) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+    if ($wanted.Count -gt 0) { Set-MachineValue 'server' 'devices' ([string[]]$wanted); return }
+    $machine = Get-MachineConfig
+    if ($machine.PSObject.Properties['server'] -and $machine.server.PSObject.Properties['devices']) {
+        $machine.server.PSObject.Properties.Remove('devices')
+        Save-MachineConfig $machine
+    }
+}
+
 # --- memory and disks ---------------------------------------------------------------------
 
 function Get-SystemMemoryGiB {

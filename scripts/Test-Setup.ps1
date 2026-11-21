@@ -250,7 +250,7 @@ $upd = Get-UpdateConfig
 Assert-That ([string]$upd.repository -match '^[\w.-]+/[\w.-]+$' -and [int]$upd.checkHours -ge 1) 'updates.json: repository owner/name and checkHours'
 # every text the terminal of Unzensiert asks for exists in config\unzensiert-texts.json
 $uiTexts = Read-JsonFile (Join-Path $script:ConfigDir 'unzensiert-texts.json')
-$wanted = @('modes.ask', 'modes.edits', 'modes.all')
+$wanted = @('modes.ask', 'modes.edits', 'modes.all', 'modes.plan')
 foreach ($f in @(Get-ChildItem -Path (Join-Path $script:ProjectRoot 'scripts') -Recurse -Filter '*.ps1')) {
     $code = [System.IO.File]::ReadAllText($f.FullName)
     $wanted += @([regex]::Matches($code, "Get-UiText '([\w.]+)'") | ForEach-Object { $_.Groups[1].Value })

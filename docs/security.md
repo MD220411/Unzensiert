@@ -122,6 +122,31 @@ Edit `config\guard.json`, then run `scripts\Test-Setup.ps1`. Applies from the ne
   and it runs locally. If you want it otherwise, add `.env` under `secretFileNames`.
 - The guard applies to `unzensiert` and `claude-local`. The normal `claude` is not affected.
 
+## Web access
+
+The tools `WebSearch` and `WebFetch` of Unzensiert
+([unzensiert.md](unzensiert.md#research-on-the-web)) are the way the model looks things up on
+the internet by itself; commands such as `curl` stay questions of the rights mode as before.
+What that means for your data and your computer:
+
+- **What leaves the computer:** the search terms (to DuckDuckGo, or to a SearXNG instance of
+  your own) and the addresses of the pages the model reads, with the name and version of the
+  program in the request. Nothing of the project goes along unless the model writes it into
+  search terms or an address; the system prompt forbids secrets and personal data there.
+- **You see it first:** in the modes `ask`, `edits` and `plan` every search and every page
+  asks, and the question shows the terms or the address. "always" allows every search, or one
+  host, for the rest of the session. In mode `all` they run without a question, like every
+  command.
+- **Hidden instructions:** a page can carry text written for a language model ("ignore your
+  instructions and ..."). Every page and every list of results reaches the model with the
+  note that it is information, not instructions, but a local model can still fall for it.
+  Such text cannot get past the guard; what remains is that the model might put data into a
+  later search or address. That is why, outside mode `all`, every one of them asks.
+- **Runs without a terminal** (`-p`, scripts, the benchmark) offer the web tools only in mode
+  `all` or when `--allowedTools` names them; otherwise the model does not even get them.
+- **Off:** remove `WebSearch` and `WebFetch` from `addTools` in `config\unzensiert.json` (for
+  one computer in `config\machine.json` under `"unzensiert"`).
+
 ## Git note at start
 
 `unzensiert` and `claude-local` report at start in a terminal when the folder is not a git

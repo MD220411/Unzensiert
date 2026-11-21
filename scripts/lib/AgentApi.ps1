@@ -156,10 +156,24 @@ function Complete-ChatStreamState($State) {
     }
 }
 
+function New-ChatRequestBody([string]$Model, $Messages, $Tools, [int]$MaxTokens, [bool]$ParallelToolCalls) {
+    # The body of a chat request. parallel_tool_calls says that several tool calls in one
+    # answer are welcome; llama-server b12433 takes them with the Qwen templates also without
+    # it (measured on 2026-11-21), a build that keeps to the OpenAI default would allow one.
+    $body = @{ model = $Model; messages = $Messages; stream = $true; stream_options = @{ include_usage = $true }; max_tokens = $MaxTokens }
+    if ($Tools) {
+        $body['tools'] = $Tools
+        if ($ParallelToolCalls) { $body['parallel_tool_calls'] = $true }
+    }
+    return $body
+}
+
 function Invoke-ChatStream {
     # Sends one chat request and reads the answer as it streams in.
     #   OnEvent    script block, see Update-ChatStreamState
     #   ShouldStop script block; $true stops the request (Esc or Ctrl+C at the terminal)
+    #   ParallelToolCalls  several tool calls in one answer are welcome ("parallelToolCalls"
+    #              in config\unzensiert.json, New-ChatRequestBody)
     # Returns the result of Complete-ChatStreamState.
     param(
         [string]$Model,
@@ -167,10 +181,10 @@ function Invoke-ChatStream {
         $Tools,
         [int]$MaxTokens = 16384,
         [scriptblock]$OnEvent,
-        [scriptblock]$ShouldStop
+        [scriptblock]$ShouldStop,
+        [bool]$ParallelToolCalls = $false
     )
-    $body = @{ model = $Model; messages = $Messages; stream = $true; stream_options = @{ include_usage = $true }; max_tokens = $MaxTokens }
-    if ($Tools) { $body['tools'] = $Tools }
+    $body = New-ChatRequestBody $Model $Messages $Tools $MaxTokens $ParallelToolCalls
     $bytes = [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-AgentJson $body))
 
     $request = [System.Net.HttpWebRequest]::Create("$((Get-ServerConfig).baseUrl)/v1/chat/completions")

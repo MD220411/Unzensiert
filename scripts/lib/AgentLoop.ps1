@@ -2,17 +2,24 @@
 # tool calls until the model answers without a call. Before a call runs, the guard
 # (scripts\hooks\GuardRules.ps1, config\guard.json) and the permission mode decide; when the
 # model wants to end an answer in which it changed files, the closing check runs
-# (scripts\hooks\Check-Stop.ps1, "stopCheck" in config\agent.json). Also here: shortening and
-# summarising the conversation when the context window fills up. The commands typed with a
-# slash and the loops for the terminal and for one-shot runs are in lib\AgentRepl.ps1.
-# Needs lib\AgentApi.ps1, AgentTools.ps1, AgentSession.ps1, AgentUi.ps1 and lib\Quality.ps1.
-# Keep this file ASCII-only. Description: docs\unzensiert.md.
+# (scripts\hooks\Check-Stop.ps1, "stopCheck" in config\agent.json); before that, open steps of
+# the task list send it back to work (lib\AgentPlan.ps1). In plan mode file changes are
+# refused until the user approves the plan. Also here: shortening and summarising the
+# conversation when the context window fills up. The commands typed with a slash and the
+# loops for the terminal and for one-shot runs are in lib\AgentRepl.ps1.
+# Needs lib\AgentApi.ps1, AgentTools.ps1, AgentPlan.ps1, AgentWeb.ps1, AgentSession.ps1,
+# AgentUi.ps1 and lib\Quality.ps1. Keep this file ASCII-only. Description: docs\unzensiert.md.
 
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'hooks\GuardRules.ps1')
 
-$script:ModeOrder = @('ask', 'edits', 'all')
+# the order of Shift+Tab, as in Claude Code: plan mode after edits, everything allowed last
+$script:ModeOrder = @('ask', 'edits', 'plan', 'all')
 $script:ReadOnlyTools = @('Read', 'Glob', 'Grep')
 $script:FileTools = @('Edit', 'EditLines', 'Write')
+# tools that change nothing and reach nobody: they need no permission in any mode
+$script:FreeTools = @('TodoWrite', 'AskUserQuestion', 'PresentPlan')
+# tools that reach the internet: a question except in mode all
+$script:WebTools = @('WebSearch', 'WebFetch')
 
 function Get-CanonicalToolName([string]$Name) {
     # EditLines is Unzensiert's own way of editing: for the guard, the rights of a session
@@ -26,10 +33,11 @@ $script:Md5 = [System.Security.Cryptography.MD5]::Create()
 # --- helpers ----------------------------------------------------------------------------------
 
 function ConvertTo-PermissionMode([string]$Name) {
-    # ask, edits or all; the names of Claude Code (default, acceptEdits, bypassPermissions)
-    # are understood too. '' for an unknown name.
+    # ask, edits, plan or all; the names of Claude Code (default, acceptEdits, plan,
+    # bypassPermissions) are understood too. '' for an unknown name.
     $n = $Name.ToLowerInvariant()
-    if (@('ask', 'default', 'plan', 'dontask') -contains $n) { return 'ask' }
+    if (@('ask', 'default', 'dontask') -contains $n) { return 'ask' }
+    if ($n -eq 'plan') { return 'plan' }
     if (@('edits', 'acceptedits') -contains $n) { return 'edits' }
     if (@('all', 'bypasspermissions') -contains $n) { return 'all' }
     return ''
@@ -190,6 +198,21 @@ function Test-ToolAllowed($Session, [string]$Name, $A) {
     # command, every part of it must be covered or only read.
     $rules = @($Session.allowedTools) + @($Session.allowed.Keys)
     $Name = Get-CanonicalToolName $Name
+    if ($script:WebTools -contains $Name) {
+        # WebSearch or WebFetch as a whole, or WebFetch(domain:example.com) for that host and
+        # the hosts below it
+        $hostName = ''
+        if ($Name -eq 'WebFetch') { $hostName = Get-WebHost ([string](Get-DictValue $A 'url')) }
+        foreach ($rule in $rules) {
+            $r = [string]$rule
+            if ($r -eq $Name) { return $true }
+            if ($hostName -and $Name -eq 'WebFetch' -and $r -match '^WebFetch\(domain:(.+)\)$') {
+                $want = $Matches[1].Trim().ToLowerInvariant()
+                if ($hostName -eq $want -or $hostName.EndsWith('.' + $want)) { return $true }
+            }
+        }
+        return $false
+    }
     if ($Name -eq 'Bash' -or $Name -eq 'PowerShell') {
         $parts = @(Split-CommandParts ([string](Get-DictValue $A 'command')))
         if ($parts.Count -eq 0) { return $false }
@@ -217,8 +240,15 @@ function Test-ToolAllowed($Session, [string]$Name, $A) {
 
 function Get-AlwaysRules([string]$Name, $A) {
     # What an "always" answer allows for the rest of the session: for a command its programs
-    # (with the subcommand for git, npm and the like), for a file change all file changes.
+    # (with the subcommand for git, npm and the like), for a file change all file changes,
+    # for a web search all searches, for a web page all pages of its host.
     if ($script:FileTools -contains $Name) { return @('Edit', 'Write') }   # EditLines counts as Edit
+    if ($Name -eq 'WebSearch') { return @('WebSearch') }
+    if ($Name -eq 'WebFetch') {
+        $hostName = Get-WebHost ([string](Get-DictValue $A 'url'))
+        if ($hostName) { return @("WebFetch(domain:$hostName)") }
+        return @('WebFetch')
+    }
     $two = @('git', 'npm', 'npx', 'pnpm', 'yarn', 'pip', 'uv', 'poetry', 'dotnet', 'cargo', 'go', 'docker', 'winget', 'choco', 'mvn', 'gradle')
     $rules = @()
     foreach ($part in @(Split-CommandParts ([string](Get-DictValue $A 'command')))) {
@@ -235,7 +265,9 @@ function Get-CallPreview([string]$Name, $A) {
     # What the question before a call shows: the command, or the path with the change.
     $plain = ConvertTo-PlainHashtable $A
     $text = Get-GuardSubject (Get-CanonicalToolName $Name) $plain
-    if ($Name -eq 'EditLines') {
+    if ($Name -eq 'WebSearch') { $text = [string]$plain['query'] }
+    elseif ($Name -eq 'WebFetch') { $text = [string]$plain['url'] }
+    elseif ($Name -eq 'EditLines') {
         $text += "`n" + (Get-UiText 'tools.range' ([int]$plain['start_line']) ([int]$plain['end_line']))
         $text += "`n" + ((@(([string]$plain['new_text']).Replace("`r", '').Split("`n") | ForEach-Object { "+ $_" })) -join "`n")
     } elseif ($Name -eq 'Edit') {
@@ -259,7 +291,28 @@ function Get-CallDecision($Session, [string]$Name, $A, $Guard) {
         return @{ action = 'deny'; guard = $true; why = "Blocked by the guard of Unzensiert (rule $($verdict.rule)): $($verdict.reason). It protects the user's computer; do not try to get around it." }
     }
     if ($verdict.decision -eq 'ask') { return @{ action = 'ask'; guard = $true; why = "guard rule $($verdict.rule): $($verdict.reason)" } }
-    if ($script:ReadOnlyTools -contains $Name -or $Session.mode -eq 'all') { return @{ action = 'run' } }
+    if ($script:ReadOnlyTools -contains $Name -or $script:FreeTools -contains $Name) { return @{ action = 'run' } }
+    if ($script:WebTools -contains $Name) {
+        # search terms and addresses leave the computer: the user sees them first
+        if ($Session.mode -eq 'all' -or (Test-ToolAllowed $Session $Name $A)) { return @{ action = 'run' } }
+        return @{ action = 'ask'; guard = $false; why = 'web' }
+    }
+    if ($Session.mode -eq 'plan') {
+        # research yes, changes no: file changes are refused, commands that only read run,
+        # other commands ask (some only look something up)
+        if ($script:FileTools -contains $Name) { return @{ action = 'deny'; guard = $false; why = (Get-PlanModeRefusal $Session) } }
+        if ($Name -eq 'Bash' -or $Name -eq 'PowerShell') {
+            if (Test-ToolAllowed $Session $Name $A) { return @{ action = 'run' } }
+            foreach ($part in @(Split-CommandParts ([string](Get-DictValue $A 'command')))) {
+                $first = @(Get-CommandTokens $part)
+                if ($first.Count -gt 0 -and @((Get-AgentSettings).fileCommands) -contains ([string]$first[0]).ToLowerInvariant()) {
+                    return @{ action = 'deny'; guard = $false; why = (Get-PlanModeRefusal $Session) }
+                }
+            }
+            return @{ action = 'ask'; guard = $false; why = 'plan' }
+        }
+    }
+    if ($Session.mode -eq 'all') { return @{ action = 'run' } }
     if ($script:FileTools -contains $Name -and $Session.mode -eq 'edits') {
         # edits covers the project folder; a file outside it asks, as in Claude Code
         $target = Resolve-AgentPath (Get-DictValue $A 'file_path') $Session.cwd
@@ -315,8 +368,9 @@ function Invoke-ModelRound($Session, $Schemas) {
         $charsBefore = Get-SessionChars $Session
         $budget = Get-AnswerTokenBudget $Session
         $Session.lastBudget = $budget
+        $parallel = [bool](Get-AgentSettings).parallelToolCalls
         try {
-            $answer = Invoke-ChatStream -Model $Session.model -Messages $Session.messages -Tools $Schemas -MaxTokens $budget `
+            $answer = Invoke-ChatStream -Model $Session.model -Messages $Session.messages -Tools $Schemas -MaxTokens $budget -ParallelToolCalls $parallel `
                 -OnEvent {
                     param($kind, $text)
                     if ($kind -eq 'reasoning') { Add-UiReasoning $text }
@@ -405,7 +459,10 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
         if ($decision.action -eq 'ask') {
             if (-not $script:Ui.on) {
                 $why = 'Not allowed in this run: no one is at the terminal to confirm it'
-                if ($decision.why) { $why += " ($($decision.why))" }
+                $reason = [string]$decision.why
+                if ($reason -eq 'plan') { $reason = 'plan mode is on, only commands that read run' }
+                elseif ($reason -eq 'web') { $reason = 'it would reach the internet' }
+                if ($reason) { $why += " ($reason)" }
                 $decision = @{ action = 'deny'; why = "$why. Find another way or say in your answer what is needed." }
             } else {
                 $reply = Read-UiPermission $c.name (Get-CallPreview $c.name $parsed) $decision.why (-not $decision.guard) $parsed
@@ -456,6 +513,10 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
                 $text += "`n[Note from Unzensiert: $($Session.noEffect) of your edits in this request changed nothing; the files already hold that text. Stop editing this place: if a check still fails, read its error message again and look for the cause elsewhere, or end your answer and say what blocks you.]"
             }
         }
+        if ($c.name -eq 'TodoWrite' -and @($Calls).Count -eq 1 -and -not $result.error -and @(Get-OpenTodos $Session).Count -gt 0 -and [bool]$cfg.parallelToolCalls) {
+            # a list update alone costs a whole round of the model: next time with the next call
+            $text += "`n[Note from Unzensiert: this update came in an answer of its own. Send the next one in the same answer as the first tool call of the step you start.]"
+        }
         Write-UiToolResult $result $c.name
         Add-ToolMessage $Session $c.id $text
         if ($result.image) { $images += , $result.image }
@@ -501,7 +562,7 @@ function Invoke-AgentTurn($Session, $Content) {
     # Returns done, stopped (Esc or a no), loop, limit or error.
     $cfg = Get-AgentSettings
     $guard = Get-GuardRules
-    $schemas = Get-AgentToolSchemas $Session.gitBash
+    $schemas = Get-AgentToolSchemas $Session.gitBash @(Get-AgentOwnTools $Session)
     # The thinking of earlier requests stays in the conversation: the chat templates show it
     # (preserve_thinking), so removing it would change the text the server has cached and make
     # it read the whole previous request again (21k tokens, 22 s measured, docs\unzensiert.md).
@@ -512,8 +573,14 @@ function Invoke-AgentTurn($Session, $Content) {
         else { $Content = @(@{ type = 'text'; text = $Session.pending }) + @($Content) }
         $Session.pending = ''
     }
-    Add-SessionMessage $Session @{ role = 'user'; content = $Content }
     $Session.lastPrompt = Get-ContentText $Content
+    if ($Session.mode -eq 'plan') {
+        # the note goes with the request, the words of the user stay the last prompt
+        $note = Get-PlanModeNote $Session
+        if ($Content -is [string]) { $Content = $Content + "`n`n" + $note }
+        else { $Content = @($Content) + @(@{ type = 'text'; text = $note }) }
+    }
+    Add-SessionMessage $Session @{ role = 'user'; content = $Content }
     Add-HookTranscript $Session 'prompt' $Session.lastPrompt
     $Session.stopActive = $false
     $Session.fingerprints = @{}
@@ -521,6 +588,9 @@ function Invoke-AgentTurn($Session, $Content) {
     $Session.noEffect = 0
     $Session.answerEdits = 0
     $Session.lastAnswer = ''
+    $Session.requestTools = 0
+    $Session.todoReminders = 0
+    $Session.emptyAnswers = 0
     $maxRounds = [int]$cfg.maxToolRounds
     if ($Session.maxTurns -gt 0) { $maxRounds = [int]$Session.maxTurns }
 
@@ -541,6 +611,22 @@ function Invoke-AgentTurn($Session, $Content) {
             Add-SessionMessage $Session $msg
             $Session.lastAnswer = [string]$answer.content
             if ($answer.finish -eq 'length') { Write-UiNote (Get-UiText 'notes.cutOff' $Session.lastBudget) 'warn' }
+            # neither text nor a tool call: the model thought but gave no result, which is no
+            # end of the work (it failed the task pinwechsel of the run plan1 after two rounds)
+            if (-not ([string]$answer.content).Trim() -and $Session.emptyAnswers -lt [int]$cfg.emptyAnswerNotes) {
+                $Session.emptyAnswers++
+                Write-UiNote (Get-UiText 'notes.emptyAnswer') 'warn'
+                Add-SessionMessage $Session @{ role = 'user'; content = "$($script:NotePrefix): your answer was empty, without text and without a tool call. Go on with the task: make the tool call you planned next, or give your final report.]" }
+                continue
+            }
+            # open steps of the task list first: the work is not done yet
+            $reminder = Get-TodoReminder $Session
+            if ($reminder) {
+                $openCount = @(Get-OpenTodos $Session).Count
+                Write-UiNote (Get-UiText 'notes.todoOpen' (Get-UiCount $openCount 'steps')) 'warn'
+                Add-SessionMessage $Session @{ role = 'user'; content = $reminder }
+                continue
+            }
             $hook = Invoke-AgentClosingCheck $Session
             if ($hook -and $hook.decision -eq 'block') {
                 $first = ([string]$hook.reason).Split("`n")[0]
@@ -554,6 +640,7 @@ function Invoke-AgentTurn($Session, $Content) {
             return 'done'
         }
         Add-SessionMessage $Session (New-AssistantCallMessage $answer $calls)
+        $Session.requestTools += $calls.Count
         $outcome = Invoke-ToolCalls $Session $calls $guard
         if ($outcome -ne 'ok') { return $outcome }
     }
@@ -638,6 +725,8 @@ function Invoke-Compaction($Session, [string]$Focus) {
     try { [System.IO.File]::AppendAllText($Session.file, '{"compact":true}' + "`n", (New-Object System.Text.UTF8Encoding($false))) } catch {}
     $summary = "This conversation was summarised because the context window was full.`n`n" + $answer.content.Trim()
     if ($Session.lastPrompt) { $summary += "`n`nThe last request of the user, word for word:`n" + $Session.lastPrompt }
+    # the task list survives word for word: it is what keeps a long piece of work on track
+    if (@($Session.todos).Count -gt 0) { $summary += "`n`nYour task list (TodoWrite) at the time of the summary:`n" + (Format-TodoLines $Session.todos) }
     $summary += "`n`nContinue from here. Files you read before the summary must be read again before you change them."
     Add-SessionMessage $Session @{ role = 'user'; content = $summary }
     $Session.reads = @{}

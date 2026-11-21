@@ -68,8 +68,17 @@ function Save-MachineConfig($Machine) {
     # Writes config\machine.json (UTF-8 without BOM). The comment always comes first.
     $out = [ordered]@{ '_comment' = 'Settings of THIS machine, written by scripts\Install.ps1. Not in git. Overrides config\*.json (see scripts\lib\Config.ps1). Install.ps1 keeps values you set here.' }
     foreach ($p in $Machine.PSObject.Properties) { if ($p.Name -ne '_comment') { $out[$p.Name] = $p.Value } }
+    # Written next to it first and then put in its place: a process stopped in the middle
+    # (Esc during /gpu stops the planner) leaves the old file, never half a file.
     $file = Get-MachineFile
-    [System.IO.File]::WriteAllText($file, ($out | ConvertTo-Json -Depth 10), (New-Object System.Text.UTF8Encoding($false)))
+    $tmp = "$file.tmp"
+    [System.IO.File]::WriteAllText($tmp, ($out | ConvertTo-Json -Depth 10), (New-Object System.Text.UTF8Encoding($false)))
+    if (Test-Path -LiteralPath $file) {
+        try { [System.IO.File]::Replace($tmp, $file, $null) }
+        catch { [System.IO.File]::Copy($tmp, $file, $true); [System.IO.File]::Delete($tmp) }
+    } else {
+        [System.IO.File]::Move($tmp, $file)
+    }
 }
 
 function Set-MachineValue([string]$Section, [string]$Key, $Value) {

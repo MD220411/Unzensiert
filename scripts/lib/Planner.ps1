@@ -403,11 +403,54 @@ function Get-CacheRamMiB($Plan, $Cfg, [double]$HostCapMiB, [int]$ModelsMax) {
     return [int]$mib
 }
 
+# The llama-server options a plan sets besides the context size (ConvertTo-PlanArgs).
+$script:PlanArgKeys = @('fit', 'gpu-layers', 'device', 'tensor-split', 'n-cpu-moe', 'mmproj-device', 'mmproj-offload', 'cache-ram', 'spec-draft-device', 'spec-draft-ngl', 'ubatch-size', 'batch-size')
+
+function Get-PlannerTargets {
+    # The models Plan-Models.ps1 plans without -Model: every installed agent model, the
+    # default model first (the other models of /model get at least its context).
+    $default = Get-DefaultAgentModel
+    $names = @(Get-InstalledModelNames | Where-Object { (Get-ModelProfile $_).role -eq 'agent' })
+    return @(@($names | Where-Object { $_ -eq $default }) + @($names | Where-Object { $_ -ne $default }))
+}
+
+function Test-DeviceSignature([string]$Measured, [string]$Wanted) {
+    # True if a calibration measured on the cards $Measured ("CUDA0=name;CUDA1=name") holds
+    # every card of $Wanted. The time per MiB is a property of the card, so the calibration
+    # of all cards also serves a choice of fewer of them (/gpu).
+    $have = @($Measured -split ';' | Where-Object { $_ })
+    foreach ($w in @($Wanted -split ';' | Where-Object { $_ })) { if ($have -notcontains $w) { return $false } }
+    return $true
+}
+
+function Limit-ModelDevices($ModelArgs, [string[]]$Ids) {
+    # Keeps a model on the chosen cards when the server starts (lib\Server.ps1, /gpu). A
+    # placement inside the choice stays. Any other model gets the choice as --device and
+    # loses the options of a placement made for other cards, so llama.cpp fits it onto the
+    # chosen ones by itself; that happens to a model the planner has not planned for them
+    # (not an agent model, or planning was stopped). Returns $true if a placement was dropped.
+    $chosen = @(@($Ids) | Where-Object { $_ })
+    if ($chosen.Count -eq 0) { return $false }
+    $named = @()
+    foreach ($key in 'device', 'mmproj-device', 'spec-draft-device') {
+        if ($ModelArgs.Contains($key)) { $named += @(([string]$ModelArgs[$key]) -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    }
+    if ($ModelArgs.Contains('device') -and @($named | Where-Object { $chosen -notcontains $_ }).Count -eq 0) { return $false }
+    $dropped = $false
+    foreach ($key in $script:PlanArgKeys) {
+        if ($key -eq 'cache-ram' -or -not $ModelArgs.Contains($key)) { continue }
+        if ($key -ne 'gpu-layers') { $dropped = $true }
+        $ModelArgs.Remove($key)
+    }
+    $ModelArgs['device'] = ($chosen -join ',')
+    return $dropped
+}
+
 function Clear-ModelPlan([string]$Name) {
     # Takes the options of a plan out of config\machine.json again, so llama.cpp places the
     # model by itself (--fit); the context size stays. Used when a plan does not work.
     $values = [ordered]@{}
-    foreach ($key in 'fit', 'gpu-layers', 'device', 'tensor-split', 'n-cpu-moe', 'mmproj-device', 'mmproj-offload', 'cache-ram', 'spec-draft-device', 'spec-draft-ngl', 'ubatch-size', 'batch-size') { $values[$key] = $null }
+    foreach ($key in $script:PlanArgKeys) { $values[$key] = $null }
     Set-MachineModelArgs $Name $values
     $machine = Get-MachineConfig
     if ($machine.PSObject.Properties['plans'] -and $machine.plans.PSObject.Properties[$Name]) {

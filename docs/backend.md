@@ -51,6 +51,7 @@ file ([setup.md](setup.md)).
 | `package` | `auto` | Variant of the download. `auto` chooses by graphics card, see `packages`; the package that worked is then noted in `machine.json`. |
 | `packages` | `nvidia`: `win-cuda-13.5-x64`, `nvidiaFallback`: `win-cuda-12.4-x64`, `other`: `win-vulkan-x64`, `cpu`: `win-cpu-x64` | What `auto` means. With an NVIDIA card CUDA 13.5 first; if llama.cpp sees no card with it (driver too old), CUDA 12.4. AMD and Intel: Vulkan (experimental, untested). Without a card: CPU. |
 | `modelsDir` | empty = `<installRoot>\models` | Folder of the GGUF files |
+| `devices` | empty = every usable card | The graphics cards llama.cpp may use, by their ids of `llama-server --list-devices` (`CUDA0`, `Vulkan1`). A computer chooses them with `/gpu` in `unzensiert` (in `machine.json`); every model is then started with these cards only, and the planner spreads the models over them ([planner.md](planner.md#choosing-the-cards)). |
 | `host`, `port` | `127.0.0.1`, `8080` | Address of the server. Reachable only from this computer. |
 | `requireApiKey` | `true` | The server requires a key with every request. It is created at the first start and stored in `<installRoot>\run\api-key.txt` ([security.md](security.md)). |
 | `corsOrigins` | `localhost` | Which web pages may read answers of the server in the browser. Leave empty for the llama.cpp default (all). |

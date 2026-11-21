@@ -20,6 +20,8 @@
 #   lib\Agent*.ps1   the agent Unzensiert (scripts\unzensiert.ps1, docs\unzensiert.md):
 #                    AgentApi     JSON and the streamed chat request to llama-server
 #                    AgentTools   the tools Bash, PowerShell, Read, Edit, Write, Glob, Grep
+#                    AgentPlan    task list, questions, the plan, plan mode; which own tools
+#                    AgentWeb     WebSearch and WebFetch, web pages as text
 #                    AgentPrompt  system prompt with the instructions of the project
 #                    AgentSession messages, saved conversations, size of the context
 #                    AgentUi      the terminal: welcome, activity line, notes, input, the end
@@ -27,6 +29,7 @@
 #                    AgentUiBar   the status bar at the bottom, Write-UiOut for all output
 #                    AgentUiMarkdown  the answer: Markdown, word wrap, colours of code
 #                    AgentUiTools the tool calls, diffs of changes, the question before a call
+#                    AgentUiPlan  the task list, the frame of a question, the plan to approve
 #                    AgentLoop    one request: model, guard, permissions, tools, closing check
 #                    AgentRepl    the conversation, commands with a slash, the -p run
 #   lib\Update.ps1   automatic updates from the releases on GitHub (config\updates.json)
@@ -50,12 +53,15 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\Style.ps1"
 . "$PSScriptRoot\lib\AgentApi.ps1"
 . "$PSScriptRoot\lib\AgentTools.ps1"
+. "$PSScriptRoot\lib\AgentPlan.ps1"
+. "$PSScriptRoot\lib\AgentWeb.ps1"
 . "$PSScriptRoot\lib\AgentPrompt.ps1"
 . "$PSScriptRoot\lib\AgentSession.ps1"
 . "$PSScriptRoot\lib\AgentUi.ps1"
 . "$PSScriptRoot\lib\AgentUiBar.ps1"
 . "$PSScriptRoot\lib\AgentUiMarkdown.ps1"
 . "$PSScriptRoot\lib\AgentUiTools.ps1"
+. "$PSScriptRoot\lib\AgentUiPlan.ps1"
 . "$PSScriptRoot\lib\AgentLoop.ps1"
 . "$PSScriptRoot\lib\AgentRepl.ps1"
 . "$PSScriptRoot\lib\Update.ps1"

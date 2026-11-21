@@ -1,7 +1,8 @@
 # Computes how each model is best spread over the graphics cards and the main memory of
 # this machine and writes the result into config\machine.json (lib\Planner.ps1,
 # docs\planner.md):
-#   1. stops llama-server, so the cards are empty, and reads their free memory
+#   1. stops llama-server, so the cards are empty, and reads their free memory; only the
+#      cards chosen with /gpu in unzensiert count ("devices", section server of machine.json)
 #   2. calibration: measures every model once with llama-bench (about half a minute per
 #      model); kept in machine.json and repeated only for other cards or with -Recalibrate
 #   3. plan: context size, layers per card, experts in main memory, image encoder
@@ -59,17 +60,15 @@ function Write-Plan([string]$Name, $Plan, $Cards, $Model) {
 }
 
 $cfg = Get-PlannerConfig
-if ($Model) { $targets = @(Resolve-ModelName $Model) }
-else { $targets = @(Get-InstalledModelNames | Where-Object { (Get-ModelProfile $_).role -eq 'agent' }) }
-if ($targets.Count -eq 0) { throw 'No agent model is installed. Download one first: scripts\Get-Model.ps1' }
-
 # The models of the /model picker share one context window per session: claude-local takes
 # the smallest of them, so that switching cannot overflow a model. The default model is
-# therefore planned first, and the other picker models get at least its context if they
-# can (docs\planner.md).
+# therefore planned first (Get-PlannerTargets), and the other picker models get at least its
+# context if they can (docs\planner.md).
+if ($Model) { $targets = @(Resolve-ModelName $Model) }
+else { $targets = @(Get-PlannerTargets) }
+if ($targets.Count -eq 0) { throw 'No agent model is installed. Download one first: scripts\Get-Model.ps1' }
 $defaultModel = Get-DefaultAgentModel
 $pickerModels = @(@((Get-AgentConfig).picker) | ForEach-Object { [string]$_.model })
-$targets = @(@($targets | Where-Object { $_ -eq $defaultModel }) + @($targets | Where-Object { $_ -ne $defaultModel }))
 
 function Get-SessionContext {
     # Context of the default model's plan, 0 if there is none.
@@ -91,10 +90,14 @@ $server = Get-ServerConfig
 if (-not (Test-Path $server.exe)) { throw 'llama.cpp is not installed (scripts\Install-LlamaCpp.ps1).' }
 if (Get-ServerProcess) { 'stopping llama-server, so that the cards are empty ...'; Stop-Server }
 
-$devices = @(Get-UsableDevices (Get-LlamaDevices))
+# only the cards chosen with /gpu ("devices" in config\machine.json, section server)
+$choice = Resolve-DeviceChoice (Get-UsableDevices (Get-LlamaDevices)) @(Get-DeviceChoice)
+$devices = @($choice.devices)
 $ramGiB = Get-SystemMemoryGiB
 $hostCap = ($ramGiB - [double]$cfg.ramReserveGiB) * 1024.0
 foreach ($d in $devices) { "card $($d.id): $($d.name), $($d.freeMiB) MiB free of $($d.memoryMiB)" }
+foreach ($d in $choice.left) { "card $($d.id): $($d.name), not used (chosen with /gpu)" }
+if ($choice.missing.Count -gt 0) { Write-Warning "chosen cards not found: $($choice.missing -join ', '); planning for: $(@($devices | ForEach-Object { $_.id }) -join ', ')" }
 if ($devices.Count -eq 0) { 'no graphics card llama.cpp can use: the models run on the processor' }
 "main memory: $ramGiB GB, of which the planner uses at most $(Format-GB $hostCap)"
 $signature = ($devices | ForEach-Object { "$($_.id)=$($_.name)" }) -join ';'
@@ -116,7 +119,8 @@ function Invoke-Planning([string]$Name, [double]$Reserve) {
     $info = Get-PlannerModel $Name $devices
     $saved = (Get-MachineConfig).PSObject.Properties['calibration']
     $cal = $null
-    if (-not $Recalibrate -and $saved -and $saved.Value.PSObject.Properties[$Name] -and $saved.Value.$Name.devices -eq $signature) { $cal = $saved.Value.$Name }
+    # a calibration of more cards serves a choice of fewer of them (/gpu)
+    if (-not $Recalibrate -and $saved -and $saved.Value.PSObject.Properties[$Name] -and (Test-DeviceSignature ([string]$saved.Value.$Name.devices) $signature)) { $cal = $saved.Value.$Name }
     if (-not $cal) {
         "$Name`: calibrating with llama-bench (about half a minute) ..."
         $c = New-SpeedCalibration $info (Get-Cards $null $Reserve) $cfg $hostCap
@@ -133,7 +137,7 @@ function Invoke-Planning([string]$Name, [double]$Reserve) {
         $all = (Get-MachineConfig).PSObject.Properties['calibration']
         foreach ($p in @($all.Value.PSObject.Properties)) {
             $other = $p.Value
-            if ($p.Name -eq $Name -or -not $other.dense -or $other.devices -ne $signature) { continue }
+            if ($p.Name -eq $Name -or -not $other.dense -or -not (Test-DeviceSignature ([string]$other.devices) $signature)) { continue }
             foreach ($d in $devices) {
                 if ($other.speed.PSObject.Properties[[string]$d.id] -and @($other.uncertain) -notcontains [string]$d.id) { $speed[[string]$d.id] = [double]$other.speed.([string]$d.id) }
             }
@@ -141,7 +145,8 @@ function Invoke-Planning([string]$Name, [double]$Reserve) {
             break
         }
     }
-    $speedText = @($speed.Keys | Sort-Object | ForEach-Object { '{0} {1:N2} us/MiB' -f $_, $speed[$_] }) -join ', '
+    $ids = @($devices | ForEach-Object { [string]$_.id })
+    $speedText = @($speed.Keys | Where-Object { $_ -eq 'Host' -or $ids -contains $_ } | Sort-Object | ForEach-Object { '{0} {1:N2} us/MiB' -f $_, $speed[$_] }) -join ', '
     "  time per MiB read: $speedText"
     $cards = Get-Cards $speed $Reserve
     $planCfg = $cfg
