@@ -8,9 +8,12 @@
 # conversation when the context window fills up. The commands typed with a slash and the
 # loops for the terminal and for one-shot runs are in lib\AgentRepl.ps1.
 # Needs lib\AgentApi.ps1, AgentTools.ps1, AgentPlan.ps1, AgentWeb.ps1, AgentSession.ps1,
-# AgentUi.ps1 and lib\Quality.ps1. Keep this file ASCII-only. Description: docs\unzensiert.md.
+# AgentUi.ps1, CommandRules.ps1, Trust.ps1 and lib\Quality.ps1. Keep this file ASCII-only.
+# Description: docs\unzensiert.md.
 
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'hooks\GuardRules.ps1')
+# Grep and Glob leave protected files out by themselves (lib\AgentTools.ps1)
+$script:GuardOwnTools = $true
 
 # the order of Shift+Tab, as in Claude Code: plan mode after edits, everything allowed last
 $script:ModeOrder = @('ask', 'edits', 'plan', 'all')
@@ -106,96 +109,17 @@ function Get-SessionContextSize($Session) {
 
 # --- permissions ------------------------------------------------------------------------------
 
-function Split-CommandParts([string]$Command) {
-    # The single commands of a command line, split at && || ; | and line breaks outside of
-    # quotes, so that python -c "import a; a.run()" stays one command.
-    $parts = [System.Collections.Generic.List[string]]::new()
-    $sb = [System.Text.StringBuilder]::new()
-    $quote = [char]0
-    $n = $Command.Length
-    $i = 0
-    while ($i -lt $n) {
-        $ch = $Command[$i]
-        if ($quote -ne [char]0) {
-            if ($ch -eq $quote) { $quote = [char]0 }
-            elseif ($ch -eq [char]'\' -and $quote -eq [char]'"' -and $i + 1 -lt $n) { $null = $sb.Append($ch); $i++; $ch = $Command[$i] }
-            $null = $sb.Append($ch)
-            $i++
-            continue
-        }
-        if ($ch -eq [char]'"' -or $ch -eq [char]"'") { $quote = $ch; $null = $sb.Append($ch); $i++; continue }
-        $sep = 0
-        if (($ch -eq [char]'&' -or $ch -eq [char]'|') -and $i + 1 -lt $n -and $Command[$i + 1] -eq $ch) { $sep = 2 }
-        elseif ($ch -eq [char]';' -or $ch -eq [char]'|' -or $ch -eq [char]"`n" -or $ch -eq [char]"`r") { $sep = 1 }
-        if ($sep -gt 0) {
-            $part = $sb.ToString().Trim()
-            if ($part) { $parts.Add($part) }
-            $null = $sb.Clear()
-            $i += $sep
-            continue
-        }
-        $null = $sb.Append($ch)
-        $i++
-    }
-    $part = $sb.ToString().Trim()
-    if ($part) { $parts.Add($part) }
-    return $parts.ToArray()
+function Test-ToolAllowed($Session, [string]$Name, $A, $Guard = $null) {
+    # True if the call runs without a question by a rule or because it only reads. What cannot be
+    # worked out (a path that is none) is not allowed, so it asks.
+    try { return [bool](Test-ToolCovered $Session $Name $A $Guard) } catch { return $false }
 }
 
-function Test-ProjectFileCommand([string]$Part, [string]$Cwd) {
-    # True if the command only creates, copies, moves or deletes files inside the project
-    # folder ("fileCommands" in config\unzensiert.json); in mode edits that is a file change
-    # like Edit and Write. Variables, redirections or a target outside: not such a command.
-    $words = @(Get-CommandTokens $Part)
-    if ($words.Count -lt 2 -or @((Get-AgentSettings).fileCommands) -notcontains $words[0].ToLowerInvariant()) { return $false }
-    if ($Part -match '[`$%<>]') { return $false }
-    foreach ($w in $words[1..($words.Count - 1)]) {
-        if ($w -match '^-' -or $w -match '^/[a-zA-Z?]$') { continue }
-        $t = $w.Trim('"', "'")
-        if (-not $t -or $t.StartsWith('~')) { return $false }
-        # strictly below the project folder: the folder itself (rm -r .) is no file change
-        if (-not (Resolve-AgentPath $t $Cwd).StartsWith($Cwd.TrimEnd([char]92) + [char]92, [StringComparison]::OrdinalIgnoreCase)) { return $false }
-    }
-    return $true
-}
-
-function Test-ReadOnlyCommand([string]$Command) {
-    # True if every part of the command only reads ("readOnlyCommands" and "readOnlyGit" in
-    # config\unzensiert.json): such commands run in every mode without a question.
-    $cfg = Get-AgentSettings
-    if ($Command -match '`|\$\(|<\(|>\(') { return $false }
-    $parts = @(Split-CommandParts $Command)
-    if ($parts.Count -eq 0) { return $false }
-    foreach ($part in $parts) {
-        # output into a file writes; 2>&1 and the null device do not
-        $rest = $part -replace '\d?>\s*&\s*\d', '' -replace '\d?>\s*(/dev/null|\$null|nul)(\s|$)', ' '
-        if ($rest.Contains('>')) { return $false }
-        $words = @($part -split '\s+')
-        $first = $words[0].ToLowerInvariant()
-        if ($first -eq 'git') {
-            if ($words.Count -lt 2 -or @($cfg.readOnlyGit) -notcontains $words[1].ToLowerInvariant()) { return $false }
-            if ($part -match '\s--output') { return $false }
-            continue
-        }
-        if (@($cfg.readOnlyCommands) -notcontains $first) { return $false }
-        if ($first -eq 'find' -and $part -match '\s-(delete|exec|execdir|ok|okdir|fprint\w*|fls)(\s|$)') { return $false }
-        if ($first -eq 'sort' -and $part -match '\s(-o|--output)') { return $false }
-    }
-    return $true
-}
-
-function Test-CommandPattern([string]$Command, [string]$Spec) {
-    # A rule like "python:*" (the program and anything after it) or an exact command.
-    $cmd = $Command.Trim()
-    if ($Spec.EndsWith(':*')) { $prefix = $Spec.Substring(0, $Spec.Length - 2) }
-    elseif ($Spec.EndsWith('*')) { $prefix = $Spec.Substring(0, $Spec.Length - 1).TrimEnd() }
-    else { return ($cmd -eq $Spec) }
-    return ($cmd -eq $prefix -or $cmd.StartsWith($prefix + ' ', [StringComparison]::OrdinalIgnoreCase))
-}
-
-function Test-ToolAllowed($Session, [string]$Name, $A) {
+function Test-ToolCovered($Session, [string]$Name, $A, $Guard = $null) {
     # True if --allowedTools or an "always" answer of this session covers the call. For a
-    # command, every part of it must be covered or only read.
+    # command, every part of it must be covered, only read, or (mode edits) only change files of
+    # the project; a line that is not understood is covered by a rule for the whole tool or for
+    # exactly this line.
     $rules = @($Session.allowedTools) + @($Session.allowed.Keys)
     $Name = Get-CanonicalToolName $Name
     if ($script:WebTools -contains $Name) {
@@ -214,25 +138,75 @@ function Test-ToolAllowed($Session, [string]$Name, $A) {
         return $false
     }
     if ($Name -eq 'Bash' -or $Name -eq 'PowerShell') {
-        $parts = @(Split-CommandParts ([string](Get-DictValue $A 'command')))
-        if ($parts.Count -eq 0) { return $false }
-        foreach ($part in $parts) {
-            $ok = (Test-ReadOnlyCommand $part) -or ($Session.mode -eq 'edits' -and (Test-ProjectFileCommand $part $Session.cwd))
+        $command = [string](Get-DictValue $A 'command')
+        if (-not $command.Trim()) { return $false }
+        foreach ($rule in $rules) { if ([string]$rule -ceq $Name -or [string]$rule -ceq "$Name($command)") { return $true } }
+        $parts = Read-CommandLine $Name $command $false
+        if ($null -eq $parts -or @($parts).Count -eq 0) { return $false }
+        $state = New-ReadState $Session.cwd
+        $away = $false
+        $more = $false
+        foreach ($part in @($parts)) {
+            $writes = @($part.writes)
+            $alone = Read-CommandLine $Name ([string]$part.text) $true
+            # what comes in through a pipe counts for it as well
+            if ($null -ne $alone -and @($alone).Count -eq 1) { @($alone)[0]['before'] = $part.before }
+            if ($writes.Count -eq 0 -and $null -ne $alone -and @($alone).Count -eq 1 -and (Test-ReadOnlyPart @($alone)[0] $Name $state $Session.cwd $Guard)) { continue }
+            if ([string]$part.words[0] -match '^(cd|chdir|pushd|popd|sl|set-location|push-location|pop-location)$') {
+                # a "cd" that leads somewhere else: nothing reads, writes or runs there without a
+                # question, except by a rule given on the command line
+                $state.folder = ''
+                $state.folders = @()
+                $away = $true
+                $to = [string](@($part.words)[1])
+                if ($writes.Count -eq 0 -and @($part.words).Count -eq 2 -and -not $part.vars -and $to -notmatch '[$%]' -and (Test-PlainArgument $to) -and @('network', 'device') -notcontains [string](Get-PathFacts $to $Session.cwd).kind -and @('network', 'device') -notcontains [string](Get-ShellPath $Name $to $Session.cwd).kind) { continue }
+            }
+            # a command that only changes files of the project, wherever in it the line stands by then
+            $files = ($null -ne $alone -and @($alone).Count -eq 1 -and @($state.folders).Count -gt 0)
+            if ($files) { foreach ($f in @($state.folders)) { if (-not (Test-ProjectFileCommand @($alone)[0] $Name $Session.cwd $f $Guard)) { $files = $false; break } } }
+            if ($Session.mode -eq 'edits' -and $files) { $more = $true; $state.changed = $true; continue }
+            $ok = $false
             foreach ($rule in $rules) {
-                if ($ok) { break }
-                if ($rule -eq $Name) { $ok = $true }
-                elseif ($rule -match '^(\w+)\((.+)\)$' -and $Matches[1] -eq $Name -and (Test-CommandPattern $part $Matches[2])) { $ok = $true }
+                if ($away -and @($Session.allowedTools) -cnotcontains $rule) { continue }
+                if ([string]$rule -match '(?s)^(\w+)\((.+)\)$' -and $Matches[1] -eq $Name -and (Test-CommandPattern $part $Matches[2])) {
+                    $ok = $true
+                    # "always" for cp, mv, rm ... means files of the project that are not protected,
+                    # like "always" for Edit; a rule given on the command line holds as it is
+                    if (@($Session.allowedTools) -cnotcontains $rule -and @((Get-AgentSettings).fileCommands) -contains ([string]$part.words[0]).ToLowerInvariant()) {
+                        $ok = $files
+                    }
+                    if ($ok) { break }
+                }
+            }
+            # output of a covered program may go into files of the project, nowhere else
+            if ($ok) {
+                foreach ($target in $writes) {
+                    if (@('/dev/null', '$null', 'nul', '/dev/stderr', '/dev/stdout') -contains $target.ToLowerInvariant()) { continue }
+                    if (@($state.folders).Count -eq 0 -or $target -match '[$%*?]') { $ok = $false; break }
+                    foreach ($f in @($state.folders)) {
+                        if (-not (Test-InProject $target $Session.cwd $false $f $Name) -or (Test-ProtectedFile ((Get-ShellPath $Name $target $f).full) $Session.cwd $Guard)) { $ok = $false; break }
+                    }
+                }
             }
             if (-not $ok) { return $false }
+            $more = $true
+            $state.changed = $true
         }
+        # nothing but reading: then the line as a whole has to be a reading one, too
+        if (-not $more) { return (Test-ReadOnlyCommand $command $Name $Session.cwd $Guard) }
         return $true
     }
+    # file changes: "always" means the files of the project, except those that run later by
+    # themselves; a rule with a pattern on the command line may name others
+    $path = [string](Get-DictValue $A 'file_path')
+    $inside = Test-InProject $path $Session.cwd $false
     foreach ($rule in $rules) {
-        if ($rule -eq $Name) { return $true }
-        if ($rule -match '^(\w+)\((.+)\)$' -and $Matches[1] -eq $Name) {
+        if ($inside -and $rule -eq $Name) { return $true }
+        if ([string]$rule -match '^(\w+)\((.+)\)$' -and $Matches[1] -eq $Name) {
             $glob = $Matches[2]
-            $path = (Get-DisplayPath (Resolve-AgentPath (Get-DictValue $A 'file_path') $Session.cwd) $Session.cwd).Replace('\', '/')
-            if ((ConvertTo-GlobRegex $glob).IsMatch($path)) { return $true }
+            $f = Get-PathFacts $path $Session.cwd
+            if (-not $f.ok) { continue }
+            if ((ConvertTo-GlobRegex $glob).IsMatch((Get-DisplayPath $f.full $Session.cwd).Replace('\', '/')) -and ($inside -or $f.full -ieq $f.real)) { return $true }
         }
     }
     return $false
@@ -240,8 +214,9 @@ function Test-ToolAllowed($Session, [string]$Name, $A) {
 
 function Get-AlwaysRules([string]$Name, $A) {
     # What an "always" answer allows for the rest of the session: for a command its programs
-    # (with the subcommand for git, npm and the like), for a file change all file changes,
-    # for a web search all searches, for a web page all pages of its host.
+    # (Get-CommandRule: with the subcommand for git, npm and the like, for an interpreter only the
+    # script or module), for a file change all changes to files of the project, for a web search
+    # all searches, for a web page all pages of its host.
     if ($script:FileTools -contains $Name) { return @('Edit', 'Write') }   # EditLines counts as Edit
     if ($Name -eq 'WebSearch') { return @('WebSearch') }
     if ($Name -eq 'WebFetch') {
@@ -249,14 +224,15 @@ function Get-AlwaysRules([string]$Name, $A) {
         if ($hostName) { return @("WebFetch(domain:$hostName)") }
         return @('WebFetch')
     }
-    $two = @('git', 'npm', 'npx', 'pnpm', 'yarn', 'pip', 'uv', 'poetry', 'dotnet', 'cargo', 'go', 'docker', 'winget', 'choco', 'mvn', 'gradle')
+    $command = [string](Get-DictValue $A 'command')
+    $parts = Read-CommandLine $Name $command $false
+    # a line nobody can take apart: only exactly this line
+    if ($null -eq $parts -or @($parts).Count -eq 0) { return @("$Name($command)") }
     $rules = @()
-    foreach ($part in @(Split-CommandParts ([string](Get-DictValue $A 'command')))) {
-        if (Test-ReadOnlyCommand $part) { continue }
-        $words = @($part -split '\s+')
-        $prefix = $words[0]
-        if ($words.Count -gt 1 -and $two -contains $words[0].ToLowerInvariant() -and -not $words[1].StartsWith('-')) { $prefix += ' ' + $words[1] }
-        $rules += "$Name(${prefix}:*)"
+    foreach ($part in @($parts)) {
+        if (@($part.writes).Count -eq 0 -and (Test-ReadOnlyCommand ([string]$part.text) $Name $script:Ui.toolCwd)) { continue }
+        $rule = Get-CommandRule $part $Name
+        if ($rules -cnotcontains $rule) { $rules += $rule }
     }
     return $rules
 }
@@ -280,30 +256,49 @@ function Get-CallPreview([string]$Name, $A) {
     return $text
 }
 
+function Get-CallTarget($Session, [string]$Name, $A) {
+    # What the path of a file tool means (Get-PathFacts), $null for other tools and for Glob and
+    # Grep without a path.
+    $field = ''
+    if (@('Read', 'Edit', 'EditLines', 'Write') -contains $Name) { $field = 'file_path' }
+    elseif (@('Glob', 'Grep') -contains $Name) { $field = 'path' }
+    if (-not $field) { return $null }
+    $value = [string](Get-DictValue $A $field)
+    if (-not $value -and $field -eq 'path') { return $null }
+    return (Get-PathFacts $value $Session.cwd)
+}
+
 function Get-CallDecision($Session, [string]$Name, $A, $Guard) {
-    # How a call goes ahead: @{ action = run, ask or deny; why; guard }. The guard decides
-    # first and in every mode; then the mode and the rules of the session.
+    # How a call goes ahead: @{ action = run, ask or deny; why; guard; noAlways; real }. The guard
+    # decides first and in every mode; then the mode and the rules of the session. noAlways: a
+    # question that "always" cannot answer; real: the file the decision is about.
     $plain = ConvertTo-PlainHashtable $A
     $guardName = Get-CanonicalToolName $Name
+    $target = Get-CallTarget $Session $Name $A
+    $real = ''
+    if ($target) {
+        if (-not $target.ok) { return @{ action = 'deny'; guard = $false; why = "This path cannot be used: $($target.reason)."; real = '' } }
+        $real = [string]$target.real
+    }
     $verdict = Invoke-GuardCheck $guardName $plain $Session.cwd $Guard
     if ($verdict.decision -ne 'none') { Write-GuardLog $guardName (Get-GuardSubject $guardName $plain) $verdict }
     if ($verdict.decision -eq 'deny') {
-        return @{ action = 'deny'; guard = $true; why = "Blocked by the guard of Unzensiert (rule $($verdict.rule)): $($verdict.reason). It protects the user's computer; do not try to get around it." }
+        return @{ action = 'deny'; guard = $true; why = "Blocked by the guard of Unzensiert (rule $($verdict.rule)): $($verdict.reason). It protects the user's computer; do not try to get around it."; real = $real }
     }
-    if ($verdict.decision -eq 'ask') { return @{ action = 'ask'; guard = $true; why = "guard rule $($verdict.rule): $($verdict.reason)" } }
-    if ($script:ReadOnlyTools -contains $Name -or $script:FreeTools -contains $Name) { return @{ action = 'run' } }
+    if ($verdict.decision -eq 'ask') { return @{ action = 'ask'; guard = $true; why = "guard rule $($verdict.rule): $($verdict.reason)"; real = $real } }
+    if ($script:ReadOnlyTools -contains $Name -or $script:FreeTools -contains $Name) { return @{ action = 'run'; real = $real } }
     if ($script:WebTools -contains $Name) {
         # search terms and addresses leave the computer: the user sees them first
-        if ($Session.mode -eq 'all' -or (Test-ToolAllowed $Session $Name $A)) { return @{ action = 'run' } }
+        if ($Session.mode -eq 'all' -or (Test-ToolAllowed $Session $Name $A $Guard)) { return @{ action = 'run' } }
         return @{ action = 'ask'; guard = $false; why = 'web' }
     }
     if ($Session.mode -eq 'plan') {
         # research yes, changes no: file changes are refused, commands that only read run,
         # other commands ask (some only look something up)
-        if ($script:FileTools -contains $Name) { return @{ action = 'deny'; guard = $false; why = (Get-PlanModeRefusal $Session) } }
+        if ($script:FileTools -contains $Name) { return @{ action = 'deny'; guard = $false; why = (Get-PlanModeRefusal $Session); real = $real } }
         if ($Name -eq 'Bash' -or $Name -eq 'PowerShell') {
-            if (Test-ToolAllowed $Session $Name $A) { return @{ action = 'run' } }
-            foreach ($part in @(Split-CommandParts ([string](Get-DictValue $A 'command')))) {
+            if (Test-ToolAllowed $Session $Name $A $Guard) { return @{ action = 'run' } }
+            foreach ($part in [regex]::Split([string](Get-DictValue $A 'command'), '[;|&\r\n]+')) {
                 $first = @(Get-CommandTokens $part)
                 if ($first.Count -gt 0 -and @((Get-AgentSettings).fileCommands) -contains ([string]$first[0]).ToLowerInvariant()) {
                     return @{ action = 'deny'; guard = $false; why = (Get-PlanModeRefusal $Session) }
@@ -312,15 +307,21 @@ function Get-CallDecision($Session, [string]$Name, $A, $Guard) {
             return @{ action = 'ask'; guard = $false; why = 'plan' }
         }
     }
-    if ($Session.mode -eq 'all') { return @{ action = 'run' } }
-    if ($script:FileTools -contains $Name -and $Session.mode -eq 'edits') {
-        # edits covers the project folder; a file outside it asks, as in Claude Code
-        $target = Resolve-AgentPath (Get-DictValue $A 'file_path') $Session.cwd
-        if ($target.StartsWith($Session.cwd.TrimEnd([char]92) + [char]92, [StringComparison]::OrdinalIgnoreCase)) { return @{ action = 'run' } }
-        if (Test-ToolAllowed $Session $Name $A) { return @{ action = 'run' } }
-        return @{ action = 'ask'; guard = $false; why = 'outside the project folder' }
+    if ($Session.mode -eq 'all') { return @{ action = 'run'; real = $real } }
+    if ($script:FileTools -contains $Name) {
+        $path = [string](Get-DictValue $A 'file_path')
+        # a rule with a pattern on the command line may name any file
+        $named = (@($Session.allowedTools | Where-Object { [string]$_ -match '^\w+\(' }).Count -gt 0 -and (Test-ToolAllowed $Session $Name $A $Guard))
+        if (-not $named) {
+            # files that run or are obeyed later by themselves, and files outside the project: the
+            # user decides every time
+            if (Test-ProtectedFile $path $Session.cwd $Guard) { return @{ action = 'ask'; guard = $false; noAlways = $true; why = 'protected'; real = $real } }
+            if (-not (Test-InProject $path $Session.cwd $false)) { return @{ action = 'ask'; guard = $false; noAlways = $true; why = 'outside the project folder'; real = $real } }
+        }
+        if ($Session.mode -eq 'edits' -or $named -or (Test-ToolAllowed $Session $Name $A $Guard)) { return @{ action = 'run'; real = $real } }
+        return @{ action = 'ask'; guard = $false; why = ''; real = $real }
     }
-    if (Test-ToolAllowed $Session $Name $A) { return @{ action = 'run' } }
+    if (Test-ToolAllowed $Session $Name $A $Guard) { return @{ action = 'run' } }
     return @{ action = 'ask'; guard = $false; why = '' }
 }
 
@@ -455,17 +456,21 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
             continue
         }
 
-        $decision = Get-CallDecision $Session $c.name $parsed $Guard
+        try { $decision = Get-CallDecision $Session $c.name $parsed $Guard }
+        catch { $decision = @{ action = 'deny'; guard = $false; why = "The call could not be checked ($($_.Exception.Message)), so it does not run." } }
+        $asked = $false
         if ($decision.action -eq 'ask') {
             if (-not $script:Ui.on) {
                 $why = 'Not allowed in this run: no one is at the terminal to confirm it'
                 $reason = [string]$decision.why
                 if ($reason -eq 'plan') { $reason = 'plan mode is on, only commands that read run' }
+                elseif ($reason -eq 'protected') { $reason = 'this file runs or is obeyed later by itself' }
                 elseif ($reason -eq 'web') { $reason = 'it would reach the internet' }
                 if ($reason) { $why += " ($reason)" }
                 $decision = @{ action = 'deny'; why = "$why. Find another way or say in your answer what is needed." }
             } else {
-                $reply = Read-UiPermission $c.name (Get-CallPreview $c.name $parsed) $decision.why (-not $decision.guard) $parsed
+                $reply = Read-UiPermission $c.name (Get-CallPreview $c.name $parsed) $decision.why (-not $decision.guard -and -not $decision.noAlways) $parsed ([bool]$decision.guard)
+                $asked = $true
                 if ($reply -eq 'always') { foreach ($r in @(Get-AlwaysRules $c.name $parsed)) { $Session.allowed[$r] = $true } }
                 if ($reply -eq 'no') {
                     Add-ToolMessage $Session $c.id 'The user said no to this call. Stop and wait for their instructions.'
@@ -489,7 +494,18 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
             continue
         }
 
+        # the same file as at the decision? (a link changed in between leads somewhere else)
+        if ($decision.real) {
+            $again = Get-CallTarget $Session $c.name $parsed
+            if (-not $again -or -not $again.ok -or $again.real -ine $decision.real) {
+                $result = New-ToolResult 'Not run: the path leads to another file now than when it was checked. Try again.' $true
+                Write-UiToolResult $result $c.name
+                Add-ToolMessage $Session $c.id $result.text
+                continue
+            }
+        }
         $result = Invoke-AgentTool $Session $c.name $parsed { Test-UiStop }
+        if ($result.changed -and $asked) { Update-TrustAfterWrite $Session $result.changed ($c.name -ceq 'Write') }
         if ($result.changed) {
             $Session.answerEdits++
             if (-not $Session.changed.Contains($result.changed)) { $null = $Session.changed.Add($result.changed) }
@@ -544,9 +560,12 @@ function Invoke-AgentClosingCheck($Session) {
     if ($Session.answerEdits -eq 0 -and -not $Session.stopActive) { return $null }
     $agent = Get-AgentConfig
     if (-not $agent.stopCheck -or -not $agent.stopCheck.enabled) { return $null }
+    # the check command of the project runs only with the user's yes (lib\Trust.ps1)
+    $runCheck = $false
+    try { $runCheck = Test-CheckAllowed $Session } catch {}
     Start-UiActivity 'check'
     try {
-        $hook = Invoke-StopHook $Session.id $Session.hookTranscript $Session.cwd $Session.stopActive { Test-UiStop }
+        $hook = Invoke-StopHook $Session.id $Session.hookTranscript $Session.cwd $Session.stopActive { Test-UiStop } $runCheck
     } catch {
         Stop-UiActivity
         Write-UiNote (Get-UiText 'notes.checkFailed' $_.Exception.Message) 'warn'
@@ -561,7 +580,7 @@ function Invoke-AgentTurn($Session, $Content) {
     # One request of the user, worked off until the model answers without a tool call.
     # Returns done, stopped (Esc or a no), loop, limit or error.
     $cfg = Get-AgentSettings
-    $guard = Get-GuardRules
+    $guard = Get-SessionGuard $Session
     $schemas = Get-AgentToolSchemas $Session.gitBash @(Get-AgentOwnTools $Session)
     # The thinking of earlier requests stays in the conversation: the chat templates show it
     # (preserve_thinking), so removing it would change the text the server has cached and make

@@ -174,9 +174,9 @@ changes the file ([security.md](security.md)).
 3. Take back the look ([style.md](style.md)), if it is installed.
 4. In the install folder delete only what the installer created: llama.cpp folders
    (`b<number>` with `llama-server.exe`), the files of the profiles from `models.json`, `run`,
-   `logs`, `downloads`, `bench-work`, the saved conversations of Unzensiert (`sessions`) and
-   its input history. Other files stay and with them the folder. `-KeepModels` keeps the
-   models.
+   `logs`, `downloads`, `bench-work`, the saved conversations of Unzensiert (`sessions`), the
+   record of confirmed folders (`trust.json`, `trust`) and its input history. Other files stay
+   and with them the folder. `-KeepModels` keeps the models.
 5. Delete `config\machine.json`.
 
 Claude Code, Git for Windows and the settings of Continue stay. The script shows at the end
@@ -200,6 +200,7 @@ how to remove them. Delete the program folder by hand afterwards.
 | `config\style.json`, `config\styles\` | the look of terminal, shell, Unzensiert and Claude Code | [style.md](style.md) |
 | `config\continue.config.yaml` | Continue: chat and autocomplete models | below |
 | `config\guard.json` | guard rules for tool calls of the local model | [security.md](security.md) |
+| `config\readonly.json` | options with which a command counts as "only reads" | [security.md](security.md#what-runs-without-a-question) |
 
 ## Continue (chat and autocomplete in the editor)
 

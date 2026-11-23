@@ -41,7 +41,8 @@ installed, and no account is needed.
   spread the model over them and the main memory, instead of guessing
   ([planner](docs/planner.md)).
 - **A guard instead of a censor.** The model refuses nothing; a guard protects your machine
-  from destructive commands and asks before sensitive ones ([security](docs/security.md)).
+  from destructive commands and asks before sensitive ones, and a foreign folder gets nothing
+  run or obeyed before you have confirmed it ([security](docs/security.md)).
 - **Checks its own work.** Before it reports a task as done, a closing check runs the
   project's tests, reminds it of tests, README and settings, and after larger changes a
   second local model reviews the diff ([agent](docs/agent.md)).
@@ -227,7 +228,14 @@ your data:
   cannot use it;
 - a **guard** checks every tool call before it runs: what would destroy data (formatting a
   drive, deleting your user folder) is blocked, sensitive things (`git reset --hard`, the
-  registry, your SSH keys) ask you, normal work in the project folder stays free;
+  registry, your SSH keys, deleting outside the project) ask you, normal work in the project
+  folder stays free;
+- **foreign folders** are asked about before their instructions, their check command or programs
+  from their git configuration are used, and again when these change;
+- **commands that only read** run without a question only when every part of the line is
+  understood; everything else asks;
+- **every question shows what would happen, completely**, and nothing in files, pages or output
+  can steer the terminal;
 - a **git note** at start warns when your work is not committed;
 - **web searches and web pages** ask before they go out and show the search terms or the
   address (except in the mode `all`); switch them off in `config\unzensiert.json`.
@@ -284,7 +292,7 @@ installer chooses (suggestion: `claude-local` on the drive with the most room).
 | [docs/style.md](docs/style.md) | the look: "Breakout" (colourful, pictures and a wall of characters) or "Night Shift" (calm); shell, terminal of Unzensiert, status line, colour themes for `claude` and `claude-local`, switching the style |
 | [docs/setup.md](docs/setup.md) | the installer step by step, hardware tiers, updating, uninstalling, values of the computer (`machine.json`), overview of the configuration files |
 | [docs/planner.md](docs/planner.md) | planner: memory and speed computation, calibration, search for the fastest layout, measured variants when weights stay in main memory, cache of earlier conversations in main memory, measurements, limits |
-| [docs/security.md](docs/security.md) | protecting your own computer: key for the server, guard before every tool call, web access, git note, check scripts |
+| [docs/security.md](docs/security.md) | protecting your own computer: key for the server, trust in a folder, guard before every tool call, what runs without a question, the question before a call, web access, git note, check scripts |
 | [docs/agent.md](docs/agent.md) | settings of both agents, working rules, closing check, second look, workflows; `claude-local` (Claude Code for comparison) |
 | [docs/projects.md](docs/projects.md) | a new project from the template, check command, facts with sources compared against documentation and code, way of working |
 | [docs/models.md](docs/models.md) | model profiles, MTP, chat templates, adding a new model |

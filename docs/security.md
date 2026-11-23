@@ -12,12 +12,17 @@ There are two things it explicitly does not do:
   creating, changing and deleting files, starting programs and tests, installing packages,
   committing, pushing.
 
-## The four parts
+## The parts
 
 | Part | Protects against | Where it is set |
 |---|---|---|
 | Key for the server | web pages in the browser and other programs that use the server | `config\server.json` |
-| Guard before every tool call | destructive commands, access to credentials | `config\guard.json` |
+| Trust in a folder | instructions, check commands and git programs a foreign folder brings along | asked at the start, kept in `<installRoot>\trust.json` |
+| Guard before every tool call | destructive commands, access to credentials, paths to other computers | `config\guard.json` |
+| What runs without a question | commands that only look as if they read | `config\readonly.json`, `config\unzensiert.json` |
+| Files that run later by themselves | a file change that becomes a running program | `protectedFiles` in `config\guard.json` |
+| The question before a call | saying yes to something you could not see | built in |
+| Programs, git and environment | programs lying in the project folder, programs a repository names, keys in the environment | built in, `envDeny` in `config\unzensiert.json` |
 | Git note at start | changes that cannot be undone | `config\agent.json` |
 | Check script | configuration errors that silently switch the protection off | `scripts\Test-Setup.ps1` |
 
@@ -41,6 +46,35 @@ stays reachable without a key.
 **Creating a new key:** stop the server, delete `api-key.txt`, `Start-Server.ps1`, then
 `Install-Continue.ps1` (writes the key into the configuration of Continue).
 
+## Trust in a folder
+
+A folder you have cloned or unpacked can bring things along that an agent obeys or starts. Before
+Unzensiert uses any of them it asks once, at the start, and lists them:
+
+- **Instructions** (`AGENTS.md`, `CLAUDE.md`) from the repository down to the folder. Without your
+  yes they are not part of what the model is told; it only learns that the files exist and that
+  what they say is information. Folders above the repository (or above the folder, outside of one)
+  do not count.
+- **The check command** (`scripts\Check.ps1`, `Check.ps1`, with its steps in
+  `config\check.json`). It also runs code the model has just written, so it is asked about once
+  more before its first run: in this session, always in this project, or not.
+- **What git would start or contact there:** programs the configuration of the repository or of
+  one of its submodules names (`core.fsmonitor`, `filter.*`, `diff.*`, aliases with `!`, included
+  files, hooks ...), objects on another computer, missing files it would fetch. It is read from the
+  files, without starting git. Only settings known to be harmless pass without being listed; an
+  ordinary clone has no others. Without your yes Unzensiert does not call git there, and the
+  model's git commands ask.
+
+`y` uses them, `v` shows them completely, `n` works without them in this session, Esc leaves. A
+folder that brings none of these gets no question. What you confirmed is remembered together with
+its checksum: when a file changes, by a `git pull` or by a command, the question comes again, and `v`
+shows what has changed since. A change you approved in a session counts as confirmed. Projects made
+with `New-Project.ps1` are confirmed from the start. A link that leads to another computer is never
+opened.
+
+Without a terminal (`-p`) nothing is confirmed; `--trust` uses everything in the folder for that
+run. `claude-local` runs the check command only after the same yes, and asks at its start.
+
 ## Guard before every tool call
 
 On Windows the commands of both agents run without a sandbox. Before every call of `Bash`,
@@ -63,7 +97,7 @@ rules from `config\guard.json`, and the model cannot talk it round. The rules ar
 
 | Rule | Content |
 |---|---|
-| `delete-system` | Recursive delete of a drive, of the user folder and its main folders, of the project and the install folder as a whole (`%CLAUDE_LOCAL_PROJECTS%`, `%CLAUDE_LOCAL_ROOT%`, see below), and everything in Windows and program folders |
+| `delete-system` | Recursive delete of a drive, of the user folder and its main folders, of the project and the install folder as a whole (`%CLAUDE_LOCAL_PROJECTS%`, `%CLAUDE_LOCAL_ROOT%`, see below), and everything in Windows and program folders; also with wildcards (`~/D*`), in loops, through `find -delete`, `xargs rm`, `Get-ChildItem \| Remove-Item`, `robocopy /mir` and `rsync --delete`, and with a variable nothing sets (`rm -rf "$DIR/"*` is `/*` then) |
 | `disk-format` | Formatting, partitioning, raw overwriting of a drive |
 | `boot-and-backups` | Deleting the boot configuration, shadow copies or backups, overwriting free space |
 
@@ -72,16 +106,21 @@ rules from `config\guard.json`, and the model cannot talk it round. The rules ar
 | Rule | Content |
 |---|---|
 | `delete-project` | deleting the whole project folder or its `.git` |
-| `delete-outside` | recursive delete outside the project folder (except in the temp folder) |
+| `delete-outside` | deleting outside the project folder (except in the temp folder), whole folders and single files; moving one of your main folders away; overwriting every file a listing found |
 | `git-discard` | `git reset --hard`, `git clean -f`, `git checkout -- .`, `git branch -D` and similar |
 | `git-force-push` | `git push --force`, `--delete`, `--mirror` (`--force-with-lease` is free) |
 | `download-and-run` | downloading and running at once (`curl … \| sh`, `irm … \| iex`) |
 | `registry-change` | changes to the registry |
 | `security-off` | antivirus, firewall, user accounts, services |
-| `autostart` | scheduled tasks, services, autostart entries |
+| `autostart` | scheduled tasks, services, autostart entries, lasting environment variables, global git settings that start programs, extensions; writing files that programs read or start by themselves (`autostartPaths`: startup folder, profiles of the shells, `.gitconfig`, settings of VS Code ...) |
 | `shutdown` | shutting down, restarting, signing out |
-| `credential-tools`, `secret-paths`, `secret-files` | SSH keys, credentials of cloud services, GitHub and Claude, browser profiles, password databases (`secretPaths`, `secretFileNames`). Public keys (`*.pub`) are free. |
-| `guard-files` | changes to `config\guard.json`, `config\machine.json`, the guard itself and the settings of Claude Code |
+| `credential-tools`, `secret-paths`, `secret-files` | SSH keys, credentials of cloud services, GitHub and Claude, browser profiles, password databases (`secretPaths`, `secretFileNames`). Public keys (`*.pub`) are free. `Grep` and `Glob` leave such files out and say so. |
+| `network-path` | Read, Glob, Grep, Edit or Write on another computer (`\\server\share`): looking such a path up already sends the name out, and Windows may sign in there |
+| `odd-path` | paths with a special meaning (`\\?\`, data streams, `CON`); Unzensiert does not open them at all |
+| `publish` | publishing in your name: releases, packages, settings of repositories (`git push` stays free) |
+| `clipboard` | reading or changing the clipboard |
+| `encoded-command`, `delete-by-code` | commands whose text is hidden in an encoding; code that deletes a folder of yours or of the system |
+| `guard-files` | changes to the protection itself: its rules and scripts, the program folder, the install folder with its record of trust, the settings of Claude Code; starting Unzensiert with other rights |
 
 What came up in a session is in `<installRoot>\logs\guard.log`.
 
@@ -107,20 +146,93 @@ Edit `config\guard.json`, then run `scripts\Test-Setup.ps1`. Applies from the ne
 ### Limits
 
 - **No replacement for a sandbox.** The guard recognises commands by how they are written. It
-  stops mistakes and direct attempts, not a command that is deliberately disguised (built
-  from variables, hidden in a script that is first written and then started). Measured on
+  stops mistakes and direct attempts, not a command that is deliberately disguised (put together
+  while it runs, hidden in a script that is first written and then started). Measured on
   2026-11-15: after a blocked command the model looked for another spelling on its own that
   was not blocked. In that case it was harmless; you cannot rely on that. Commands can only
   really be locked in with WSL2.
-- **Delete targets in variables** (`rm -rf "$DIR"`) cannot be resolved by the guard; they stay
-  free, otherwise normal work would be interrupted all the time.
+- **Delete targets in variables:** what the same command sets (`D=~/x; rm -rf "$D"`, loops) is
+  followed, and a variable that nothing sets counts as empty. What comes out of another command
+  (`$(mktemp -d)`) cannot be known; it stays free, otherwise normal work would be interrupted all
+  the time.
+- **A changed rule applies from the next session:** the rules are read once, so nothing that runs
+  in a session can loosen them.
 - **Cost:** with `claude-local` about 0.3 s per tool call (starting PowerShell, measured
-  280 ms), with Unzensiert 2.7 ms (in its own process, measured).
+  280 ms), with Unzensiert 2 to 7 ms (in its own process, measured with 2,441 commands of earlier
+  sessions).
 - **If the guard itself fails** (broken `guard.json`), you are asked at every call instead of
   everything running unchecked. `scripts\Test-Setup.ps1` shows the cause.
 - **`.env` files in the project are not protected.** The model often needs them for the work,
   and it runs locally. If you want it otherwise, add `.env` under `secretFileNames`.
 - The guard applies to `unzensiert` and `claude-local`. The normal `claude` is not affected.
+
+## What runs without a question
+
+Commands that only read run in every mode without a question. What counts is not a list of
+forbidden things but the opposite: a line runs only when **all** of it is understood and every
+option of it is listed in `config\readonly.json`. Bash lines are read by a small reader that
+follows the rules of the shell, PowerShell lines by PowerShell's own parser. Variables (except
+in `echo`), command substitution, output into files, commands in the background, groups, script
+blocks that do more than compare, network paths, `cd` out of the project, git in another folder,
+wildcards that could meet a link or a file whose name looks like an option, paths out of a pipe and
+anything under `secretPaths` ask. A missing option costs one question and never lets something
+through. To be asked more often, take names out of `readOnlyCommands` or `readOnlyGit`
+(`config\unzensiert.json`, for one computer in `config\machine.json`).
+
+The check was tried with random lines: thousands of them were put together from reading commands,
+signs of the shell, options that write or start something and twisted paths, and every line it let
+through was really run in a throw-away folder. Nothing changed that should not, and nothing read the
+made-up secret next to it. The same for file commands in mode `edits`.
+
+**"always"** means, for the rest of the session: for a command its program with the subcommand
+(`git commit`, `npm test`); for an interpreter (`python`, `node`, `bash` ...) only the script or
+module, and code on the command line only exactly this line; for file changes, also with `cp`,
+`mv`, `rm` and the like, the files of the project. Output of an allowed program may go into files
+of the project only. A line that is not understood is allowed only exactly as it is. After a `cd`
+out of the project only rules you gave on the command line (`--allowedTools`) count. A `cd` that
+could fail leaves the rest of the line in the old folder: both folders have to be in order then.
+
+## Files that run later by themselves
+
+Some files of a project are started or obeyed without anyone calling them: git hooks and
+`.git\config`, tasks of editors (`.vscode`, `.idea`), `.github\workflows`, `AGENTS.md`,
+`CLAUDE.md`, the check command, shortcuts, or a program named like one of the system (`git.cmd`,
+`powershell.exe`). Changing one asks in the modes `ask` and `edits` every time, and "always" does
+not cover it (`protectedFiles` in `config\guard.json`; take an entry out if it gets in your way).
+All other files stay as free as the mode says. That includes build files and tests (`package.json`,
+`conftest.py`, `build.rs`, `*.csproj` ...), because changing them is normal work; an open editor or a
+running watcher may start them as soon as they change.
+
+## The question before a call
+
+- A command, an address and search terms are shown **completely**, over as many rows as needed. Of a
+  long file or a very long command the question shows the beginning and says how many lines are
+  missing; `v` shows everything. A command, a protected file and a file outside the project can
+  only be allowed once everything was shown.
+- The question names what "always" would allow, and where a path really leads if a link is on the
+  way.
+- Keys typed before the question appeared do not count. Questions of the guard need `y`; Enter is
+  no yes there.
+- **Nothing foreign steers the terminal:** escape sequences and invisible characters in commands,
+  output, files, pages and answers become visible (`^[`, `<U+202E>`). Links can only be web
+  addresses; when a label looks like another address, the real host stands behind it.
+
+## Programs, git and the environment of commands
+
+- **Programs by their full path.** Unzensiert starts Windows programs and git by their full path
+  and switches the search in the current folder off for itself and for every command of the model
+  (`NoDefaultCurrentDirectoryInExePath`); entries of `PATH` that start with a dot do not count for
+  them.
+- **git** runs with `core.fsmonitor=false` and `safe.bareRepository=explicit`, for Unzensiert
+  itself and for the model's commands. Its own looks use no diff programs of the repository, leave
+  submodules out and fetch nothing. Everything else a repository could start is part of the question
+  about [trust](#trust-in-a-folder).
+- **Environment:** variables that look like keys, tokens or passwords (`envDeny`) are left out of
+  the environment of the model's commands. Names that must stay: `envAllow`. Commands you type
+  yourself (`!`) keep everything.
+- **One reading of a path:** guard, rights and tools use the same functions (one for Windows, one
+  for Git Bash, whose drives `/c`, `/e` lie below one root). Links and junctions are followed before
+  the decision, and a path that leads to another file when the tool runs is not opened.
 
 ## Web access
 
@@ -138,7 +250,8 @@ What that means for your data and your computer:
   host, for the rest of the session. In mode `all` they run without a question, like every
   command.
 - **Hidden instructions:** a page can carry text written for a language model ("ignore your
-  instructions and ..."). Every page and every list of results reaches the model with the
+  instructions and ..."). Parts a person does not see (hidden elements, size 0, invisible
+  characters) are left out. Every page and every list of results reaches the model with the
   note that it is information, not instructions, but a local model can still fall for it.
   Such text cannot get past the guard; what remains is that the model might put data into a
   later search or address. That is why, outside mode `all`, every one of them asks.

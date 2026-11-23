@@ -14,7 +14,8 @@
 # that changed no file.
 #
 #   input     the hook JSON of Claude Code on stdin (session_id, transcript_path, cwd,
-#             stop_hook_active)
+#             stop_hook_active); Unzensiert adds run_check: whether the user lets the check
+#             command run. Without it only a command the user confirmed (TrustRules.ps1) runs.
 #   output    nothing = the model may stop, or {"decision":"block","reason":...}
 #   settings  "stopCheck" in config\agent.json     docs  docs\agent.md
 #   state     <installRoot>\run\stop\<session>.json (edits seen, failures handed back)
@@ -29,6 +30,11 @@ $script:ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 # install folder of this machine as $env:CLAUDE_LOCAL_ROOT (state files live there)
 . "$PSScriptRoot\HookEnvironment.ps1"
 Initialize-HookEnvironment
+. "$PSScriptRoot\TrustRules.ps1"
+# no program from the folder of the project instead of the real one (lib\Git.ps1)
+$env:NoDefaultCurrentDirectoryInExePath = '1'
+$script:PowerShellExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$script:TaskkillExe = Join-Path $env:SystemRoot 'System32\taskkill.exe'
 # the agent that asks: claude-local (Claude Code) or Unzensiert, which sets this variable
 $script:AgentName = 'claude-local'
 if ($env:CLAUDE_LOCAL_AGENT) { $script:AgentName = $env:CLAUDE_LOCAL_AGENT }
@@ -110,11 +116,11 @@ function Invoke-CheckCommand([string]$Script, [string]$Folder, [int]$TimeoutSeco
     $err = [System.IO.Path]::GetTempFileName()
     try {
         $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Script`""
-        $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments -WorkingDirectory $Folder `
+        $process = Start-Process -FilePath $script:PowerShellExe -ArgumentList $arguments -WorkingDirectory $Folder `
             -RedirectStandardOutput $out -RedirectStandardError $err -WindowStyle Hidden -PassThru
         $null = $process.Handle          # without this, Windows PowerShell 5.1 loses the exit code
         $finished = $process.WaitForExit($TimeoutSeconds * 1000)
-        if (-not $finished) { & taskkill /T /F /PID $process.Id 2>$null | Out-Null }
+        if (-not $finished) { & $script:TaskkillExe /T /F /PID $process.Id 2>$null | Out-Null }
         $lines = @(Get-Content -Path $out -Encoding UTF8) + @(Get-Content -Path $err -Encoding UTF8)
         $tail = (@($lines | Select-Object -Last 40) -join "`n")
         if ($tail.Length -gt 3000) { $tail = $tail.Substring($tail.Length - 3000) }
@@ -132,11 +138,11 @@ function Invoke-SecondLook([string]$Folder, [string]$Transcript, $Settings) {
     $err = [System.IO.Path]::GetTempFileName()
     try {
         $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`" -Folder `"$Folder`" -Transcript `"$Transcript`" -MinLines $([int]$Settings.minChangedLines) -Json"
-        $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments -WorkingDirectory $Folder `
+        $process = Start-Process -FilePath $script:PowerShellExe -ArgumentList $arguments -WorkingDirectory $Folder `
             -RedirectStandardOutput $out -RedirectStandardError $err -WindowStyle Hidden -PassThru
         $null = $process.Handle
         if (-not $process.WaitForExit(([int]$Settings.timeoutSeconds + 30) * 1000)) {
-            & taskkill /T /F /PID $process.Id 2>$null | Out-Null
+            & $script:TaskkillExe /T /F /PID $process.Id 2>$null | Out-Null
             return $null
         }
         $text = ([System.IO.File]::ReadAllText($out)).Trim()
@@ -201,6 +207,15 @@ try {
 
         # 1. the check command of the project
         $check = Find-CheckCommand $folder $settings.commands
+        if ($check) {
+            $mayRun = $false
+            if ($null -ne $call.PSObject.Properties['run_check']) { $mayRun = [bool]$call.run_check }
+            else { $mayRun = Test-CheckTrusted $folder $settings.commands }
+            if (-not $mayRun) {
+                if ($null -eq $call.PSObject.Properties['run_check']) { $warning = "$($script:AgentName): the check command $($check.Substring($folder.TrimEnd('\').Length + 1)) was not run, because it is not confirmed for this folder. Start $($script:AgentName) once in a terminal here and say yes to it." }
+                $check = $null
+            }
+        }
         if ($check) {
             $name = $check.Substring($folder.TrimEnd('\').Length + 1)
             $result = Invoke-CheckCommand $check $folder ([int]$settings.timeoutSeconds)

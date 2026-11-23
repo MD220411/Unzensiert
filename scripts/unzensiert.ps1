@@ -14,6 +14,8 @@
 #   unzensiert --permission-mode edits    ask, edits, plan or all (Claude Code's names work too)
 #   unzensiert --allowedTools "Bash(python:*)" ...   allowed without a question
 #   unzensiert --max-turns 30             at most this many rounds of tool calls
+#   unzensiert --trust                    use instructions, check command and git programs of the
+#                                         folder in this run without asking (docs\security.md)
 #   unzensiert -OnExit keep               unload, stop or keep (default: "onExit" in agent.json)
 #   unzensiert --version | --help
 #   unzensiert --update                   look for a new release now and install it
@@ -33,7 +35,7 @@ $env:CLAUDE_LOCAL_AGENT = 'Unzensiert'
 if ($opt.version) { "Unzensiert $(Get-ProgramVersion)"; exit 0 }
 if ($opt.help) {
     # the lines of the header that list the calls
-    (Get-Content -Path $PSCommandPath -TotalCount 20 | Select-Object -Skip 6 | ForEach-Object { $_ -replace '^#\s?', '' }) -join "`n"
+    (Get-Content -Path $PSCommandPath -TotalCount 22 | Select-Object -Skip 6 | ForEach-Object { $_ -replace '^#\s?', '' }) -join "`n"
     exit 0
 }
 if ($opt.updates) {
@@ -67,7 +69,7 @@ if ($interactive -and -not $env:UNZENSIERT_UPDATED) {
     Invoke-UpdateCheck
     if ($script:ProgramUpdated) {
         $env:UNZENSIERT_UPDATED = '1'
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath @args
+        & (Get-SystemProgram 'powershell') -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath @args
         exit $LASTEXITCODE
     }
 }
@@ -81,6 +83,19 @@ $savedEncoding = [Console]::OutputEncoding
 if ($opt.print) { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) }
 Initialize-AgentUi $interactive ([bool]$cfg.showThinking)
 
+# what the folder brings along is only used after a yes (lib\Trust.ps1), and before that nothing
+# of it is read or started
+$cwd = (Get-Location -PSProvider FileSystem).ProviderPath
+$session = New-AgentSession $cwd $model
+$session.trustOnce = [bool]$opt.trust
+if ($opt.trust) { Set-TrustOnce $cwd }
+$trusted = Confirm-ProjectTrust $session
+if ($trusted -eq 'quit') { Exit-AgentUi; [Console]::OutputEncoding = $savedEncoding; exit 0 }
+if ($trusted -eq 'limited' -and -not $script:Ui.on) {
+    $open = @((Get-FolderTrust $cwd).open | ForEach-Object { [string]$_.name }) -join ', '
+    Write-LaunchNote (Get-UiText 'trust.note' $open)
+}
+
 if (-not (Test-ServerUp)) {
     if ($script:Ui.on) { Write-UiNote (Get-UiText 'notes.serverStarting') 'warn' }
     else { Write-LaunchNote 'llama-server is not running, starting it ...' }
@@ -88,8 +103,6 @@ if (-not (Test-ServerUp)) {
 }
 
 # --- the session --------------------------------------------------------------------------
-$cwd = (Get-Location).ProviderPath
-$session = New-AgentSession $cwd $model
 if ($opt.mode) {
     $mode = ConvertTo-PermissionMode $opt.mode
     if (-not $mode) { [Console]::Error.WriteLine("unzensiert: unknown permission mode '$($opt.mode)' (ask, edits, plan, all)"); [Console]::OutputEncoding = $savedEncoding; exit 1 }

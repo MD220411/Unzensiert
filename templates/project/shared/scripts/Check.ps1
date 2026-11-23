@@ -9,6 +9,8 @@
 # skipped when their tool ("needs") is not installed. Keep this file ASCII-only.
 
 $ErrorActionPreference = 'Stop'
+# no program from this folder instead of the real one (cmd looks here before PATH)
+$env:NoDefaultCurrentDirectoryInExePath = '1'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 $steps = @((Get-Content -Raw -Path (Join-Path $root 'config\check.json') -Encoding UTF8 | ConvertFrom-Json).steps)

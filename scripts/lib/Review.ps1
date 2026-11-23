@@ -3,7 +3,7 @@
 # git diff in one request and answers with findings. Used by scripts\Invoke-Review.ps1,
 # which the closing check (scripts\hooks\Check-Stop.ps1) starts after larger changes.
 # Settings: "review" in config\agent.json, instructions: config\second-look.md.
-# Needs lib\Config.ps1 and lib\Server.ps1. Keep this file ASCII-only.
+# Needs lib\Config.ps1, lib\Git.ps1, lib\Trust.ps1 and lib\Server.ps1. Keep this file ASCII-only.
 # Description: docs\agent.md.
 
 function Get-ReviewSettings {
@@ -11,19 +11,26 @@ function Get-ReviewSettings {
     return (Get-AgentConfig).review
 }
 
-function Invoke-Git([string]$Folder, [string[]]$Arguments) {
-    # Runs git in $Folder and returns its output lines as UTF-8 (Windows PowerShell 5.1
-    # would decode them with the console code page), plus the exit code.
-    $before = [Console]::OutputEncoding
-    # with 'Stop', Windows PowerShell 5.1 turns any git warning on stderr into an error
-    $ErrorActionPreference = 'Continue'
-    try {
-        [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-        $lines = @(& git -C $Folder -c core.quotepath=off @Arguments 2>$null)
-        return @{ code = $LASTEXITCODE; lines = $lines }
-    } finally {
-        [Console]::OutputEncoding = $before
+function Test-ReviewFile([string]$Path, [string]$Folder) {
+    # A file of the project the reviewer may see: no link that leads out of the folder, nothing the
+    # guard asks about before it is read (keys, credentials).
+    if (-not $Folder.StartsWith('\\') -and (Test-FarPath $Path)) { return $false }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    $real = Resolve-RealPath $Path
+    if (-not $real -or -not (Test-PathInside $real (Resolve-RealPath $Folder))) { return $false }
+    if (Get-Command Test-SecretFile -ErrorAction SilentlyContinue) { try { return (-not (Test-SecretFile $real (Get-GuardRules))) } catch {} }
+    return $true
+}
+
+function Get-ReviewRules([string]$Folder) {
+    # The rules of the project for the reviewer: @{ name; text }. Unzensiert only passes on what the
+    # user confirmed for the folder (lib\Trust.ps1); Claude Code asks about its CLAUDE.md itself.
+    if ($env:CLAUDE_LOCAL_AGENT -ne 'Unzensiert') { return @{ name = 'CLAUDE.md'; text = (Get-FileHead (Join-Path $Folder 'CLAUDE.md') 6000) } }
+    $trust = Get-FolderTrust $Folder
+    foreach ($item in @($trust.items)) {
+        if ($item.kind -eq 'instructions' -and (Split-Path -Parent $item.path) -ieq $Folder.TrimEnd('\') -and (Test-TrustItem $trust.record $item)) { return @{ name = (Split-Path -Leaf $item.path); text = (Get-FileHead $item.path 6000) } }
     }
+    return @{ name = ''; text = '' }
 }
 
 function Get-ChangeForReview([string]$Folder, [int]$MaxChars) {
@@ -31,6 +38,8 @@ function Get-ChangeForReview([string]$Folder, [int]$MaxChars) {
     # files. Returns ok, reason (why not), lines (added + removed), files, diff (cut to
     # $MaxChars).
     $result = @{ ok = $false; reason = ''; lines = 0; files = @(); diff = '' }
+    # a repository can name programs that a diff would start (hooks\GitRules.ps1)
+    if (-not (Test-GitTrusted $Folder)) { $result.reason = 'the git configuration of this folder is not confirmed'; return $result }
     $inside = Invoke-Git $Folder @('rev-parse', '--is-inside-work-tree')
     if ($inside.code -ne 0) { $result.reason = 'no git repository'; return $result }
     $hasHead = ((Invoke-Git $Folder @('rev-parse', '--verify', '-q', 'HEAD')).code -eq 0)
@@ -51,7 +60,7 @@ function Get-ChangeForReview([string]$Folder, [int]$MaxChars) {
     if (-not $hasHead) { $new = @($new) + @((Invoke-Git $Folder @('ls-files')).lines) }
     foreach ($rel in ($new | Where-Object { $_ } | Sort-Object -Unique)) {
         $path = Join-Path $Folder $rel
-        if (-not (Test-Path $path -PathType Leaf) -or (Get-Item $path).Length -gt 200KB) { continue }
+        if (-not (Test-ReviewFile $path $Folder) -or (Get-Item -LiteralPath $path -Force).Length -gt 200KB) { continue }
         $bytes = [System.IO.File]::ReadAllBytes($path)
         if ($bytes -contains 0) { continue }                       # binary file
         $text = (New-Object System.Text.UTF8Encoding($false)).GetString($bytes)
@@ -63,7 +72,7 @@ function Get-ChangeForReview([string]$Folder, [int]$MaxChars) {
     $diff = (($parts | Where-Object { $_ }) -join "`n").Trim()
     if (-not $diff) { $result.reason = 'no uncommitted change'; return $result }
     if ($diff.Length -gt $MaxChars) {
-        $diff = $diff.Substring(0, $MaxChars) + "`n[... Diff nach $MaxChars Zeichen abgeschnitten ...]"
+        $diff = $diff.Substring(0, $MaxChars) + "`n[... diff cut after $MaxChars characters ...]"
     }
     $result.ok = $true
     $result.lines = $lines
@@ -96,7 +105,7 @@ function Get-LastUserPrompt([string]$Transcript, [int]$MaxChars = 4000) {
 
 function Get-FileHead([string]$Path, [int]$MaxChars) {
     # The start of a text file, or '' if it does not exist.
-    if (-not (Test-Path $Path -PathType Leaf)) { return '' }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
     $text = [System.IO.File]::ReadAllText($Path, (New-Object System.Text.UTF8Encoding($false))).Trim()
     if ($text.Length -gt $MaxChars) { $text = $text.Substring(0, $MaxChars) + "`n[...]" }
     return $text
@@ -110,7 +119,7 @@ function Get-ChangedFilesText([string]$Folder, $Files, [int]$MaxChars) {
     $used = 0
     $sized = foreach ($rel in @($Files)) {
         $path = Join-Path $Folder $rel
-        if (Test-Path $path -PathType Leaf) { [pscustomobject]@{ rel = $rel; path = $path; size = (Get-Item $path).Length } }
+        if (Test-ReviewFile $path $Folder) { [pscustomobject]@{ rel = $rel; path = $path; size = (Get-Item -LiteralPath $path -Force).Length } }
     }
     foreach ($file in @($sized | Sort-Object size)) {
         $text = Get-FileHead $file.path ([int]::MaxValue)
@@ -127,8 +136,8 @@ function New-ReviewRequest([string]$Folder, [string]$Task, $Change, [int]$MaxFil
     $sections = @()
     if (-not $Task) { $Task = '(not known; infer it from the diff)' }
     $sections += "## Task given to the author`n`n$Task"
-    $rules = Get-FileHead (Join-Path $Folder 'CLAUDE.md') 6000
-    if ($rules) { $sections += "## Rules of the project (CLAUDE.md)`n`n$rules" }
+    $rules = Get-ReviewRules $Folder
+    if ($rules.text) { $sections += "## Rules of the project ($($rules.name))`n`n$($rules.text)" }
     $facts = Get-FileHead (Join-Path $Folder 'facts\facts.json') 12000
     if ($facts) { $sections += "## Confirmed facts (facts/facts.json)`n`n$facts" }
     $sections += "## Changed files`n`n" + (($Change.files | ForEach-Object { "- $_" }) -join "`n")

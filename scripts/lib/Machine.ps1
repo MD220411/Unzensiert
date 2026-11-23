@@ -57,7 +57,7 @@ function Get-LlamaDevices([string]$Exe) {
     # sees no card.
     if (-not $Exe) { $Exe = (Get-ServerConfig).exe }
     if (-not (Test-Path $Exe)) { return @() }
-    $lines = @(& cmd /c "`"$Exe`" --list-devices 2>&1")
+    $lines = @(& (Get-SystemProgram 'cmd') /c "`"$Exe`" --list-devices 2>&1")
     return @(ConvertFrom-DeviceList $lines)
 }
 
@@ -172,8 +172,8 @@ function Find-GitBash {
     # its Bash tool; without it the agent works with the PowerShell tool instead.
     if ($env:CLAUDE_CODE_GIT_BASH_PATH -and (Test-Path $env:CLAUDE_CODE_GIT_BASH_PATH)) { return $env:CLAUDE_CODE_GIT_BASH_PATH }
     $candidates = @()
-    $git = Get-Command git -ErrorAction SilentlyContinue
-    if ($git) { $candidates += (Join-Path (Split-Path -Parent (Split-Path -Parent $git.Source)) 'bin\bash.exe') }
+    $git = Get-GitExe
+    if ($git) { $candidates += (Join-Path (Split-Path -Parent (Split-Path -Parent $git)) 'bin\bash.exe') }
     if ($env:ProgramFiles) { $candidates += (Join-Path $env:ProgramFiles 'Git\bin\bash.exe') }
     if ($env:LOCALAPPDATA) { $candidates += (Join-Path $env:LOCALAPPDATA 'Programs\Git\bin\bash.exe') }
     foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
@@ -194,6 +194,13 @@ function Start-ChildProcess([System.Diagnostics.ProcessStartInfo]$Psi) {
     } catch { $saved = $null }
     try { return [System.Diagnostics.Process]::Start($Psi) }
     finally { if ($saved) { try { [Console]::InputEncoding = $saved } catch {} } }
+}
+
+function Stop-ProcessTree([int]$Id) {
+    # Ends a process with everything it started (taskkill of Windows, by its full path).
+    $saved = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $null = & (Get-SystemProgram 'taskkill') /PID $Id /T /F 2>$null } catch {} finally { $ErrorActionPreference = $saved }
 }
 
 function Find-ClaudeCode {

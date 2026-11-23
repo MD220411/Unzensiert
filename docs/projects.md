@@ -69,7 +69,9 @@ one fails.
 
 The same command runs in three places: by hand, in the git hook before every commit and in
 the closing check of `unzensiert` and `claude-local` ([agent.md](agent.md)), before the model
-reports a task as done.
+reports a task as done. For a project from `New-Project.ps1` it is confirmed from the start; in
+other projects, and after a change of the script or its steps, you are asked before it runs
+([security.md](security.md#trust-in-a-folder)).
 
 The linter steps (`ruff`, `PSScriptAnalyzer`) are entered as optional. Neither program is
 installed on the development computer; the steps are therefore untried. A search for secrets

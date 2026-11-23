@@ -98,7 +98,7 @@ function Add-UiContent([string]$Text) {
     Close-UiThinking
     $parts = $Text.Split("`n")
     for ($i = 0; $i -lt $parts.Count; $i++) {
-        $seg = $parts[$i].TrimEnd("`r").Replace("`t", '    ')
+        $seg = ConvertTo-UiSafe ($parts[$i].TrimEnd("`r").Replace("`t", '    '))
         if ($seg) {
             if (-not $script:Ui.lineStarted) {
                 $script:Ui.lineStarted = $true
@@ -251,7 +251,18 @@ function ConvertTo-UiInlineSpans([string]$Text, [string]$Fg, [string]$Attr = '')
         } elseif ($g['st'].Success) {
             $null = $spans.Add((New-UiSpan $g['st'].Value $mode.dim ($Attr + 's')))
         } elseif ($g['ltext'].Success) {
-            $null = $spans.Add((New-UiSpan $g['ltext'].Value $codeHex ($Attr + 'u') '' $g['lurl'].Value))
+            $label = $g['ltext'].Value
+            $url = $g['lurl'].Value
+            if (Test-UiLink $url) {
+                $null = $spans.Add((New-UiSpan $label $codeHex ($Attr + 'u') '' $url))
+                # a label that looks like another address: the real host stands behind it
+                $hostName = ([System.Uri]$url).Host.ToLowerInvariant()
+                $seen = [regex]::Match($label.ToLowerInvariant(), '(?:[a-z0-9-]+\.)+[a-z]{2,}')
+                if ($seen.Success -and $seen.Value -ne $hostName -and -not $hostName.EndsWith('.' + $seen.Value) -and $label -match '://|^\S+\.\w{2,}(/|$)') { $null = $spans.Add((New-UiSpan " ($hostName)" $mode.dim $Attr)) }
+            } else {
+                # no web address (file:, ms-...:, javascript:): only text, with where it would go
+                $null = $spans.Add((New-UiSpan "$label ($url)" $Fg $Attr))
+            }
         } else {
             $null = $spans.Add((New-UiSpan $g['url'].Value $codeHex ($Attr + 'u') '' $g['url'].Value))
         }

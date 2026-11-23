@@ -7,7 +7,7 @@
 # config\styles\<name>.json (breakout, nightshift, ...).
 #
 # Self-contained on purpose: the interactive shell and the status line of Claude Code load
-# only this file (and CharArt.ps1). They must start fast, and $ErrorActionPreference =
+# only this file (with CharArt.ps1, Git.ps1 and hooks\TrustRules.ps1). They must start fast, and $ErrorActionPreference =
 # 'Stop' from _common.ps1 must not leak into an interactive shell.
 # Keep this file ASCII-only: Windows PowerShell 5.1 reads BOM-less files as ANSI. All
 # non-ASCII characters (glyphs, texts with typographic signs) therefore live in the style files.
@@ -22,6 +22,9 @@ $script:StyleReset = $script:StyleEsc + '[0m'
 $script:StyleCulture = [System.Globalization.CultureInfo]::GetCultureInfo('en-US')
 
 . "$PSScriptRoot\CharArt.ps1"
+# git by its full path and without programs of the repository, and which repositories name some
+. "$PSScriptRoot\Git.ps1"
+. "$PSScriptRoot\..\hooks\TrustRules.ps1"
 
 # --- configuration ------------------------------------------------------------------
 
@@ -549,19 +552,25 @@ function Get-EmberProcess {
 function Get-GitSummary([string]$Dir) {
     # Branch and number of changed files of the repository that contains $Dir, or $null.
     # Walks up to find .git first, so folders outside a repository cost no git call.
-    $probe = $Dir
-    $found = $false
-    while ($probe) {
-        if (Test-Path -LiteralPath (Join-Path $probe '.git')) { $found = $true; break }
-        $parent = Split-Path -Parent $probe
-        if (-not $parent -or $parent -eq $probe) { break }
-        $probe = $parent
+    $root = Find-GitRoot $Dir
+    if (-not $root) { return $null }
+    if (-not (Test-GitTrusted $Dir)) {
+        # the repository names programs nobody confirmed: the branch is read, git is not started
+        $name = ''
+        $git = Get-GitFolder $root
+        if (-not $git.problem -and -not (Test-FarPath (Join-Path $git.dir 'HEAD'))) {
+            try {
+                $head = ([System.IO.File]::ReadAllText((Join-Path $git.dir 'HEAD'))).Trim()
+                if ($head -match '^ref: refs/heads/(.+)$') { $name = $Matches[1] } elseif ($head -match '^[0-9a-f]{40}') { $name = $head.Substring(0, 7) }
+            } catch {}
+            # text of a foreign folder: only what a branch name is made of reaches the terminal
+            if ($name -notmatch '^[\w./+@#=-]{1,100}$') { $name = '' }
+        }
+        return [pscustomobject]@{ branch = $name; ahead = 0; behind = 0; changed = 0 }
     }
-    if (-not $found) { return $null }
-
-    $lines = $null
-    try { $lines = & git -C $Dir status --porcelain=v2 --branch 2>$null } catch { return $null }
-    if ($LASTEXITCODE -ne 0 -or -not $lines) { return $null }
+    $result = Invoke-Git $Dir @('status', '--porcelain=v2', '--branch')
+    $lines = @($result.lines)
+    if ($result.code -ne 0 -or $lines.Count -eq 0) { return $null }
     $branch = ''
     $ahead = 0
     $behind = 0
@@ -571,6 +580,8 @@ function Get-GitSummary([string]$Dir) {
         elseif ($line -match '^# branch\.ab \+(\d+) -(\d+)$') { $ahead = [int]$Matches[1]; $behind = [int]$Matches[2] }
         elseif ($line -notmatch '^#') { $changed++ }
     }
+    # nothing invisible or reversing out of a name
+    $branch = $branch -replace '[\x00-\x1F\x7F-\x9F\u00AD\u200B-\u200F\u2028-\u202E\u2060-\u206F\uFEFF]', ''
     return [pscustomobject]@{ branch = $branch; ahead = $ahead; behind = $behind; changed = $changed }
 }
 

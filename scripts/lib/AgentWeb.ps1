@@ -151,34 +151,58 @@ function Get-HtmlElementPattern([string]$Tag, [string]$Attribute) {
     return "<$Tag\b[^>]*$Attribute[^>]*>((?>(?:(?!</?$Tag\b).)+|<$Tag\b[^>]*>(?<open>)|</$Tag\s*>(?<-open>))*(?(open)(?!)))</$Tag\s*>"
 }
 
-function ConvertFrom-HtmlText([string]$Html, [string]$BaseUrl) {
+function Remove-HiddenHtml([string]$Html) {
+    # Without the parts a person does not see (hidden, display:none, size or opacity 0, moved out
+    # of the window): instructions for language models like to stand there.
+    $opt = [System.Text.RegularExpressions.RegexOptions]'Singleline, IgnoreCase'
+    $hidden = '(?:\shidden(?=[\s>/=])(?!\s*=\s*["'']?(?:false|until-found))|\saria-hidden\s*=\s*["'']?true|\sstyle\s*=\s*(?:"[^">]*?|''[^''>]*?)(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|font-size\s*:\s*0(?![\d.]*[1-9])|opacity\s*:\s*0(?![\d.]*[1-9])|(?:left|top|right|text-indent)\s*:\s*-\d{3,}))'
+    if (-not [regex]::IsMatch($Html, '\bhidden\b|display\s*:\s*none|visibility\s*:|font-size\s*:\s*0|opacity\s*:\s*0|:\s*-\d{3,}', $opt, $script:RegexLimit)) { return $Html }
+    $tags = @{}
+    foreach ($m in [regex]::Matches($Html, "<([a-z][a-z0-9]*)\b[^<>]*?$hidden", $opt, $script:RegexLimit)) { $tags[$m.Groups[1].Value.ToLowerInvariant()] = $true }
+    foreach ($tag in @($tags.Keys)) {
+        if (@('html', 'body', 'main', 'head', 'img', 'input', 'br', 'hr', 'meta', 'link') -contains $tag) { continue }
+        $Html = [regex]::Replace($Html, (Get-HtmlElementPattern $tag $hidden), ' ', $opt, $script:RegexLimit)
+    }
+    return $Html
+}
+
+function Remove-InvisibleText([string]$Text) {
+    # @{ text; count }: without characters nobody sees (tag characters, zero width, direction marks),
+    # which are used to hide instructions in a page.
+    $count = $script:UiUnsafeRe.Matches($Text).Count
+    if ($count -eq 0) { return @{ text = $Text; count = 0 } }
+    return @{ text = $script:UiUnsafeRe.Replace($Text, ''); count = $count }
+}
+
+function ConvertFrom-HtmlParts([string]$Html, [string]$BaseUrl) {
     # A web page as plain text for the model: @{ title; text }. Scripts, styles, navigation,
     # footer and side columns go; when the page marks its main part (<main>, <article>), only
     # that stays. Headings become #, list items -, links [text](address), code blocks keep
     # their lines between fences, inline code gets backticks.
     $opt = [System.Text.RegularExpressions.RegexOptions]'Singleline, IgnoreCase'
     $title = ''
-    $m = [regex]::Match($Html, '<title\b[^>]*>(.*?)</title\s*>', $opt)
+    $m = [regex]::Match($Html, '<title\b[^>]*>(.*?)</title\s*>', $opt, $script:RegexLimit)
     if ($m.Success) { $title = ((ConvertFrom-HtmlEntities ([regex]::Replace($m.Groups[1].Value, '<[^>]+>', ''))) -replace '\s+', ' ').Trim() }
-    $h = [regex]::Replace($Html, '<!--.*?-->', ' ', $opt)
-    $h = [regex]::Replace($h, '<(script|style|noscript|svg|template|head|iframe|select|canvas|nav|footer|aside)\b.*?</\1\s*>', ' ', $opt)
+    $h = [regex]::Replace($Html, '<!--.*?-->', ' ', $opt, $script:RegexLimit)
+    $h = Remove-HiddenHtml $h
+    $h = [regex]::Replace($h, '<(script|style|noscript|svg|template|head|iframe|select|canvas|nav|footer|aside)\b.*?</\1\s*>', ' ', $opt, $script:RegexLimit)
     # navigation marked by its role (documentation pages such as Sphinx)
-    foreach ($tag in 'div', 'ul', 'section') { $h = [regex]::Replace($h, (Get-HtmlElementPattern $tag '\brole="navigation"'), ' ', $opt) }
+    foreach ($tag in 'div', 'ul', 'section') { $h = [regex]::Replace($h, (Get-HtmlElementPattern $tag '\brole="navigation"'), ' ', $opt, $script:RegexLimit) }
     # the main part, when the page marks it: <main>, <article>, <div role="main">
     $mains = @('<main\b[^>]*>(.*)</main\s*>', '<article\b[^>]*>(.*)</article\s*>', (Get-HtmlElementPattern 'div' '\brole="main"'))
     foreach ($pattern in $mains) {
-        $part = [regex]::Match($h, $pattern, $opt)
+        $part = [regex]::Match($h, $pattern, $opt, $script:RegexLimit)
         if ($part.Success -and ([regex]::Replace($part.Groups[1].Value, '<[^>]+>', '')).Trim().Length -gt 200) { $h = $part.Groups[1].Value; break }
     }
     # code blocks are kept aside, so the rest can lose its spaces and line breaks
     $blocks = New-Object System.Collections.ArrayList
     $h = [regex]::Replace($h, '<pre\b[^>]*>(.*?)</pre\s*>', [System.Text.RegularExpressions.MatchEvaluator] {
             param($mm)
-            $code = [regex]::Replace($mm.Groups[1].Value, '<br\s*/?>', "`n", 'IgnoreCase')
+            $code = [regex]::Replace($mm.Groups[1].Value, '<br\s*/?>', "`n", 'IgnoreCase', $script:RegexLimit)
             $code = ConvertFrom-HtmlEntities ([regex]::Replace($code, '<[^>]+>', ''))
             $null = $blocks.Add($code.Trim("`r", "`n"))
             return "`n" + [char]1 + ($blocks.Count - 1) + [char]1 + "`n"
-        }, $opt)
+        }, $opt, $script:RegexLimit)
     $h = [regex]::Replace($h, '<h([1-6])\b[^>]*>(.*?)</h\1\s*>', [System.Text.RegularExpressions.MatchEvaluator] {
             param($mm)
             $inner = ([regex]::Replace($mm.Groups[2].Value, '<[^>]+>', ' ') -replace '\s+', ' ').Trim()
@@ -186,7 +210,7 @@ function ConvertFrom-HtmlText([string]$Html, [string]$BaseUrl) {
             $inner = [regex]::Replace($inner, '\s*[#' + [char]0xB6 + ']+$', '')
             if (-not $inner) { return "`n" }
             return "`n`n" + ('#' * [int]$mm.Groups[1].Value) + ' ' + $inner + "`n`n"
-        }, $opt)
+        }, $opt, $script:RegexLimit)
     $h = [regex]::Replace($h, '<a\b([^>]*)>(.*?)</a\s*>', [System.Text.RegularExpressions.MatchEvaluator] {
             param($mm)
             $label = ([regex]::Replace($mm.Groups[2].Value, '<[^>]+>', ' ') -replace '\s+', ' ').Trim()
@@ -201,20 +225,20 @@ function ConvertFrom-HtmlText([string]$Html, [string]$BaseUrl) {
             $abs = Resolve-WebUrl $BaseUrl $href
             if (-not $abs) { return $label }
             return "[$label]($abs)"
-        }, $opt)
+        }, $opt, $script:RegexLimit)
     $h = [regex]::Replace($h, '<code\b[^>]*>(.*?)</code\s*>', [System.Text.RegularExpressions.MatchEvaluator] {
             param($mm)
             $inner = [regex]::Replace($mm.Groups[1].Value, '<[^>]+>', '')
             if (-not $inner.Trim()) { return $inner }
             return '`' + $inner + '`'
-        }, $opt)
-    $h = [regex]::Replace($h, '<li\b[^>]*>', "`n- ", $opt)
-    $h = [regex]::Replace($h, '<tr\b[^>]*>', "`n", $opt)
-    $h = [regex]::Replace($h, '</tr\s*>', ' |', $opt)
-    $h = [regex]::Replace($h, '<br\s*/?>', "`n", $opt)
-    $h = [regex]::Replace($h, '</?(p|div|section|article|header|main|table|thead|tbody|tfoot|ul|ol|dl|dt|dd|blockquote|figure|figcaption|hr|form|fieldset|details|summary|caption)\b[^>]*>', "`n", $opt)
-    $h = [regex]::Replace($h, '<t[dh]\b[^>]*>', '| ', $opt)
-    $h = [regex]::Replace($h, '</t[dh]\s*>', ' ', $opt)
+        }, $opt, $script:RegexLimit)
+    $h = [regex]::Replace($h, '<li\b[^>]*>', "`n- ", $opt, $script:RegexLimit)
+    $h = [regex]::Replace($h, '<tr\b[^>]*>', "`n", $opt, $script:RegexLimit)
+    $h = [regex]::Replace($h, '</tr\s*>', ' |', $opt, $script:RegexLimit)
+    $h = [regex]::Replace($h, '<br\s*/?>', "`n", $opt, $script:RegexLimit)
+    $h = [regex]::Replace($h, '</?(p|div|section|article|header|main|table|thead|tbody|tfoot|ul|ol|dl|dt|dd|blockquote|figure|figcaption|hr|form|fieldset|details|summary|caption)\b[^>]*>', "`n", $opt, $script:RegexLimit)
+    $h = [regex]::Replace($h, '<t[dh]\b[^>]*>', '| ', $opt, $script:RegexLimit)
+    $h = [regex]::Replace($h, '</t[dh]\s*>', ' ', $opt, $script:RegexLimit)
     $h = [regex]::Replace($h, '<[^>]+>', '')
     $text = (ConvertFrom-HtmlEntities $h).Replace([string][char]0xA0, ' ')
     $lines = New-Object System.Collections.ArrayList
@@ -228,6 +252,27 @@ function ConvertFrom-HtmlText([string]$Html, [string]$BaseUrl) {
             return $fence + "`n" + $blocks[[int]$mm.Groups[1].Value] + "`n" + $fence
         })
     return @{ title = $title; text = $text }
+}
+
+function ConvertFrom-HtmlText([string]$Html, [string]$BaseUrl) {
+    # A web page as plain text: @{ title; text }. A page that is made to take for ever is
+    # converted the simple way, without its structure.
+    try { $r = ConvertFrom-HtmlParts $Html $BaseUrl }
+    catch {
+        $sb = New-Object System.Text.StringBuilder
+        $inside = $false
+        foreach ($ch in $Html.Substring(0, [Math]::Min($Html.Length, 400000)).ToCharArray()) {
+            if ($ch -eq '<') { $inside = $true; continue }
+            if ($ch -eq '>') { $inside = $false; $null = $sb.Append(' '); continue }
+            if (-not $inside) { $null = $sb.Append($ch) }
+        }
+        $r = @{ title = ''; text = ((ConvertFrom-HtmlEntities $sb.ToString()) -replace '[ \t\r\f\v]+', ' ' -replace '(\s*\n){3,}', "`n`n").Trim() }
+    }
+    $clean = Remove-InvisibleText ([string]$r.text)
+    $r.text = $clean.text
+    if ($clean.count -gt 0) { $r.text += "`n[$($clean.count) invisible characters of this page were removed.]" }
+    $r.title = (Remove-InvisibleText ([string]$r.title)).text
+    return $r
 }
 
 # --- search -----------------------------------------------------------------------------------------
@@ -245,7 +290,7 @@ function Resolve-DuckDuckGoLink([string]$Href) {
 }
 
 function ConvertFrom-SearchSnippet([string]$Html) {
-    return ((ConvertFrom-HtmlEntities ([regex]::Replace($Html, '<[^>]+>', ''))) -replace '\s+', ' ').Trim()
+    return ((Remove-InvisibleText (ConvertFrom-HtmlEntities ([regex]::Replace($Html, '<[^>]+>', '')))).text -replace '\s+', ' ').Trim()
 }
 
 function ConvertFrom-DuckDuckGoHtml([string]$Html) {
@@ -253,7 +298,7 @@ function ConvertFrom-DuckDuckGoHtml([string]$Html) {
     # without ads.
     $opt = [System.Text.RegularExpressions.RegexOptions]'Singleline, IgnoreCase'
     $results = New-Object System.Collections.ArrayList
-    $anchors = [regex]::Matches($Html, '<a\b([^>]*\bclass="[^"]*\bresult__a\b[^"]*"[^>]*)>(.*?)</a\s*>', $opt)
+    $anchors = [regex]::Matches($Html, '<a\b([^>]*\bclass="[^"]*\bresult__a\b[^"]*"[^>]*)>(.*?)</a\s*>', $opt, $script:RegexLimit)
     for ($i = 0; $i -lt $anchors.Count; $i++) {
         $anchor = $anchors[$i]
         $block = $Html.LastIndexOf('class="result ', $anchor.Index, [StringComparison]::Ordinal)
@@ -362,7 +407,7 @@ function Invoke-ToolWebFetch($Session, $A, [scriptblock]$ShouldStop) {
             $conv = ConvertFrom-HtmlText $resp.text $resp.url
             $page = @{ title = $conv.title; text = $conv.text; url = $resp.url; cut = $resp.cut }
         } elseif (-not $type -or $type -match '^text/|json|javascript|xml|yaml|toml|csv') {
-            $page = @{ title = ''; text = $resp.text.Trim(); url = $resp.url; cut = $resp.cut }
+            $page = @{ title = ''; text = (Remove-InvisibleText $resp.text.Trim()).text; url = $resp.url; cut = $resp.cut }
         } else {
             return (New-ToolResult "This is not a text page ($($resp.type)). WebFetch reads web pages, plain text and JSON." $true)
         }

@@ -64,7 +64,8 @@ function Write-UiRaw([string]$Text, [string]$Hex = '', [string]$Indent = '', [sw
     # number of rows it began.
     $width = Get-UiWidth
     $breaks = 0
-    $rest = $Text
+    # made visible before it is measured: a replaced character takes more room
+    $rest = ConvertTo-UiSafe $Text
     while ($rest.Length -gt 0) {
         $room = $width - 1 - $script:Ui.col
         if ($room -le 0) {

@@ -23,6 +23,53 @@ $script:UiMid = [string][char]0x00B7
 $script:UiCsiRe = [regex]($script:Esc + '\[[0-9;?]*[ -/]*[@-~]')
 $script:UiOscRe = [regex]($script:Esc + '\][^\a' + $script:Esc + ']*(?:\a|' + $script:Esc + '\\)')
 
+# characters that steer a terminal or stay invisible: control characters, marks that turn the
+# direction of text, zero-width characters, the tag characters used to hide instructions
+$script:UiUnsafeRe = [regex]'[\x00-\x08\x0B-\x1F\x7F-\x9F\u00AD\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200C\u200E\u200F\u2028-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0\uFFF0-\uFFFB]|\uDB40[\uDC00-\uDFFF]'
+$script:UiUnsafeMark = [System.Text.RegularExpressions.MatchEvaluator] {
+    param($m)
+    $v = $m.Value
+    if ($v.Length -eq 2) { return ('<U+{0:X5}>' -f [char]::ConvertToUtf32($v[0], $v[1])) }
+    $code = [int]$v[0]
+    if ($code -lt 32) { return '^' + [char](64 + $code) }
+    if ($code -eq 127) { return '^?' }
+    return ('<U+{0:X4}>' -f $code)
+}
+
+function ConvertTo-UiSafe([string]$Text) {
+    # Text from outside (model, files, commands, web) for the terminal: what would steer it or stay
+    # invisible becomes visible (^[ for the escape character, <U+202E>). Every span and every
+    # coloured text goes through here, so nothing foreign reaches the terminal as a command.
+    if (-not $Text) { return $Text }
+    if (-not $script:UiUnsafeRe.IsMatch($Text)) { return $Text }
+    return $script:UiUnsafeRe.Replace($Text, $script:UiUnsafeMark)
+}
+
+function Get-InvisibleCount([string]$Text) {
+    # How many invisible or steering characters a text holds (line breaks and tabs do not count).
+    if (-not $Text) { return 0 }
+    return $script:UiUnsafeRe.Matches($Text.TrimStart([char]0xFEFF).Replace("`r`n", "`n")).Count
+}
+
+function Test-UiLink([string]$Url) {
+    # True for an address a link may go to: http or https, without anything that could end the
+    # escape sequence of the link.
+    if (-not $Url -or $Url.Length -gt 2000 -or $Url -notmatch '^https?://[^\s\x00-\x20\x7F-\x9F"''<>\\^`{|}]+$') { return $false }
+    $u = $null
+    return ([System.Uri]::TryCreate($Url, [System.UriKind]::Absolute, [ref]$u) -and [bool]$u.Host)
+}
+
+function Clear-UiKeys {
+    # Throws away keys typed ahead, so they cannot answer a question nobody has read yet.
+    try {
+        $until = [DateTime]::UtcNow.AddMilliseconds(300)
+        do {
+            while ([Console]::KeyAvailable) { $null = [Console]::ReadKey($true) }
+            Start-Sleep -Milliseconds 25
+        } while ([DateTime]::UtcNow -lt $until)
+    } catch {}
+}
+
 # --- settings and texts ---------------------------------------------------------------------
 
 function Get-UiValue($Object, [string]$Name, $Default) {
@@ -135,13 +182,13 @@ function Resolve-UiInk([string]$Ink, [double]$Phase = 0) {
 
 function Format-UiInk([string]$Text, [string]$Hex, [switch]$Bold, [switch]$Italic) {
     if (-not $script:Ui.on -or -not $Hex) { return $Text }
-    return (Format-Ink $Text $Hex -Bold:$Bold -Italic:$Italic)
+    return (Format-Ink (ConvertTo-UiSafe $Text) $Hex -Bold:$Bold -Italic:$Italic)
 }
 
 function New-UiSpan([string]$Text, [string]$Fg = '', [string]$Attr = '', [string]$Bg = '', [string]$Link = '') {
     # A piece of text with its look: colour, attributes (b bold, i italic, u underline,
     # s strike), background and the address of a link.
-    return @{ t = $Text; fg = $Fg; a = $Attr; bg = $Bg; link = $Link }
+    return @{ t = (ConvertTo-UiSafe $Text); fg = $Fg; a = $Attr; bg = $Bg; link = $Link }
 }
 
 function Format-UiSpans($Spans, [string]$Bg = '') {
@@ -161,7 +208,7 @@ function Format-UiSpans($Spans, [string]$Bg = '') {
         if ($attr.Contains('i')) { $codes += ';3' }
         if ($attr.Contains('u')) { $codes += ';4' }
         if ($attr.Contains('s')) { $codes += ';9' }
-        $linked = $s.link -and $script:Ui.links
+        $linked = $s.link -and $script:Ui.links -and (Test-UiLink ([string]$s.link))
         if ($linked) { $null = $sb.Append($script:Esc + ']8;;' + $s.link + $script:Esc + '\') }
         if ($codes) { $null = $sb.Append($script:Esc + '[' + $codes.Substring(1) + 'm') }
         $null = $sb.Append($s.t)
@@ -180,6 +227,7 @@ function Measure-UiText([string]$Text) {
 function Limit-UiText([string]$Text, [int]$Max) {
     # Plain text cut to $Max columns with an ellipsis.
     if ($Max -lt 2) { return '' }
+    $Text = ConvertTo-UiSafe $Text
     if ($Text.Length -le $Max) { return $Text }
     return $Text.Substring(0, $Max - 1) + $script:UiDots
 }
@@ -271,7 +319,7 @@ function Set-UiTitle([string]$Text) {
     # The title of the window or tab: what Unzensiert is doing, in which folder.
     if (-not $script:Ui.on -or $script:Ui.title -eq $Text) { return }
     $script:Ui.title = $Text
-    try { [Console]::Title = $Text } catch {}
+    try { [Console]::Title = (ConvertTo-UiSafe $Text) } catch {}
 }
 
 function Set-UiIdleTitle {

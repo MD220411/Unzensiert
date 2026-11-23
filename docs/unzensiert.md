@@ -44,6 +44,7 @@ a wrong result are mistakes of the model that also happened with Claude Code.
 | `unzensiert --permission-mode edits` | rights mode `ask`, `edits`, `plan` or `all` (the names of Claude Code work too) |
 | `unzensiert --allowedTools "Bash(python:*)"` | allow these calls without a question, written as in Claude Code |
 | `unzensiert --max-turns 30` | at most this many rounds with tool calls |
+| `unzensiert --trust` | use the instructions, the check command and the git programs of this folder without the question about [trust](security.md#trust-in-a-folder), for this run; only for folders whose content you know |
 | `unzensiert -OnExit keep` | keep the models loaded after the end (`unload`, `stop`, `keep`) |
 | `unzensiert --version`, `--help` | version, help |
 | `unzensiert --update` | look for a new release now and bring it in |
@@ -134,24 +135,34 @@ what is blocked never runs, what is delicate always asks. After that the mode ap
   same from the start.
 - **Commands that only read** (`readOnlyCommands`, `readOnlyGit` in `config\unzensiert.json`:
   `ls`, `cat`, `grep`, `git status`, `git diff`, `Get-ChildItem` ...) also run as part of a
-  longer line (`cd src && ls`). A redirection into a file (`>`) or a command substitution
-  (`$(...)`) turns it into a question again.
-- **Outside the project folder** Edit and Write ask in `edits` as well; only `all` lets them
-  through without a question.
+  longer line (`cd src && ls`). Only lines that are understood completely count, with the options
+  listed in `config\readonly.json`; everything else asks
+  ([security.md](security.md#what-runs-without-a-question)).
+- **Files that run or are obeyed later by themselves** (git hooks, `.vscode`, `AGENTS.md`, the check
+  command ...) ask in `ask` and `edits` every time
+  ([security.md](security.md#files-that-run-later-by-themselves)).
+- **Network paths, keys and credentials** ask in every mode, also for Read, Glob and Grep.
+- **Outside the project folder** Edit and Write ask every time, also after "always" and in
+  `edits`; only `all` lets them through without a question.
 - **File commands** (`fileCommands`: `mkdir`, `rm`, `mv`, `cp`, `New-Item`, `Remove-Item` ...)
   count as file changes in `edits` when every target lies in the project folder. A target
   outside, in a variable or the project folder itself leads to a question.
-- **The question** stands in a frame and shows the command in the colours of its shell, for
-  Edit the change as a diff with line numbers, for Write the beginning of the file, plus the
-  reason. Keys: `y` or Enter yes; `a` always (for this session: for commands the program the
-  question names, for example `Bash(python:*)`, for files all changes); `n` or Esc no. (The
-  German keys `j` and `i` still work.) If the guard asks, the frame is pink and there is no
-  "always". After a no the model waits for your instruction.
+- **The question** stands in a frame and shows the command completely and in the colours of its
+  shell, for Edit the change as a diff with line numbers, for Write the beginning of the file, plus
+  the reason and what "always" would allow. Keys: `y` or Enter yes; `a` always (for this session:
+  for commands the program with its subcommand, for interpreters only the script or module, for
+  files all changes in the project); `v` shows everything when lines are missing; `n` or Esc no.
+  (The German keys `j` and `i` still work.) If the guard asks, the frame is pink, there is no
+  "always", and only `y` is a yes. After a no the model waits for your instruction.
 - **Without a terminal** (`-p`) every question becomes a refusal with a reason for the model.
   After three refusals in one request it gets the note not to look for further detours; after
   nine the request ends.
-- Command lines are split at `&&`, `||`, `;`, `|` and line breaks outside quotes; every piece
-  must be allowed, `python -c "a; b"` stays one command.
+- Command lines are split at `&&`, `||`, `;`, `|`, `&` and line breaks as the shell does it; every
+  piece must be allowed, `python -c "a; b"` stays one command. A line that cannot be taken apart
+  with certainty asks as a whole.
+- **Trust:** what a folder brings along (instructions, check command, programs of its git
+  configuration) is used after one yes at the start; `--trust` for a run without a terminal
+  ([security.md](security.md#trust-in-a-folder)).
 
 ## Tools
 
@@ -301,7 +312,10 @@ in mode `all`, and the question shows the search terms or the address
 When the model wants to end an answer in which it changed files, the same closing check runs
 as with `claude-local` (`scripts\hooks\Check-Stop.ps1`, `stopCheck` and `review` in
 `config\agent.json`, [agent.md](agent.md)): check command of the project, reminder of test,
-README and settings, after larger changes the second look. For that Unzensiert writes a short
+README and settings, after larger changes the second look. The check command starts code of the
+project, so it asks before its first run: `y` for this session, `a` always in this project (until it
+or its steps change), `v` shows it, `n` no. Mode `all` runs it like every command, unless you
+declined it at the start. For that Unzensiert writes a short
 transcript in the format the hook knows from Claude Code (requests and file changes,
 `<session>.hook.jsonl`). If the check reports something, the model goes on; the messages name
 the agent (`CLAUDE_LOCAL_AGENT=Unzensiert`). Esc also breaks off a long check.
@@ -334,8 +348,9 @@ state, today's rules). The task list comes back from the last `TodoWrite` call.
 
 `config\unzensiert-prompt.md` with the facts of the session (date, Windows, folder, git with
 the branch, shells, whether someone is at the terminal), plus the instructions of the project
-(`projectFiles`: `AGENTS.md`, otherwise `CLAUDE.md`, from the project folder and every folder
-above it, the nearest last) and the working rules from `rulesFile` in `config\agent.json`.
+(`projectFiles`: `AGENTS.md`, otherwise `CLAUDE.md`, from the repository down to the project
+folder, the nearest last, once you confirmed them:
+[trust](security.md#trust-in-a-folder)) and the working rules from `rulesFile` in `config\agent.json`.
 Parts in `{{if Name}}...{{end}}` (also `{{if !Name}}`, nested) stay only when the session
 offers that tool, or for `web` one of the web tools, for `terminal` someone at the terminal:
 the order for larger tasks, the questions, the plan, the warning about the web. System
@@ -395,8 +410,10 @@ starting" go to the error output in a one-off run; standard output only contains
 | `promptFile` | `unzensiert-prompt.md` | system prompt in `config\` |
 | `projectFiles` | `AGENTS.md`, `CLAUDE.md` | instruction files of the project, the first existing one per folder |
 | `permissionMode` | `ask` | rights mode at start |
-| `readOnlyCommands`, `readOnlyGit` | list | commands that run without a question |
+| `readOnlyCommands`, `readOnlyGit` | list | commands that run without a question; their allowed options are in `config\readonly.json` |
 | `fileCommands` | list | commands that count as file changes in `edits` |
+| `interpreters`, `twoWordPrograms` | lists | what "always" remembers: for an interpreter the script or module, for these programs also the subcommand ([security.md](security.md#what-runs-without-a-question)) |
+| `envDeny`, `envAllow` | regular expression, list | names of environment variables that are left out of the model's commands (tokens, secrets, passwords, keys), and names that stay although they match |
 | `coAuthor` | `Unzensiert <359525642+Unzensiert-coder@users.noreply.github.com>` | `Co-authored-by:` line in commits of a session ([above](#commits-name-unzensiert-as-co-author)); empty = off |
 | `addTools` | `TodoWrite`, `AskUserQuestion`, `PresentPlan`, `WebSearch`, `WebFetch` | tools of Unzensiert's own on top of `tools` in `config\agent.json` ([above](#tools)); remove a name to switch it off |
 | `todoReminders` | `2` | how often per request open steps of the task list send the model back ([above](#planning-before-the-work)) |

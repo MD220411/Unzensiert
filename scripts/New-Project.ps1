@@ -54,6 +54,10 @@ if (-not $NoGit) {
     if ($problem) { "note      no first commit: $problem" } else { 'git       repository created, first commit made, pre-commit hook runs the check' }
 }
 
+# made from our own templates just now: its instructions, check command and hook folder are known
+Set-FolderTrusted $target $true
+'trust     instructions and check command confirmed (a change asks)'
+
 ''
 "Next:  cd `"$target`"  and start  claude-local"
 '       Describe the purpose in README.md first; the model reads README.md and CLAUDE.md.'

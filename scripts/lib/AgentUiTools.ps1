@@ -490,78 +490,150 @@ function Get-UiEditLine([string]$Path, [string]$Old) {
 
 # --- the question before a call ----------------------------------------------------------------------------
 
-function Show-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]$CanAlways, $A = $null) {
-    # The question before a call, in a frame: what would happen (the command in its colours,
-    # the change as a diff, the start of a new file), why it asks, and the keys: yes, always
-    # (this session; not for questions of the guard) or no. The cursor stays after the keys.
+function Get-UiCodeRows([string]$Text, [string]$Lang, [int]$Max) {
+    # A line of code in its colours, over as many rows as it needs.
+    $saved = $script:Ui.codeState
+    $script:Ui.codeState = ''
+    $spans = ConvertTo-UiCodeSpans (ConvertTo-UiSafe $Text.Replace("`t", '    ')) $Lang
+    $script:Ui.codeState = $saved
+    $out = New-Object System.Collections.ArrayList
+    foreach ($row in (Split-UiSpans $spans ([Math]::Max(8, $Max)))) { $null = $out.Add((Format-UiSpans $row)) }
+    return , $out
+}
+
+function Get-UiPermissionBody([string]$Name, [string]$Subject, $A, [int]$Inner, [bool]$All) {
+    # What the question shows of a call: @{ rows; hidden }. A command, an address and search terms
+    # are always complete; of a file change the first part, with $All everything. hidden counts
+    # the lines that are missing or cut.
+    $mode = $script:Ui.mode
+    $ink = $script:Ui.ink
+    $rows = New-Object System.Collections.ArrayList
+    $hidden = 0
+    $cwd = [string]$script:Ui.toolCwd
+    if (($Name -eq 'Bash' -or $Name -eq 'PowerShell') -and $A) {
+        $limit = [Math]::Max(20, (Get-UiHeight) - 12)
+        foreach ($l in ([string](Get-DictValue $A 'command')).Replace("`r`n", "`n").Split("`n")) {
+            foreach ($r in (Get-UiCodeRows $l (Get-UiShellLang $Name) $Inner)) {
+                if (-not $All -and $rows.Count -ge $limit) { $hidden++; continue }
+                $null = $rows.Add($r)
+            }
+        }
+        return @{ rows = $rows; hidden = $hidden }
+    }
+    if (@('Edit', 'EditLines', 'Write') -contains $Name -and $A) {
+        $path = [string](Get-DictValue $A 'file_path')
+        $shown = $path
+        try { $path = Resolve-AgentPath $path $cwd; $shown = Get-DisplayPath $path $cwd } catch {}
+        foreach ($l in (Format-UiWrapped @(New-UiSpan $shown $mode.foreground 'b') '' '' 0 $Inner)) { $null = $rows.Add($l) }
+        $real = ''
+        try { $real = [string](Get-PathFacts $path $cwd).real } catch {}
+        if ($real -and $real -ine $path) { foreach ($l in (Format-UiWrapped @(New-UiSpan ('-> ' + $real) $ink.warn) '' '' 0 $Inner)) { $null = $rows.Add($l) } }
+        $parts = @()
+        if ($Name -eq 'Write') { $parts += , @('+', [string](Get-DictValue $A 'content')) }
+        elseif ($Name -eq 'Edit') { $parts += , @('-', [string](Get-DictValue $A 'old_string')); $parts += , @('+', [string](Get-DictValue $A 'new_string')) }
+        else {
+            $null = $rows.Add((Format-UiInk (Get-UiText 'tools.range' ([int](Get-DictValue $A 'start_line')) ([int](Get-DictValue $A 'end_line'))) $mode.dim))
+            $parts += , @('+', [string](Get-DictValue $A 'new_text'))
+        }
+        if ($All) {
+            $lang = Get-UiCodeLang ([System.IO.Path]::GetExtension($shown))
+            foreach ($part in $parts) {
+                $hex = $ink.ok
+                if ($part[0] -eq '-') { $hex = $ink.error }
+                foreach ($l in ([string]$part[1]).Replace("`r`n", "`n").Split("`n")) {
+                    foreach ($r in (Get-UiCodeRows $l $lang ($Inner - 2))) { $null = $rows.Add((Format-UiInk ($part[0] + ' ') $hex -Bold) + $r) }
+                }
+            }
+            return @{ rows = $rows; hidden = 0 }
+        }
+        $room = [Math]::Max(8, $Inner - 10)
+        foreach ($part in $parts) { foreach ($l in ([string]$part[1]).Replace("`r`n", "`n").Split("`n")) { if ((ConvertTo-UiSafe $l).Length -gt $room) { $hidden++ } } }
+        if ($Name -eq 'Write') {
+            $content = [string](Get-DictValue $A 'content')
+            $count = @($content.Replace("`r", '').TrimEnd("`n").Split("`n")).Count
+            if ($count -gt 16) { $hidden += $count - 16 }
+            foreach ($r in (Get-UiPreviewRows $content $shown 16 $Inner)) { $null = $rows.Add($r) }
+        } elseif ($Name -eq 'Edit') {
+            $old = [string](Get-DictValue $A 'old_string')
+            $new = [string](Get-DictValue $A 'new_string')
+            $lines = @($old.Split("`n")).Count + @($new.Split("`n")).Count
+            $diff = Get-UiDiffRows $old $new (Get-UiEditLine $path $old) $shown 20 $Inner
+            if ($diff.rows.Count -ge 20 -and $lines -gt 20) { $hidden += $lines - 20 }
+            foreach ($r in $diff.rows) { $null = $rows.Add($r) }
+        } else {
+            $lines = @(([string](Get-DictValue $A 'new_text')).Split("`n"))
+            if ($lines.Count -gt 20) { $hidden += $lines.Count - 20 }
+            foreach ($l in @($lines | Select-Object -First 20)) { $null = $rows.Add((Format-UiInk ('+ ' + (Limit-UiText $l.TrimEnd("`r") $room)) $ink.ok)) }
+        }
+        return @{ rows = $rows; hidden = $hidden }
+    }
+    # an address, search terms, a path: every character, over as many rows as needed
+    foreach ($l in $Subject.Replace("`r`n", "`n").Split("`n")) {
+        foreach ($r in (Split-UiSpans @(New-UiSpan $l $mode.foreground) $Inner)) { $null = $rows.Add((Format-UiSpans $r)) }
+    }
+    return @{ rows = $rows; hidden = 0 }
+}
+
+function Get-UiHeight {
+    # Rows of the window (40 for tests and the design preview).
+    if ($script:Ui.fixedWidth -gt 0) { return 40 }
+    try { $h = [Console]::WindowHeight; if ($h -gt 0) { return $h } } catch {}
+    return 40
+}
+
+function Show-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]$CanAlways, $A = $null, $Guard = $null, [bool]$All = $false) {
+    # The question before a call, in a frame: what would happen (the command in its colours and
+    # complete, the change as a diff, the start of a new file), why it asks, what "always" would
+    # allow, and the keys: yes, always (this session; not for questions of the guard), v for
+    # everything when not all is shown, or no. The cursor stays after the keys. Returns how many
+    # lines are missing.
     $mode = $script:Ui.mode
     $ink = $script:Ui.ink
     $width = Get-UiWidth
-    $guard = -not $CanAlways
+    if ($null -eq $Guard) { $Guard = -not $CanAlways }
     $hex = $ink.warn
     $sign = '?'
     $title = Get-UiText 'permission.title'
-    if ($guard) { $hex = $mode.accent; $sign = '!'; $title = Get-UiText 'permission.guard' }
+    if ($Guard) { $hex = $mode.accent; $sign = '!'; $title = Get-UiText 'permission.guard' }
     $look = Get-UiToolLook $Name
     $h = Get-UiBox 2
     $side = '  ' + (Format-UiInk (Get-UiBox 3) $hex) + ' '
     $inner = $width - 6
     $head = '  ' + (Format-UiInk ((Get-UiBox 0) + $h + ' ') $hex) + (Format-UiInk ($sign + ' ' + $title) $hex -Bold) + '  ' + (Format-UiInk $look.icon $look.ink -Bold) + ' ' + (Format-UiInk $Name $look.ink -Bold) + ' '
     $head += Format-UiInk ($h * [Math]::Max(2, $width - 2 - (Measure-UiText $head))) $hex
+    $content = Get-UiPermissionBody $Name $Subject $A $inner $All
     $body = New-Object System.Collections.ArrayList
-    $cwd = [string]$script:Ui.toolCwd
-    if (($Name -eq 'Bash' -or $Name -eq 'PowerShell') -and $A) {
-        $lines = @(([string](Get-DictValue $A 'command')).Replace("`r", '').Split("`n"))
-        $n = 0
-        foreach ($l in $lines) {
-            if (++$n -gt 20) { $null = $body.Add((Format-UiInk ($script:UiDots + ' ' + (Get-UiText 'tools.more' (Get-UiCount ($lines.Count - 20) 'lines'))) $mode.dim)); break }
-            $null = $body.Add((Format-UiCodeLine $l (Get-UiShellLang $Name) $inner))
-        }
-    } elseif ($Name -eq 'Edit' -and $A) {
-        $path = Resolve-AgentPath (Get-DictValue $A 'file_path') $cwd
-        $old = [string](Get-DictValue $A 'old_string')
-        $null = $body.Add((Format-UiInk (Get-DisplayPath $path $cwd) $mode.foreground -Bold))
-        $diff = Get-UiDiffRows $old ([string](Get-DictValue $A 'new_string')) (Get-UiEditLine $path $old) $path 20 $inner
-        foreach ($r in $diff.rows) { $null = $body.Add($r) }
-    } elseif ($Name -eq 'Write' -and $A) {
-        $path = Resolve-AgentPath (Get-DictValue $A 'file_path') $cwd
-        $null = $body.Add((Format-UiInk (Get-DisplayPath $path $cwd) $mode.foreground -Bold))
-        foreach ($r in (Get-UiPreviewRows ([string](Get-DictValue $A 'content')) $path 16 $inner)) { $null = $body.Add($r) }
-    } else {
-        $lines = @($Subject.Replace("`r", '').Split("`n"))
-        $n = 0
-        foreach ($l in $lines) {
-            if (++$n -gt 30) { $null = $body.Add((Format-UiInk ($script:UiDots + ' ' + (Get-UiText 'tools.more' (Get-UiCount ($lines.Count - 30) 'lines'))) $mode.dim)); break }
-            $lineHex = $mode.foreground
-            if ($l.StartsWith('- ')) { $lineHex = $ink.error } elseif ($l.StartsWith('+ ')) { $lineHex = $ink.ok }
-            $null = $body.Add((Format-UiInk (Limit-UiText $l $inner) $lineHex))
-        }
-    }
+    foreach ($r in $content.rows) { $null = $body.Add($r) }
+    if ($content.hidden -gt 0) { $null = $body.Add((Format-UiInk ($script:UiDots + ' ' + (Get-UiText 'permission.hidden' $content.hidden)) $hex -Italic)) }
+    $odd = 0
+    foreach ($key in 'command', 'url', 'query', 'content', 'new_string', 'new_text', 'file_path') { if ($A) { $odd += Get-InvisibleCount ([string](Get-DictValue $A $key)) } }
+    $label = (Get-UiText 'permission.why') + ': '
+    if ($odd -gt 0) { foreach ($l in (Format-UiWrapped @(New-UiSpan (Get-UiText 'permission.invisible' $odd) $ink.error 'b') '' '' 0 $inner)) { $null = $body.Add($l) } }
     if ($Why) {
         $reason = $Why
         if ($reason -eq 'outside the project folder') { $reason = Get-UiText 'permission.outside' }
+        elseif ($reason -eq 'protected') { $reason = Get-UiText 'permission.protected' }
         elseif ($reason -eq 'web' -and $Name -eq 'WebSearch') { $reason = Get-UiText 'permission.webSearch' }
         elseif ($reason -eq 'web') { $reason = Get-UiText 'permission.webFetch' }
         elseif ($reason -eq 'plan') { $reason = Get-UiText 'permission.planMode' }
-        $label = (Get-UiText 'permission.why') + ': '
         foreach ($l in (Format-UiWrapped @(New-UiSpan $reason $mode.dim 'i') (Format-UiInk $label $hex) (' ' * $label.Length) $label.Length $inner)) { $null = $body.Add($l) }
+    }
+    if ($CanAlways -and $A) {
+        $rules = @()
+        try { $rules = @(Get-AlwaysRules $Name $A) } catch {}
+        if ($rules.Count -gt 0) { foreach ($l in (Format-UiWrapped @(New-UiSpan (Get-UiText 'permission.alwaysRule' ($rules -join ', ')) $mode.dim) '' '  ' 2 $inner)) { $null = $body.Add($l) } }
     }
     $out = @($head)
     foreach ($b in $body) { $out += $side + $b }
     $out += '  ' + (Format-UiInk ((Get-UiBox 1) + ($h * ($width - 5))) $hex)
     Write-UiOut (($out -join "`n") + "`n")
-
-    $badge = { param($key) Format-UiSpans @(New-UiSpan (' ' + $key + ' ') $mode.background 'b' $hex) }
-    $choices = '  ' + (& $badge 'y') + ' ' + (Format-UiInk (Get-UiText 'permission.yes') $mode.foreground) + '    '
-    if ($CanAlways) {
-        $rules = @()
-        if ($A) { try { $rules = @(Get-AlwaysRules $Name $A) } catch {} }
-        $always = Get-UiText 'permission.always'
-        if ($rules.Count -gt 0) { $always = Get-UiText 'permission.alwaysFor' ($rules -join ', ') }
-        $choices += (& $badge 'a') + ' ' + (Format-UiInk (Limit-UiText $always ($width - 40)) $mode.foreground) + '    '
-    }
-    $choices += (& $badge 'n') + ' ' + (Format-UiInk (Get-UiText 'permission.no') $mode.foreground) + '   ' + (Format-UiInk ([string][char]0x203A) $hex -Bold) + ' '
-    Write-UiOut $choices
+    $items = @()
+    $items += , @('y', (Get-UiText 'permission.yes'))
+    if ($CanAlways) { $items += , @('a', (Get-UiText 'permission.always')) }
+    if ($content.hidden -gt 0) { $items += , @('v', (Get-UiText 'permission.view')) }
+    $items += , @('n', (Get-UiText 'permission.no'))
+    Write-UiOut (Format-UiKeyLine $items $hex)
+    return [int]$content.hidden
 }
 
 function Write-UiPermissionAnswer([string]$Reply) {
@@ -573,19 +645,30 @@ function Write-UiPermissionAnswer([string]$Reply) {
     Write-UiOut ("`r" + $script:Esc + '[2K  ' + $answer + "`n")
 }
 
-function Read-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]$CanAlways, $A = $null) {
-    # Asks before a call runs (Show-UiPermission) and reads one key: Enter, y or j yes;
-    # a or i always; Esc or n no.
+function Read-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]$CanAlways, $A = $null, [bool]$Guard = $false) {
+    # Asks before a call runs (Show-UiPermission) and reads one key: y (or j) yes, Enter too except
+    # for questions of the guard; a or i always; v shows everything; Esc or n no. A command, and a
+    # file that runs later by itself, can only be allowed once everything was shown.
     Stop-UiActivity
-    Show-UiPermission $Name $Subject $Why $CanAlways $A
+    $missing = Show-UiPermission $Name $Subject $Why $CanAlways $A $Guard
     Set-UiProgress 0
+    Clear-UiKeys
+    $mustSee = ($Guard -or $Why -eq 'protected' -or $Why -eq 'outside the project folder' -or $Name -eq 'Bash' -or $Name -eq 'PowerShell')
     $reply = ''
     while (-not $reply) {
         $k = [Console]::ReadKey($true)
         $c = [string]$k.KeyChar
         # y and a; the German j (ja) and i (immer) of earlier versions work as well
-        if ($k.Key -eq [ConsoleKey]::Enter -or $c -eq 'y' -or $c -eq 'j') { $reply = 'yes' }
-        elseif ($CanAlways -and ($c -eq 'a' -or $c -eq 'i')) { $reply = 'always' }
+        $yes = ($c -eq 'y' -or $c -eq 'j' -or ($k.Key -eq [ConsoleKey]::Enter -and -not $Guard))
+        $always = ($CanAlways -and ($c -eq 'a' -or $c -eq 'i'))
+        if ($c -eq 'v' -and $missing -gt 0) {
+            Write-UiOut ("`r" + $script:Esc + '[2K')
+            $missing = Show-UiPermission $Name $Subject $Why $CanAlways $A $Guard $true
+            Clear-UiKeys
+        } elseif (($yes -or $always) -and $missing -gt 0 -and $mustSee) {
+            Write-UiOut ("`r" + $script:Esc + '[2K  ' + (Get-UiSign 'warn') + ' ' + (Format-UiInk (Get-UiText 'permission.viewFirst') $script:Ui.ink.warn) + '  ')
+        } elseif ($yes) { $reply = 'yes' }
+        elseif ($always) { $reply = 'always' }
         elseif ($k.Key -eq [ConsoleKey]::Escape -or $c -eq 'n') { $reply = 'no' }
     }
     Write-UiPermissionAnswer $reply

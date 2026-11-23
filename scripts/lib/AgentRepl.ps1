@@ -23,7 +23,7 @@ function Reset-AgentSession($Session, [string]$File = '') {
     # Starts over in the same object (/clear), or with an earlier session (/resume). Model,
     # mode and the "always" answers stay.
     $fresh = New-AgentSession $Session.cwd $Session.model
-    foreach ($k in 'mode', 'modeBeforePlan', 'allowed', 'allowedTools', 'showThinking', 'maxTurns') { $fresh[$k] = $Session[$k] }
+    foreach ($k in 'mode', 'modeBeforePlan', 'allowed', 'allowedTools', 'showThinking', 'maxTurns', 'trustOnce', 'checkAnswer', 'guard') { $fresh[$k] = $Session[$k] }
     foreach ($k in @($fresh.Keys)) { $Session[$k] = $fresh[$k] }
     Initialize-AgentSession $Session
     if ($File) { Import-AgentSession $Session $File }
@@ -70,7 +70,7 @@ function Invoke-UserCommand($Session, [string]$Command) {
     if ($Session.gitBash) { $kind = 'Bash' }
     $a = @{ command = $Command }
     Write-UiToolStart $kind $a $Session.cwd
-    $result = Invoke-ToolShell $Session $kind $a { Test-UiStop }
+    $result = Invoke-ToolShell $Session $kind $a { Test-UiStop } $true
     Write-UiToolResult $result $kind
     $Session.pending += "The user ran this command ($kind):`n$ $Command`n$($result.text)`n"
 }
@@ -154,7 +154,7 @@ function Invoke-PlannerProcess([string[]]$Arguments) {
     # machine.json is never left half written (Save-MachineConfig). Returns the exit code,
     # -1 = stopped.
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = 'powershell.exe'
+    $psi.FileName = Get-SystemProgram 'powershell'
     $psi.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $script:PlannerScript + '" ' + (@($Arguments) -join ' ')
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
@@ -176,7 +176,7 @@ function Invoke-PlannerProcess([string[]]$Arguments) {
         if (Test-UiStop) { $stopped = $true; break }
     }
     if ($stopped) {
-        & cmd /c "taskkill /PID $($proc.Id) /T /F >nul 2>&1"
+        Stop-ProcessTree $proc.Id
         $null = $proc.WaitForExit(5000)
         return -1
     }
@@ -350,6 +350,8 @@ function Start-AgentRepl($Session, [string]$FirstPrompt = '') {
 }
 
 function Write-AgentStdout([string]$Text) {
+    # into a file or pipe as it is; on a terminal nothing that would steer it
+    if (-not [Console]::IsOutputRedirected) { $Text = ConvertTo-UiSafe $Text }
     [Console]::Out.WriteLine($Text)
     [Console]::Out.Flush()
 }
@@ -410,7 +412,7 @@ function ConvertFrom-AgentArgs($Arguments) {
     # positional (the words of a request) and unknown (flags that are ignored).
     $opt = @{
         model = ''; onExit = ''; print = $false; format = 'text'; mode = ''; allowed = @(); maxTurns = 0
-        continue = $false; resume = $null; version = $false; help = $false; update = $false; updates = ''
+        continue = $false; resume = $null; version = $false; help = $false; update = $false; updates = ''; trust = $false
         positional = @(); unknown = @()
     }
     $list = @($Arguments)
@@ -436,6 +438,7 @@ function ConvertFrom-AgentArgs($Arguments) {
         elseif ($a -eq '-v' -or $a -eq '--version') { $opt.version = $true }
         elseif ($a -eq '-h' -or $a -eq '--help') { $opt.help = $true }
         elseif ($a -eq '--update') { $opt.update = $true }
+        elseif ($a -eq '--trust') { $opt.trust = $true }
         elseif ($a -eq '--updates') { $opt.updates = $next; $i++ }
         elseif ($a -eq '--verbose' -or $a -eq '--debug') { }
         elseif ($a.StartsWith('-') -and $a.Length -gt 1) { $opt.unknown += $a }

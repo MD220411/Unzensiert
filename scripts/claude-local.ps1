@@ -166,6 +166,27 @@ if ($agent.gitCheck -and -not [Console]::IsOutputRedirected) {
     if ($note) { "claude-local: $note" }
 }
 
+# git of Claude Code and of the model's commands starts no file monitor of a repository and no
+# repository hidden in a subfolder (lib\Git.ps1)
+$gitSafety = @{ GIT_CONFIG_COUNT = $env:GIT_CONFIG_COUNT }
+Set-GitSafety $gitSafety
+foreach ($name in @($gitSafety.Keys)) { [Environment]::SetEnvironmentVariable($name, [string]$gitSafety[$name], 'Process') }
+
+# The closing check only runs a check command the user confirmed for exactly this script
+# (hooks\TrustRules.ps1); asked once per project, at a terminal.
+if (-not [Console]::IsOutputRedirected -and -not [Console]::IsInputRedirected) {
+    $here = (Get-Location).ProviderPath
+    $checks = @(Get-TrustItems $here @() @($agent.stopCheck.commands) | Where-Object { $_.kind -eq 'check' })
+    if ($checks.Count -gt 0 -and -not (Test-CheckTrusted $here @($agent.stopCheck.commands))) {
+        if (Confirm-Step "claude-local: run the check command of this project ($($checks[0].name)) after changes? It starts code of the project." $false) {
+            $record = Get-TrustRecord (Get-TrustRoot $here)
+            $trust = Get-FolderTrust $here
+            $keep = @($trust.items | Where-Object { $_.kind -eq 'check' -or (Test-TrustItem $record $_) })
+            Save-TrustRecord $trust.root $keep $true
+        }
+    }
+}
+
 # --- run, then free the GPU memory ----------------------------------------------------
 # The models this launcher can have loaded: the start model and the ones in the picker.
 # finally also runs when the session is interrupted; a closed terminal window skips it,

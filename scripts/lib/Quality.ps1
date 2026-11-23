@@ -15,7 +15,7 @@ function Get-QualitySettings {
     if (-not $cfg -or -not $cfg.enabled) { return [ordered]@{} }
     $hook = [ordered]@{
         type    = 'command'
-        command = 'powershell.exe'
+        command = (Get-SystemProgram 'powershell')
         args    = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', (Get-StopCheckScript))
         # the check command of the project and the second look run inside the hook
         timeout = [int]$cfg.timeoutSeconds + 30
@@ -46,16 +46,17 @@ function Merge-Settings($Target, $Source) {
     }
 }
 
-function Invoke-StopHook([string]$SessionId, [string]$Transcript, [string]$Cwd, [bool]$Active, [scriptblock]$ShouldStop) {
+function Invoke-StopHook([string]$SessionId, [string]$Transcript, [string]$Cwd, [bool]$Active, [scriptblock]$ShouldStop, [bool]$RunCheck = $true) {
     # Asks the closing check the way Claude Code does. Returns decision ('' or 'block'),
     # reason, systemMessage and cancelled. Used by the agent Unzensiert (lib\AgentLoop.ps1)
     # and Test-Setup.ps1. ShouldStop ($true = stop) lets a person at the terminal break off
-    # a long check; the hook and everything it started are ended then.
-    $call = [ordered]@{ hook_event_name = 'Stop'; session_id = $SessionId; transcript_path = $Transcript; cwd = $Cwd; stop_hook_active = $Active }
+    # a long check; the hook and everything it started are ended then. RunCheck: whether the
+    # check command of the project may run (lib\Trust.ps1, Test-CheckAllowed).
+    $call = [ordered]@{ hook_event_name = 'Stop'; session_id = $SessionId; transcript_path = $Transcript; cwd = $Cwd; stop_hook_active = $Active; run_check = $RunCheck }
     # characters beyond ASCII escaped: the pipe to the hook uses the console code page
     $json = [regex]::Replace(($call | ConvertTo-Json -Compress), '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = 'powershell.exe'
+    $psi.FileName = Get-SystemProgram 'powershell'
     $psi.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + (Get-StopCheckScript) + '"'
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
@@ -71,7 +72,7 @@ function Invoke-StopHook([string]$SessionId, [string]$Transcript, [string]$Cwd, 
     $null = $proc.StandardError.ReadToEndAsync()
     while (-not $proc.WaitForExit(100)) {
         if ($ShouldStop -and (& $ShouldStop)) {
-            & cmd /c "taskkill /PID $($proc.Id) /T /F >nul 2>&1"
+            Stop-ProcessTree $proc.Id
             $result.cancelled = $true
             return $result
         }

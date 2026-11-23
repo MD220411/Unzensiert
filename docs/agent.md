@@ -83,7 +83,9 @@ When the model wants to end an answer in which it changed files, the closing che
 `Stop` hook of Claude Code):
 
 1. **Check command of the project.** If the project folder has `scripts\Check.ps1` or
-   `Check.ps1` (`commands`), it is run. If it fails, the model gets the end of the output
+   `Check.ps1` (`commands`), it is run, once you confirmed it: Unzensiert asks before the first run,
+   `claude-local` at its start, and a change of the script or its steps asks again
+   ([security.md](security.md#trust-in-a-folder)). If it fails, the model gets the end of the output
    back and keeps working, at most `maxBlocks` times (3) in a row. After that it may stop, and
    a note appears in the terminal to look for yourself.
 2. **Reminder.** Once per answer the model gets the text from `config\closing-check.md`: the

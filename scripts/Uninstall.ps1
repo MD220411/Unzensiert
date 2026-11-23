@@ -53,13 +53,15 @@ Write-Step "Install folder $root" $steps
 # files of the profiles, and the folders for state and logs. Never the whole folder blindly.
 $targets = @()
 foreach ($dir in @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^b\d+$' -and (Test-Path (Join-Path $_.FullName 'llama-server.exe')) })) { $targets += $dir.FullName }
-foreach ($name in 'run', 'logs', 'downloads', 'bench-work', 'sessions') {
+foreach ($name in 'run', 'logs', 'downloads', 'bench-work', 'sessions', 'trust') {
     $dir = Join-Path $root $name
     if (Test-Path $dir) { $targets += $dir }
 }
 # the input history of Unzensiert ("historyFile" in config\unzensiert.json)
 $history = Join-Path $root ([string](Get-AgentSettings).historyFile)
 if ((Get-AgentSettings).historyFile -and (Test-Path $history)) { $targets += $history }
+# which folders the user trusts (lib\Trust.ps1)
+if (Test-Path (Join-Path $root 'trust.json')) { $targets += (Join-Path $root 'trust.json') }
 $modelFiles = @()
 if (-not $KeepModels) {
     foreach ($profileName in (Get-ModelNames)) {

@@ -40,6 +40,9 @@ function New-AgentSession([string]$Cwd, [string]$Model) {
         todos = @(); todoReminders = 0; requestTools = 0; modeBeforePlan = ''; webCache = @{}
         # answers without text and without a tool call in this request (lib\AgentLoop.ps1)
         emptyAnswers = 0
+        # trust in the folder (lib\Trust.ps1): --trust for this run, the answer about the check
+        # command; the guard rules of this session, read once
+        trustOnce = $false; checkAnswer = $null; guard = $null
     }
 }
 

@@ -1,6 +1,8 @@
 # Entry point for the shared helpers. Every script starts with:
 #   . "$PSScriptRoot\_common.ps1"
 # The helpers themselves live in scripts\lib\, one file per topic:
+#   lib\Git.ps1      git by its full path and without programs of a repository; the search order
+#                    for programs (no program from the current folder)
 #   lib\Config.ps1   reads config\*.json (server, models, agent) and config\machine.json
 #   lib\Machine.ps1  this machine: graphics cards, memory, disk space, programs, setups
 #   lib\Download.ps1 downloads with resume and checksum (llama.cpp, model files)
@@ -23,6 +25,9 @@
 #                    AgentPlan    task list, questions, the plan, plan mode; which own tools
 #                    AgentWeb     WebSearch and WebFetch, web pages as text
 #                    AgentPrompt  system prompt with the instructions of the project
+#                    Trust        which folder the user trusts, with what (hooks\TrustRules.ps1)
+#                    CommandRules what a command line is made of: does it only read, is it covered
+#                                 by a rule, does it only change files of the project
 #                    AgentSession messages, saved conversations, size of the context
 #                    AgentUi      the terminal: welcome, activity line, notes, input, the end
 #                                 of a request and of the session
@@ -37,6 +42,15 @@
 
 $ErrorActionPreference = 'Stop'
 
+# cmd.exe looks into the current folder before PATH, so a file git.cmd or powershell.cmd in a
+# foreign project would run instead of the real program. With this variable it does not, here
+# and in everything started from here (docs\security.md).
+$env:NoDefaultCurrentDirectoryInExePath = '1'
+# and no entry of PATH that depends on the folder this was started in (., .\node_modules\.bin)
+if ($env:PATH -match '(^|;)\s*"?(\.|\s*;)') { $env:PATH = (@($env:PATH.Split(';') | Where-Object { $_.Trim() -and $_.Trim().Trim('"') -notmatch '^\.' }) -join ';') }
+
+. "$PSScriptRoot\lib\Git.ps1"
+. "$PSScriptRoot\hooks\TrustRules.ps1"
 . "$PSScriptRoot\lib\Config.ps1"
 . "$PSScriptRoot\lib\Machine.ps1"
 . "$PSScriptRoot\lib\Download.ps1"
@@ -55,6 +69,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\AgentTools.ps1"
 . "$PSScriptRoot\lib\AgentPlan.ps1"
 . "$PSScriptRoot\lib\AgentWeb.ps1"
+. "$PSScriptRoot\lib\Trust.ps1"
+. "$PSScriptRoot\lib\CommandRules.ps1"
 . "$PSScriptRoot\lib\AgentPrompt.ps1"
 . "$PSScriptRoot\lib\AgentSession.ps1"
 . "$PSScriptRoot\lib\AgentUi.ps1"

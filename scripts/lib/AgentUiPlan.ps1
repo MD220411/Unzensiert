@@ -149,6 +149,7 @@ function Read-UiQuestion($Question, [int]$Index, [int]$Count) {
         return @{ stopped = $false; answer = $reply.answer; own = $reply.own }
     }
     $keys = Format-UiQuestionKeys $Question
+    Clear-UiKeys
     while ($true) {
         Write-UiOut $keys
         $choice = 0
@@ -204,6 +205,7 @@ function Read-UiPlanApproval([string]$Plan, [bool]$OfferEdits) {
     Stop-UiActivity
     Show-UiPlan $Plan $OfferEdits
     Set-UiProgress 0
+    Clear-UiKeys
     while ($true) {
         $k = [Console]::ReadKey($true)
         $c = [string]$k.KeyChar

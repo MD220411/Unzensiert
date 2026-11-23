@@ -1,0 +1,93 @@
+{
+  "_comment": "What counts as a command that only reads (scripts\\lib\\CommandRules.ps1, docs\\security.md): such commands run in every mode without a question. A command line counts only when every part of it is understood and every option is listed here; everything else asks, so a missing option costs a question and never lets something through. The names must also stand in readOnlyCommands or readOnlyGit of config\\unzensiert.json, where you take commands out. bash: short = allowed one-letter options (also together, -la), long = allowed long options without the dashes (a value may follow after =), operands = at most this many words that are no options, plus = words may start with + (date). find: the allowed tests. git: long options per subcommand; gitShort: one-letter options (default for all others). powershell: parameters per cmdlet (may be abbreviated), aliases: names that mean a cmdlet, blocks: cmdlets that may take a { } which only compares values. recursive: commands that walk through folders; they ask when a protected folder (secretPaths in config\\guard.json) lies below. After a change run scripts\\Test-Security.ps1.",
+
+  "bash": {
+    "ls": { "short": "aAlhrtRSsidFp1nGgoBCxkLQU", "long": "all,almost-all,human-readable,reverse,recursive,size,classify,color,sort,time,time-style,group-directories-first,full-time,inode,directory" },
+    "dir": { "short": "aAlhrtRSsidFp1nGgoBCxkLQU", "long": "all,almost-all,human-readable,reverse,recursive,size,color,sort" },
+    "pwd": { "short": "LPW", "long": "" },
+    "cd": { "short": "", "long": "", "operands": 1 },
+    "echo": { "short": "neE", "long": "*" },
+    "cat": { "short": "AbeEnstTuv", "long": "number,show-all,number-nonblank,squeeze-blank,show-ends,show-tabs" },
+    "head": { "short": "ncqvz0123456789", "long": "lines,bytes,quiet,verbose" },
+    "tail": { "short": "ncqvz0123456789", "long": "lines,bytes,quiet,verbose" },
+    "wc": { "short": "clmwL", "long": "lines,words,bytes,chars,max-line-length" },
+    "grep": { "short": "abcEFGHhiLlmnoPqrsvwxyzZABCeT0123456789", "long": "include,exclude,exclude-dir,color,count,files-with-matches,files-without-match,line-number,ignore-case,recursive,extended-regexp,fixed-strings,perl-regexp,only-matching,no-filename,with-filename,context,after-context,before-context,invert-match,word-regexp,line-regexp,max-count,quiet,silent,regexp,text,binary-files,no-messages,byte-offset" },
+    "rg": { "short": "nilwFegtTABCcSsvuHNoUP0123456789m", "long": "files,type,type-not,glob,iglob,hidden,no-ignore,line-number,no-line-number,ignore-case,files-with-matches,files-without-match,fixed-strings,word-regexp,count,count-matches,context,after-context,before-context,max-count,max-depth,no-heading,heading,color,only-matching,smart-case,case-sensitive,multiline,sort,invert-match,no-filename,with-filename,regexp,stats,trim,json" },
+    "which": { "short": "a", "long": "all" },
+    "where": { "short": "", "long": "" },
+    "type": { "short": "atpPf", "long": "" },
+    "file": { "short": "bikLhsrz", "long": "brief,mime,mime-type,mime-encoding" },
+    "stat": { "short": "cLft", "long": "format,printf,terse,dereference" },
+    "du": { "short": "abchkmsd0123456789", "long": "all,total,human-readable,max-depth,summarize,apparent-size,exclude" },
+    "df": { "short": "ahHikPT", "long": "human-readable,total" },
+    "date": { "short": "uRI", "long": "utc,iso-8601,rfc-3339,rfc-email", "operands": 0, "plus": true },
+    "whoami": { "short": "", "long": "" },
+    "sort": { "short": "bdfgiMhnRrVcCmsuzkt0123456789,.", "long": "key,reverse,numeric-sort,unique,ignore-case,ignore-leading-blanks,field-separator,version-sort,human-numeric-sort,general-numeric-sort,stable,check,random-sort,zero-terminated" },
+    "uniq": { "short": "cdDiufswz0123456789", "long": "count,repeated,unique,ignore-case,skip-fields,skip-chars", "operands": 1 },
+    "cut": { "short": "bcdfsnz0123456789,-", "long": "delimiter,fields,characters,bytes,only-delimited,output-delimiter,complement" },
+    "diff": { "short": "abBcdeEiNpqstTuUwy0123456789", "long": "brief,unified,context,ignore-case,ignore-all-space,ignore-space-change,ignore-blank-lines,strip-trailing-cr,color,side-by-side,new-file,width,exclude" },
+    "cmp": { "short": "blsn", "long": "silent,quiet,verbose,print-bytes" },
+    "basename": { "short": "asz", "long": "suffix,multiple,zero" },
+    "dirname": { "short": "z", "long": "zero" },
+    "realpath": { "short": "emsLPqz", "long": "relative-to,relative-base,canonicalize-existing,canonicalize-missing" },
+    "nl": { "short": "bvwnsi", "long": "body-numbering" },
+    "tree": { "short": "", "long": "" },
+    "true": { "short": "", "long": "" }
+  },
+
+  "find": "name,iname,path,ipath,wholename,iwholename,type,maxdepth,mindepth,size,mtime,mmin,ctime,cmin,atime,amin,newer,print,print0,printf,ls,not,o,a,or,and,prune,empty,regex,iregex,regextype,perm,user,group,depth,links,readable,writable,executable,true,false,quit",
+
+  "git": {
+    "status": "short,branch,porcelain,untracked-files,ignored,long,show-stash,verbose,ahead-behind,no-ahead-behind,renames,no-renames,column,null",
+    "diff": "stat,cached,staged,name-only,name-status,word-diff,unified,color,no-color,shortstat,numstat,summary,check,ignore-all-space,ignore-space-change,ignore-space-at-eol,ignore-blank-lines,diff-filter,minimal,patience,histogram,patch,no-patch,find-renames,no-renames,function-context,no-ext-diff,no-textconv,exit-code,quiet,merge-base,compact-summary,dirstat,relative",
+    "log": "oneline,stat,patch,no-patch,format,pretty,graph,all,author,since,until,after,before,follow,max-count,skip,name-only,name-status,decorate,no-decorate,reverse,no-merges,merges,grep,date,date-order,topo-order,abbrev-commit,shortstat,numstat,no-color,color,first-parent,branches,tags,remotes,left-right,cherry-pick,no-ext-diff,no-textconv,unified,diff-filter,find-renames,word-diff",
+    "show": "stat,name-only,name-status,format,pretty,oneline,patch,no-patch,no-color,color,shortstat,numstat,unified,abbrev-commit,no-ext-diff,no-textconv,date,summary,word-diff",
+    "rev-parse": "abbrev-ref,show-toplevel,short,verify,is-inside-work-tree,is-inside-git-dir,is-bare-repository,git-dir,git-common-dir,quiet,symbolic-full-name,show-prefix,show-cdup,absolute-git-dir,is-shallow-repository,all,branches,tags,remotes",
+    "ls-files": "others,exclude-standard,modified,deleted,cached,stage,ignored,full-name,error-unmatch,eol,unmerged,killed,deduplicate",
+    "blame": "line-porcelain,porcelain,date,show-email,show-name,show-number,root,abbrev,incremental",
+    "describe": "tags,always,dirty,abbrev,long,all,exact-match,contains,candidates,match,first-parent",
+    "shortlog": "summary,numbered,email,group,since,until,no-merges",
+    "grep": "line-number,ignore-case,files-with-matches,files-without-match,count,word-regexp,extended-regexp,fixed-strings,perl-regexp,basic-regexp,cached,untracked,and,or,not,heading,no-heading,break,show-function,function-context,context,after-context,before-context,only-matching,invert-match,max-depth,recurse-submodules,color,no-color,full-name,quiet,all-match,max-count"
+  },
+  "gitShort": {
+    "default": "abcdefghijklmnpqrstuvwxyzABCDEFGHIKLMNPQRSTUVWXYZ0123456789",
+    "grep": "abcefhiIlLnpPqrvwzABCEFGHW0123456789"
+  },
+
+  "powershell": {
+    "get-childitem": "path,literalpath,filter,include,exclude,recurse,depth,force,name,file,directory,hidden,readonly,system,attributes,erroraction",
+    "get-content": "path,literalpath,totalcount,tail,encoding,raw,readcount,delimiter,filter,include,exclude,force,erroraction",
+    "get-location": "stack,psprovider,psdrive",
+    "set-location": "path,literalpath",
+    "get-item": "path,literalpath,filter,include,exclude,force,erroraction",
+    "select-string": "pattern,path,literalpath,simplematch,casesensitive,context,list,allmatches,notmatch,include,exclude,encoding,quiet,erroraction",
+    "test-path": "path,literalpath,pathtype,isvalid,include,exclude,filter,newerthan,olderthan,erroraction",
+    "resolve-path": "path,literalpath,relative,erroraction",
+    "split-path": "path,literalpath,leaf,parent,qualifier,noqualifier,isabsolute,resolve",
+    "join-path": "path,childpath,resolve",
+    "measure-object": "property,line,word,character,sum,average,maximum,minimum,ignorewhitespace",
+    "select-object": "property,first,last,skip,unique,index,expandproperty,excludeproperty,wait",
+    "sort-object": "property,descending,unique,casesensitive,culture",
+    "where-object": "property,value,eq,ne,gt,ge,lt,le,like,notlike,match,notmatch,contains,notcontains,in,notin,is,isnot,filterscript,cmatch,clike,ceq",
+    "foreach-object": "process",
+    "group-object": "property,noelement,casesensitive",
+    "format-table": "property,autosize,wrap,hidetableheaders,groupby",
+    "format-list": "property,groupby",
+    "out-string": "width,stream",
+    "write-output": "noenumerate,inputobject",
+    "get-command": "name,verb,noun,commandtype,all,syntax,erroraction",
+    "get-date": "format,uformat,date,year,month,day,hour,minute,second",
+    "get-filehash": "path,literalpath,algorithm,erroraction",
+    "whoami": ""
+  },
+  "aliases": {
+    "dir": "get-childitem", "ls": "get-childitem", "gci": "get-childitem", "cat": "get-content", "type": "get-content", "gc": "get-content",
+    "pwd": "get-location", "gl": "get-location", "cd": "set-location", "chdir": "set-location", "sl": "set-location", "gi": "get-item",
+    "sls": "select-string", "rvpa": "resolve-path", "measure": "measure-object", "select": "select-object", "sort": "sort-object",
+    "where": "where-object", "?": "where-object", "foreach": "foreach-object", "%": "foreach-object", "group": "group-object",
+    "ft": "format-table", "fl": "format-list", "echo": "write-output", "write": "write-output", "gcm": "get-command"
+  },
+  "blocks": ["where-object", "foreach-object", "sort-object", "group-object"],
+
+  "recursive": ["grep", "rg", "find", "du", "tree", "diff", "ls", "dir", "get-childitem", "select-string"]
+}
