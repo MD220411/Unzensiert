@@ -121,6 +121,7 @@
         "spec-draft-model": "mtp-Qwen3.8-Flash-Next-Q4_0.gguf",
         "spec-draft-n-max": 4,
         "lazy-mode": "on",
+        "chat-template-file": "templates\\qwen3.8-flash-next.jinja",
         "reasoning-effort": "medium",
         "temp": 1,
         "top-k": 20,

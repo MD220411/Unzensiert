@@ -1,12 +1,14 @@
 # Automatic updates of the program files from the releases of the project on GitHub
 # (config\updates.json). At most every "checkHours" hours, unzensiert asks GitHub for the
-# newest release; if it is newer than the file VERSION, the program folder is brought to it:
-# with git (fetch the tag, check it out) or as a ZIP laid over the folder, where
+# newest release; if it is newer than the file VERSION and signed with a release key of this
+# program (lib\Signature.ps1: release.json names the commit, its tree and the SHA-256 of the
+# ZIP), the program folder is brought to it: with git (fetch the tag, check that it is the
+# signed commit, check it out) or as the signed ZIP laid over the folder, where
 # config\machine.json stays. Then the llama.cpp build of the new version is installed.
 # Work in progress on main never arrives, and copies someone works on (changed files, a full
 # git clone that is not on a release) are never touched. Needs lib\Config.ps1,
-# lib\AgentApi.ps1 (JSON) and lib\Review.ps1 (Invoke-Git). Keep this file ASCII-only.
-# Description: docs\setup.md.
+# lib\AgentApi.ps1 (JSON), lib\Review.ps1 (Invoke-Git), lib\Download.ps1 and
+# lib\Signature.ps1. Keep this file ASCII-only. Description: docs\setup.md.
 
 function Get-ProgramVersion {
     $file = Join-Path $script:ProjectRoot 'VERSION'
@@ -38,15 +40,21 @@ function Set-UpdatesEnabled([bool]$Enabled) {
 }
 
 function ConvertFrom-ReleaseInfo($Release, [string]$Repository) {
-    # The parts of a GitHub release that count: @{ tag; version; url; zip }, or $null for a
-    # draft, a pre-release or a tag that is no version.
+    # The parts of a GitHub release that count: @{ tag; version; url; assets } (assets: file
+    # name -> @{ url; size }), or $null for a draft, a pre-release or a tag that is no version.
+    # Whether it may be installed decides its signature (Get-ReleaseStatement).
     $tag = [string](Get-DictValue $Release 'tag_name')
     if (-not $tag -or (Get-DictValue $Release 'draft') -or (Get-DictValue $Release 'prerelease')) { return $null }
-    if (-not (ConvertTo-ProgramVersion $tag)) { return $null }
-    return @{
-        tag = $tag; version = $tag.TrimStart('v', 'V'); url = [string](Get-DictValue $Release 'html_url')
-        zip = "https://github.com/$Repository/archive/refs/tags/$tag.zip"
+    if ($tag -notmatch '^v\d+\.\d+\.\d+$') { return $null }
+    $assets = @{}
+    # through a variable: @(Get-DictValue ...) would make the list one element of a list
+    $list = Get-DictValue $Release 'assets'
+    foreach ($a in @($list)) {
+        $name = [string](Get-DictValue $a 'name')
+        $url = [string](Get-DictValue $a 'browser_download_url')
+        if ($name -and $url -match '^https://') { $assets[$name] = @{ url = $url; size = [long](Get-DictValue $a 'size') } }
     }
+    return @{ tag = $tag; version = $tag.Substring(1); url = [string](Get-DictValue $Release 'html_url'); assets = $assets }
 }
 
 function Get-LatestRelease($Cfg) {
@@ -93,20 +101,47 @@ function Get-UpdateBlocker([switch]$IgnoreSwitch) {
     return ''
 }
 
-function Update-ProgramFiles($Release) {
-    # Brings the program folder to the release. Returns '' or what went wrong.
+function Get-ReleaseStatement($Release) {
+    # Downloads release.json and release.json.sig of a release and checks them
+    # (lib\Signature.ps1). Returns the statement; throws why the release does not count.
+    $json = $Release.assets['release.json']
+    $sig = $Release.assets['release.json.sig']
+    if (-not $json -or -not $sig) { throw 'it carries no signature (release.json)' }
+    $tmp = Join-Path $env:TEMP "unzensiert-release-$PID"
+    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+    try {
+        Save-HttpsFile $json.url (Join-Path $tmp 'release.json') 65536
+        Save-HttpsFile $sig.url (Join-Path $tmp 'release.json.sig') 65536
+        $bytes = [System.IO.File]::ReadAllBytes((Join-Path $tmp 'release.json'))
+        $signature = [System.IO.File]::ReadAllText((Join-Path $tmp 'release.json.sig'))
+        return (Confirm-ReleaseStatement $bytes $signature ([string](Get-UpdateConfig).repository) $Release.tag)
+    } finally {
+        Remove-Item -Recurse -Force -Path $tmp -ErrorAction SilentlyContinue
+    }
+}
+
+function Update-ProgramFiles($Release, $Statement) {
+    # Brings the program folder to the release, as far as it is what the signed statement
+    # names. Returns '' or what went wrong.
     if ((Get-InstallKind) -eq 'git') {
         $r = Invoke-Git $script:ProjectRoot @('fetch', '--quiet', '--depth', '1', '--no-tags', 'origin', 'tag', $Release.tag)
         if ($r.code -ne 0) { return "git could not fetch $($Release.tag)" }
-        $r = Invoke-Git $script:ProjectRoot @('checkout', '--quiet', '--detach', "refs/tags/$($Release.tag)")
+        $commit = ((Invoke-Git $script:ProjectRoot @('rev-parse', '--verify', '-q', "refs/tags/$($Release.tag)^{commit}")).lines -join '').Trim()
+        if ($commit -cne $Statement.commit) { return "$($Release.tag) on GitHub ($commit) is not the signed commit $($Statement.commit)" }
+        $tree = ((Invoke-Git $script:ProjectRoot @('rev-parse', '--verify', '-q', "$commit^{tree}")).lines -join '').Trim()
+        if ($tree -cne $Statement.tree) { return "the files of $($Release.tag) are not the signed ones" }
+        # the checked commit itself, not the name of the tag
+        $r = Invoke-Git $script:ProjectRoot @('checkout', '--quiet', '--detach', $Statement.commit)
         if ($r.code -ne 0) { return "git could not switch to $($Release.tag)" }
         return ''
     }
+    $asset = $Release.assets[$Statement.zipName]
+    if (-not $asset) { return "the release has no file $($Statement.zipName)" }
     $tmp = Join-Path $env:TEMP "unzensiert-update-$PID"
     $zip = "$tmp.zip"
     try {
-        & curl.exe -sSL --fail -o $zip $Release.zip
-        if ($LASTEXITCODE -ne 0) { return "the download of $($Release.zip) failed" }
+        try { Save-HttpsFile $asset.url $zip ($Statement.zipSize + 1) } catch { return "$_" }
+        if (-not (Test-FileDigest $zip $Statement.zipSize $Statement.zipSha256)) { return "the downloaded $($Statement.zipName) is not the signed file" }
         Expand-Archive -Path $zip -DestinationPath $tmp -Force
         $top = Get-ChildItem -Path $tmp -Directory | Select-Object -First 1
         if (-not $top -or -not (Test-Path (Join-Path $top.FullName 'scripts\unzensiert.ps1'))) { return 'the downloaded release has an unexpected layout' }
@@ -169,9 +204,15 @@ function Invoke-UpdateCheck([switch]$Force) {
         "unzensiert: version $($release.version) is available ($($release.url)), but $blocker."
         return
     }
-    "unzensiert: updating from $current to $($release.version) ..."
+    $statement = $null
+    try { $statement = Get-ReleaseStatement $release }
+    catch {
+        "unzensiert: version $($release.version) is available ($($release.url)), but it is not installed: $($_.Exception.Message)."
+        return
+    }
+    "unzensiert: updating from $current to $($release.version) (signed with key $($statement.signer)) ..."
     $buildBefore = [string](Read-JsonFile (Join-Path $script:ConfigDir 'server.json')).build
-    $problem = Update-ProgramFiles $release
+    $problem = Update-ProgramFiles $release $statement
     if ($problem) {
         "unzensiert: the update failed: $problem. The program stays at $current."
         return

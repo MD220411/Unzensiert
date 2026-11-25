@@ -56,8 +56,9 @@ if (-not (Test-ServerUp)) {
 # --- connection ---------------------------------------------------------------------
 # llama-server speaks the Anthropic Messages API at /v1/messages. Claude Code sends the
 # token as "Authorization: Bearer"; it insists on a value even if the server asks for none.
+# The key only when llama-server of the install folder holds the port (lib\Server.ps1).
 $env:ANTHROPIC_BASE_URL = $server.baseUrl
-$env:ANTHROPIC_AUTH_TOKEN = Get-ServerApiKey
+$env:ANTHROPIC_AUTH_TOKEN = Get-ServerRequestKey
 if (-not $env:ANTHROPIC_AUTH_TOKEN) { $env:ANTHROPIC_AUTH_TOKEN = 'local' }
 $env:ANTHROPIC_API_KEY = ''
 

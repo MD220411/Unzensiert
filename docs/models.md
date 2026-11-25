@@ -130,12 +130,16 @@ image.
 Every GGUF file brings a chat template that translates messages into the text format of the
 model. The built-in templates are not enough for work with the agents; all three agent
 models therefore use a template from `config\templates\`. Each is the template from the GGUF
-file with the changes described at the top of the file.
+file with the changes described at the top of the file. Every other chat profile also takes its
+template from there, so no template comes from a model file ([security.md](security.md#images));
+`Test-Setup.ps1` checks it. Only the autocomplete model, which completes code and gets no chat,
+has none.
 
 | Template | Profiles | Changes |
 |---|---|---|
-| `qwen3.6-agent.jinja` | `local-coder`, `local-fast` | order of the tool results |
+| `qwen3.6-agent.jinja` | `local-coder`, `local-fast` and their comparison profiles | order of the tool results |
 | `qwen3.8-agent.jinja` | `local-qwen38` | order of the tool results, later system messages |
+| `qwen3.8-flash-next.jinja` | `local-next` | none: the template of its GGUF file, read from the file itself |
 
 **Order of the tool results (block "agent fix").** Claude Code often sends the result of a
 tool together with text in one message (reminders, notes). `llama-server` turns that into

@@ -1,7 +1,8 @@
 # Installs the font of the active look ("font" in config\styles\<name>.json) for the
 # current user. No administrator rights needed, nothing is installed system-wide.
 # Idempotent: files that are already installed are skipped. Afterwards run
-# scripts\Install-Style.ps1 so that Windows Terminal uses the font.
+# scripts\Install-Style.ps1 so that Windows Terminal uses the font. The archive comes over https
+# only and must have the size and SHA-256 of "source" in the style file.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\Install-Font.ps1
 
@@ -22,9 +23,7 @@ if (Test-Path $workDir) { Remove-Item -Recurse -Force $workDir }
 $null = New-Item -ItemType Directory -Force -Path $workDir
 $zip = Join-Path $workDir 'font.zip'
 "downloading $($font.source.url)"
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$ProgressPreference = 'SilentlyContinue'
-Invoke-WebRequest -Uri ([string]$font.source.url) -OutFile $zip -UseBasicParsing
+Save-VerifiedDownload ([string]$font.source.url) $zip ([long]$font.source.size) ([string]$font.source.sha256)
 Expand-Archive -Path $zip -DestinationPath (Join-Path $workDir 'unpacked') -Force
 
 # one file per name; the archive may hold the same font in several folders

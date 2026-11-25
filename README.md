@@ -232,8 +232,12 @@ your data:
   reach no other computer;
 - the **install and program folders** are only open to your account, so other accounts of the
   computer can neither change the program nor read your conversations;
-- the **server** only listens on `127.0.0.1` and requires a key, so web pages in your browser
-  cannot use it;
+- **updates are signed**: a release is installed only when its signature verifies with the
+  release key, whose private part never lies on GitHub; every download has its SHA-256 in
+  `config\` and comes over https only ([SECURITY.md](SECURITY.md));
+- the **server** only listens on `127.0.0.1` and requires a key, which goes to nothing but
+  `llama-server` itself, so web pages in your browser and other programs cannot use it; images
+  reach it only as a PNG written again by Windows;
 - a **guard** checks every tool call before it runs: what would destroy data (formatting a
   drive, deleting your user folder) is blocked, sensitive things (`git reset --hard`, the
   registry, your SSH keys, deleting outside the project) ask you, normal work in the project
@@ -280,10 +284,11 @@ None of this is perfect; see [docs/security.md](docs/security.md) for the rules 
 
 ```
 Install.cmd   install or repair (double-click), Uninstall.cmd removes it again
-install.ps1   one-line install: gets the newest release and starts scripts\Install.ps1
+install.ps1   one-line install: gets the newest signed release and starts scripts\Install.ps1
 VERSION       version of the program (releases on GitHub: tag vX.Y.Z)
+SECURITY.md   how to report a security problem, how releases are signed
 bin\          the commands unzensiert and claude-local for the PATH
-config\       all settings: server.json, models.json, agent.json, unzensiert.json, updates.json, setups.json, rules, templates, styles;
+config\       all settings: server.json, models.json, agent.json, unzensiert.json, updates.json, release-keys.json, setups.json, rules, templates, styles;
               machine.json = values of this computer (from the installer, not in the repository)
 scripts\      one script per job; shared building blocks in scripts\lib\
 templates\    templates for new projects

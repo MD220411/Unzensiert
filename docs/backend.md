@@ -96,8 +96,10 @@ The server does not start with Windows, see [setup.md](setup.md).
 | Management | `GET /models`, `POST /models/load`, `POST /models/unload`, `GET /health` | scripts |
 
 Every request names a profile in the field `model` and sends the key of the server along
-(`Authorization: Bearer <key>` or `x-api-key`). Only `/health` answers without a key. By
-hand:
+(`Authorization: Bearer <key>` or `x-api-key`). Only `/health` answers without a key. The scripts,
+`unzensiert` and `claude-local` send the key only when `llama-server.exe` of the install folder
+listens on the port (`Get-ServerRequestKey` in `scripts\lib\Server.ps1`,
+[security.md](security.md#key-for-the-server)). By hand:
 
 ```
 $key = Get-Content <installRoot>\run\api-key.txt
@@ -107,9 +109,13 @@ curl.exe -H "Authorization: Bearer $key" http://127.0.0.1:8080/models
 ## Updating llama.cpp
 
 1. Choose a newer build on <https://github.com/ggml-org/llama.cpp/releases>.
-2. Change the value `build` in `config\server.json`.
-3. Run `scripts\Install-LlamaCpp.ps1`. It downloads the archives of the package, checks their
-   SHA-256 sums against the ones GitHub publishes, unpacks them into `<installRoot>\<build>\`
+2. Change the value `build` in `config\server.json`, and add an entry for it under `sha256`: the
+   SHA-256 of every file a package of `packages` needs (`llama-<build>-bin-<package>.zip`, for
+   CUDA also `cudart-llama-bin-<package>.zip`), from the release page (`gh api
+   repos/ggml-org/llama.cpp/releases/tags/<build>` lists them as `digest`). Without an entry
+   nothing is downloaded, and `Test-Setup.ps1` reports the missing ones.
+3. Run `scripts\Install-LlamaCpp.ps1`. It downloads the archives of the package over https only,
+   checks them against `sha256` (GitHub must name the same), unpacks them into `<installRoot>\<build>\`
    (emptied first, so that no leftover of another package loads a second backend) and
    checks with `--list-devices` that llama.cpp sees the graphics card. Otherwise it tries
    the next package from `packages`. `-Package win-vulkan-x64` forces another package.

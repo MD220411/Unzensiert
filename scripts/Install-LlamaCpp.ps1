@@ -10,8 +10,9 @@
 #   ... -Force                       download and unpack again
 #   ... -Package win-vulkan-x64      this package instead of the automatic choice
 #
-# Downloads come from the GitHub releases of ggml-org/llama.cpp and are checked against
-# the SHA-256 digests that GitHub publishes for them.
+# Downloads come from the GitHub releases of ggml-org/llama.cpp, over https only, and are
+# checked against the SHA-256 of each file in config\server.json ("sha256", per build); GitHub
+# must name the same. Without such an entry nothing is downloaded or removed.
 
 param([switch]$Force, [string]$Package)
 
@@ -28,6 +29,17 @@ function Get-InstalledPackage {
     return ''
 }
 
+function Get-LlamaPackageDigest([string]$File) {
+    # The SHA-256 of a file of the build in config\server.json, '' if it names none.
+    $byBuild = $server.PSObject.Properties['sha256']
+    if (-not $byBuild -or -not $byBuild.Value) { return '' }
+    $build = $byBuild.Value.PSObject.Properties[[string]$server.build]
+    if (-not $build) { return '' }
+    $entry = $build.Value.PSObject.Properties[$File]
+    if (-not $entry) { return '' }
+    return ([string]$entry.Value).ToLowerInvariant()
+}
+
 function Install-Package([string]$Name, $Release) {
     # Unpacks one package (and for CUDA its runtime libraries) into an empty binDir: files
     # of another package left behind would load a second backend for the same card.
@@ -36,14 +48,24 @@ function Install-Package([string]$Name, $Release) {
     # binDir is <installRoot>\<build>; without a build name it would be the install folder
     # itself, with the models in it
     if ([string]$server.build -notmatch '^b\d+$') { throw "config\server.json: 'build' must look like b12433, not '$($server.build)'." }
+    # every file must be known before the installed build is removed
+    $files = @(foreach ($file in $wanted) {
+            $asset = $Release.assets | Where-Object { $_.name -eq $file }
+            if (-not $asset) { throw "Release $($server.build) has no file '$file'. Check 'packages' in config\server.json." }
+            $sha = [string](Get-LlamaPackageDigest $file)
+            if ($sha -notmatch '^[0-9a-f]{64}$') { throw "config\server.json names no SHA-256 for $file (sha256.$($server.build)); nothing is installed without one." }
+            $published = ([string]$asset.digest) -replace '^sha256:', ''
+            if ($published -and $published -ne $sha) { throw "GitHub names another SHA-256 for $file than config\server.json; nothing is installed." }
+            @{ name = $file; asset = $asset; sha = $sha }
+        })
     if (Test-Path $server.binDir) { Remove-Item -Recurse -Force -Path $server.binDir }
     New-Item -ItemType Directory -Force -Path $server.binDir | Out-Null
-    foreach ($file in $wanted) {
-        $asset = $Release.assets | Where-Object { $_.name -eq $file }
-        if (-not $asset) { throw "Release $($server.build) has no file '$file'. Check 'packages' in config\server.json." }
+    foreach ($f in $files) {
+        $file = $f.name
+        $asset = $f.asset
+        $sha = $f.sha
         $zip = Join-Path (Join-Path $server.installRoot 'downloads') $file
-        $sha = ([string]$asset.digest) -replace '^sha256:', ''
-        $done = (Test-Path $zip) -and ((Get-FileHash -Path $zip -Algorithm SHA256).Hash -eq $sha.ToUpper())
+        $done = Test-FileDigest $zip 0 $sha
         if (-not $done) {
             "downloading $file ($([math]::Round($asset.size / 1MB)) MB) ..."
             Save-VerifiedDownload $asset.browser_download_url $zip ([long]$asset.size) $sha

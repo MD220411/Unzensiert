@@ -51,6 +51,31 @@ $server = Get-ServerConfig
 Assert-That (Test-Path $server.exe) "llama-server is installed: $($server.exe)"
 Assert-That (Test-Path $server.modelsDir) "model folder exists: $($server.modelsDir)"
 if ($server.requireApiKey) { Assert-That ((Get-ServerApiKey).Length -ge 32) 'server key is present (created on first use)' }
+# every file Install-LlamaCpp.ps1 may download for this build has its SHA-256 in server.json
+$llamaFiles = @()
+foreach ($p in @($server.packages.PSObject.Properties | Where-Object { $_.Name -notlike '_*' })) {
+    $llamaFiles += "llama-$($server.build)-bin-$($p.Value).zip"
+    if ([string]$p.Value -like '*cuda*') { $llamaFiles += "cudart-llama-bin-$($p.Value).zip" }
+}
+$digests = $null
+if ($server.PSObject.Properties['sha256'] -and $server.sha256.PSObject.Properties[[string]$server.build]) { $digests = $server.sha256.([string]$server.build) }
+$noDigest = @($llamaFiles | Where-Object { -not $digests -or -not $digests.PSObject.Properties[$_] -or [string]$digests.$_ -notmatch '^[0-9a-f]{64}$' })
+Assert-That ($noDigest.Count -eq 0) "server.json: SHA-256 for every file of build $($server.build) ($($llamaFiles.Count)) $($noDigest -join ', ')"
+$who = ''
+try { $who = Get-ServerImpostor } catch { $who = "the check failed: $($_.Exception.Message)" }
+Assert-That (-not $who) "port $($server.port): nothing but llama-server of the install folder listens there $who"
+
+# --- 3b. signed releases (lib\Signature.ps1) ----------------------------------------------------
+$releaseKeys = @(Get-ReleaseKeys)
+Assert-That ($releaseKeys.Count -gt 0) 'release-keys.json: at least one release key (scripts\New-ReleaseKey.ps1)'
+foreach ($k in $releaseKeys) {
+    $bits = 0
+    try { $bits = [Convert]::FromBase64String($k.modulus).Length * 8 } catch {}
+    Assert-That ($bits -ge 3072 -and $k.id -ceq (Get-ReleaseKeyId $k.modulus $k.exponent)) "release key $($k.id): RSA $bits bits, its id fits"
+}
+$installKeys = @(Get-InstallScriptKeys ([System.IO.File]::ReadAllText((Join-Path $script:ProjectRoot 'install.ps1'))))
+$sameKeys = (@($installKeys | ForEach-Object { "$($_.id):$($_.modulus):$($_.exponent)" }) -join ',') -ceq (@($releaseKeys | ForEach-Object { "$($_.id):$($_.modulus):$($_.exponent)" }) -join ',')
+Assert-That $sameKeys 'install.ps1 carries the keys of release-keys.json (scripts\New-ReleaseKey.ps1 -SyncOnly)'
 
 # --- 4. model profiles ---------------------------------------------------------------
 # Not every profile is downloaded on every machine (scripts\Get-Model.ps1); a profile that
@@ -76,6 +101,13 @@ foreach ($name in $profiles) {
     if (-not $machineFiles[$name]) { $complete = $complete -and ($names -contains $model.file) }
     if ($model.args.Contains('mmproj')) { $complete = $complete -and ($names -contains (Split-Path -Leaf $model.args['mmproj'])) }
     Assert-That $complete "profile $name`: download entry names all its files with size and SHA-256"
+    # a chat template from config\templates, never the one in the model file (docs\models.md);
+    # the autocomplete model only completes code and gets no chat
+    if ($model.role -ne 'autocomplete') {
+        $tpl = ''
+        if ($model.args.Contains('chat-template-file')) { $tpl = [string]$model.args['chat-template-file'] }
+        Assert-That ($tpl -and $tpl.StartsWith((Join-Path $script:ConfigDir 'templates'), [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $tpl)) "profile $name`: chat template from config\templates $(Split-Path -Leaf $tpl)"
+    }
 }
 Assert-That ([bool](Get-DefaultAgentModel)) "at least one agent model is installed (claude-local starts with '$(Get-DefaultAgentModel)')"
 
@@ -289,6 +321,8 @@ foreach ($s in $known) {
     $needed = @($shellMode, [string]$s.claude.localMode, [string]$s.claude.cloudMode)
     Assert-That (@($needed | Where-Object { $modeNames -notcontains $_ }).Count -eq 0) "style $($s.name): modes for shell, local and cloud ($($needed -join ', '))"
     Assert-That ($s.claude.themes.PSObject.Properties[[string]$s.claude.localMode] -and $s.claude.themes.PSObject.Properties[[string]$s.claude.cloudMode]) "style $($s.name): Claude Code themes for local and cloud"
+    $src = $s.font.source
+    Assert-That ($src -and [string]$src.url -match '^https://' -and [long]$src.size -gt 0 -and [string]$src.sha256 -match '^[0-9a-f]{64}$') "style $($s.name): the font comes over https with size and SHA-256"
     if ($s.PSObject.Properties['art']) {
         $font = $s.art.font
         $bad = @($font.PSObject.Properties | Where-Object {

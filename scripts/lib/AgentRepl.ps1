@@ -48,7 +48,7 @@ function Select-SessionFile($Session, [string]$Choice) {
 
 function ConvertTo-UserContent([string]$Text) {
     # The text of the user as a message; images inserted with Alt+V ("[image: path]") go
-    # along as pictures.
+    # along as pictures, written again as PNG by Windows (lib\AgentTools.ps1).
     $found = [regex]::Matches($Text, '\[image: ([^\]]+)\]')
     if ($found.Count -eq 0) { return $Text }
     $parts = @(@{ type = 'text'; text = $Text })
@@ -56,8 +56,12 @@ function ConvertTo-UserContent([string]$Text) {
         $path = $m.Groups[1].Value.Trim()
         $ext = [System.IO.Path]::GetExtension($path).ToLower()
         if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or -not $script:ImageTypes.ContainsKey($ext)) { continue }
-        $data = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($path))
-        $parts += , @{ type = 'image_url'; image_url = @{ url = "data:$($script:ImageTypes[$ext]);base64,$data" } }
+        try {
+            $clean = ConvertTo-CleanImage ([System.IO.File]::ReadAllBytes($path))
+            $parts += , @{ type = 'image_url'; image_url = @{ url = "data:$($clean.mime);base64,$($clean.data)" } }
+        } catch {
+            $parts += , @{ type = 'text'; text = "[image left out: $path cannot be shown: $($_.Exception.Message)]" }
+        }
     }
     return , $parts
 }

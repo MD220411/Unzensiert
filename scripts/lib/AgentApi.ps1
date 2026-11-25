@@ -192,7 +192,8 @@ function Invoke-ChatStream {
     $request.ContentType = 'application/json; charset=utf-8'
     $request.Timeout = 3600000
     $request.ReadWriteTimeout = 3600000
-    $key = Get-ServerApiKey
+    # only to llama-server of the install folder (lib\Server.ps1)
+    $key = Get-ServerRequestKey
     if ($key) { $request.Headers.Add('Authorization', "Bearer $key") }
     $request.ContentLength = $bytes.Length
     $stream = $request.GetRequestStream()

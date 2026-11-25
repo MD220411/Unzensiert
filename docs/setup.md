@@ -26,13 +26,15 @@ the [README](../README.md).
 | Way | Steps |
 |---|---|
 | One-liner | in PowerShell `irm https://raw.githubusercontent.com/MD220411/Unzensiert/main/install.ps1 \| iex` |
-| ZIP | download "Source code (zip)" of the [latest release](https://github.com/MD220411/Unzensiert/releases/latest), unpack it, double-click `Install.cmd` |
+| ZIP | download `unzensiert-<version>.zip` of the [latest release](https://github.com/MD220411/Unzensiert/releases/latest), unpack it, double-click `Install.cmd` |
 | Git | `git clone https://github.com/MD220411/Unzensiert`, then `Install.cmd` |
 
 The one-liner (`install.ps1`) puts the program into `%LOCALAPPDATA%\Programs\claude-local`.
-It takes the newest release on GitHub (as long as there is none, the state of `main`): if Git
-is there, it clones its tag, otherwise it downloads its ZIP. Then it starts
-`scripts\Install.ps1`. It runs in the user's PowerShell session and never ends it.
+It takes the newest release on GitHub, and only when it is signed with the release key
+([security.md](security.md#signed-releases)): if Git is there, it fetches its tag and checks out
+the signed commit, otherwise it downloads the signed ZIP of the release. Without a release, or
+without an answer from GitHub, it installs nothing. Then it starts `scripts\Install.ps1`. It runs
+in the user's PowerShell session and never ends it.
 
 If Windows reports "Windows protected your PC" for `Install.cmd`, that is because the file
 came from the internet: "More info", then "Run anyway".
@@ -153,14 +155,15 @@ changes the file ([security.md](security.md)).
 
 - **Automatically:** at start `unzensiert` looks at most once a day whether a newer release is
   on GitHub, and brings it in (program files, plus the llama.cpp build of the new version;
-  `machine.json` stays). Only published releases count, never the working state of `main`.
+  `machine.json` stays). Only published releases count, and only when they are signed with the
+  release key ([security.md](security.md#signed-releases)); never the working state of `main`.
   Switch off: `unzensiert --updates off`, back on: `--updates on`; the installer asks once.
   Look right now: `unzensiert --update`. Details: [unzensiert.md](unzensiert.md), section
   "Automatic updates".
-- **Run the one-liner** again. It gets the newest release (with git the tag, otherwise the ZIP
-  over the folder, `machine.json` stays; as long as there is no release, the state of `main`)
-  and starts the installer, which only adds what is new. If files in the program folder were
-  changed by hand, it does not update and says so.
+- **Run the one-liner** again. It gets the newest signed release (with git the signed commit,
+  otherwise the signed ZIP over the folder, `machine.json` stays) and starts the installer, which
+  only adds what is new. If files in the program folder were changed by hand, it does not update
+  and says so.
 - **Git clone for development:** `git pull`, then `Install.cmd`. A full clone that is not on a
   release is never updated automatically.
 - **New llama.cpp version:** `build` in `config\server.json`, then `Install-LlamaCpp.ps1`
@@ -200,6 +203,7 @@ how to remove them. Delete the program folder by hand afterwards.
 | `config\unzensiert.json` | Unzensiert: rights, context, time limits | [unzensiert.md](unzensiert.md) |
 | `config\unzensiert-texts.json` | texts of the terminal of Unzensiert | [style.md](style.md) |
 | `config\updates.json` | automatic updates from the releases on GitHub | above |
+| `config\release-keys.json` | the public keys a release must be signed with | [security.md](security.md#signed-releases) |
 | `config\coding-rules.md` | working rules for the local model | [agent.md](agent.md) |
 | `config\style.json`, `config\styles\` | the look of terminal, shell, Unzensiert and Claude Code | [style.md](style.md) |
 | `config\continue.config.yaml` | Continue: chat and autocomplete models | below |
@@ -253,6 +257,9 @@ Backend: [backend.md](backend.md). Agent: [unzensiert.md](unzensiert.md),
 |---|---|
 | `Install stopped: ...` | The message names the reason. Fixed? Start the installer again; it continues there. |
 | `No llama.cpp package could use the graphics card` | Driver too old or card not supported. Update the driver, start the installer again. |
+| `version ... is available ..., but it is not installed: ...` or `... is not signed` | The release does not carry a valid signature of the release key, so nothing was changed. Please report it ([SECURITY.md](../SECURITY.md)). |
+| `... names no SHA-256 for ...` or `Checksum of ... does not match` | A download is not the file named in `config\`; it was not used. Start the installer again; if it stays, report it. |
+| `port 8080 is held by ...` | Another program listens on the port of the server and does not get its key. End that program, or choose another `port` in `config\machine.json` under `"server"`. |
 | `Not enough disk space` | Choose another install folder (`-InstallRoot`) or make room. |
 | `unzensiert` or `claude-local` is not found | Open a new terminal (the PATH only applies there). Otherwise run `scripts\Install-Path.ps1`. |
 | `no model is installed yet` | Start the installer again or `scripts\Get-Model.ps1 -Model <name>`. |

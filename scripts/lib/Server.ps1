@@ -66,10 +66,72 @@ function Get-ServerApiKey {
 }
 
 function Test-ServerUp {
+    # Whether something answers on the port of the server (/health needs no key).
     try {
         $null = Invoke-RestMethod -Uri "$((Get-ServerConfig).baseUrl)/health" -TimeoutSec 3
         return $true
     } catch { return $false }
+}
+
+function Get-PortListeners([int]$Port) {
+    # The ids of the processes that listen on this TCP port over IPv4 (the table of Windows,
+    # a few milliseconds; compiled once per process).
+    if (-not ('Unzensiert.TcpTable' -as [type])) {
+        Add-Type -Namespace Unzensiert -Name TcpTable -MemberDefinition @'
+[DllImport("iphlpapi.dll", SetLastError = true)]
+private static extern uint GetExtendedTcpTable(System.IntPtr table, ref int size, bool order, int family, int tableClass, uint reserved);
+public static int[] Listeners(int port) {
+    // MIB_TCPTABLE_OWNER_PID: a count, then rows of state, local address, local port (network
+    // order), remote address, remote port, owning process (6 x 4 bytes)
+    var ids = new System.Collections.Generic.List<int>();
+    int size = 0;
+    GetExtendedTcpTable(System.IntPtr.Zero, ref size, false, 2, 3, 0);
+    for (int attempt = 0; attempt < 3; attempt++) {
+        System.IntPtr buffer = Marshal.AllocHGlobal(size);
+        try {
+            uint r = GetExtendedTcpTable(buffer, ref size, false, 2, 3, 0);
+            if (r == 122) continue;
+            if (r != 0) throw new System.ComponentModel.Win32Exception((int)r);
+            int count = Marshal.ReadInt32(buffer);
+            for (int i = 0; i < count; i++) {
+                System.IntPtr row = new System.IntPtr(buffer.ToInt64() + 4 + i * 24);
+                int localPort = (Marshal.ReadByte(row, 8) << 8) | Marshal.ReadByte(row, 9);
+                if (Marshal.ReadInt32(row) == 2 && localPort == port) ids.Add(Marshal.ReadInt32(row, 20));
+            }
+            return ids.ToArray();
+        } finally { Marshal.FreeHGlobal(buffer); }
+    }
+    throw new System.InvalidOperationException("the table of TCP connections kept growing");
+}
+'@
+    }
+    return , ([int[]][Unzensiert.TcpTable]::Listeners($Port))
+}
+
+function Get-ServerImpostor {
+    # '' when nothing listens on the port of the server or only llama-server.exe of the install
+    # folder; otherwise who does (docs\security.md): the key of the server goes to nothing else.
+    $server = Get-ServerConfig
+    $exe = [System.IO.Path]::GetFullPath([string]$server.exe)
+    foreach ($id in (Get-PortListeners ([int]$server.port))) {
+        $path = ''
+        try { $path = [string](Get-Process -Id $id -ErrorAction Stop).Path } catch {}
+        if ($path -and [string]::Equals([System.IO.Path]::GetFullPath($path), $exe, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        if ($id -eq 4) { return 'Windows itself (a web service through http.sys, process 4)' }
+        if ($path) { return "$path (process $id)" }
+        return "process $id of another account"
+    }
+    return ''
+}
+
+function Get-ServerRequestKey {
+    # The key for a request to the server, after checking who listens on its port; throws when it
+    # is not llama-server of the install folder, so the key never reaches another program.
+    $key = Get-ServerApiKey
+    if (-not $key) { return '' }
+    $who = Get-ServerImpostor
+    if ($who) { throw "port $((Get-ServerConfig).port) is held by $who, not by llama-server of the install folder; the key of the server is not sent to it. End that program, or choose another port in config\server.json." }
+    return $key
 }
 
 function Get-ServerProcess {
@@ -79,8 +141,13 @@ function Get-ServerProcess {
 }
 
 function Start-Server {
-    # Starts the router if it is not running yet. Idempotent.
-    if (Test-ServerUp) { return }
+    # Starts the router if it is not running yet. Idempotent. Something else on the port is
+    # named instead of being used.
+    if (Test-ServerUp) {
+        $who = Get-ServerImpostor
+        if ($who) { throw "port $((Get-ServerConfig).port) is held by $who, not by llama-server of the install folder. End that program, or choose another port in config\server.json." }
+        return
+    }
     $server = Get-ServerConfig
     if (-not (Test-Path $server.exe)) { throw "llama-server not found at $($server.exe). Run scripts\Install-LlamaCpp.ps1 first." }
     $preset = Write-ModelPresetFile
@@ -137,7 +204,7 @@ function Invoke-ServerApi {
     param([string]$Path, $Body = $null, [int]$TimeoutSec = 900)
     $uri = "$((Get-ServerConfig).baseUrl)$Path"
     $headers = @{}
-    $key = Get-ServerApiKey
+    $key = Get-ServerRequestKey
     if ($key) { $headers['Authorization'] = "Bearer $key" }
     if ($null -eq $Body) { return Invoke-RestMethod -Uri $uri -Headers $headers -TimeoutSec $TimeoutSec }
     $bytes = [System.Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 20))

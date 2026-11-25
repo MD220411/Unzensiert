@@ -24,6 +24,9 @@ There are two things it explicitly does not do:
 | The question before a call | saying yes to something you could not see | built in |
 | Programs, git and environment | programs lying in the project folder, programs a repository names, keys in the environment | built in, `envDeny` in `config\unzensiert.json` |
 | Install and program folder | other accounts of the computer changing the program or reading conversations and the key | built in |
+| Signed releases | an update or installation that the maintainer did not sign, even one published through the GitHub account | `config\release-keys.json` |
+| Downloads | a changed llama.cpp package, model file or font | `sha256` in `config\server.json`, `config\models.json` and the style files |
+| Images | a foreign image file aimed at the image decoders of the server | built in |
 | Sandbox | a command that would change files outside the project or reach the internet | `scripts\Setup-Sandbox.ps1`, `sandbox` in `config\unzensiert.json` |
 | `/undo` | a request that changed or deleted files of the project by mistake | `undo` in `config\unzensiert.json` |
 | Git note at start | changes that cannot be undone | `config\agent.json` |
@@ -42,9 +45,15 @@ itself at start (`no API key is set and CORS allows all origins`).
 - The key is passed through the environment, not the command line. That way it also applies
   to the model processes the server starts on their own ports, and it appears in no process
   list.
+- **Only to `llama-server`:** before the key goes out, the scripts, `unzensiert` and
+  `claude-local` look up in the table of Windows which program listens on the port. Only
+  `llama-server.exe` of the install folder gets the key; anything else there is named, and
+  nothing is sent to it (no connection at all). `claude-local` checks it when it starts, Continue
+  not at all.
 
 Measured: requests without a key get `401`, at the server and at the model process. `/health`
-stays reachable without a key.
+stays reachable without a key. Looking up the port took 14 ms per request, and 0.14 s once per
+process for the first one.
 
 **Creating a new key:** stop the server, delete `api-key.txt`, `Start-Server.ps1`, then
 `Install-Continue.ps1` (writes the key into the configuration of Continue).
@@ -300,6 +309,47 @@ every start and close a folder that is open, with a note. Inside your user folde
 (`%LOCALAPPDATA%`) this is how Windows has it already, and nothing changes. A drive, your user
 folder and folders of Windows are never changed. `Test-Setup.ps1` reports an open folder.
 
+## Signed releases
+
+An installation with automatic updates runs what it downloads. So a release counts only when the
+maintainer signed it with the release key, whose private part lies encrypted with a passphrase on
+a USB stick: never on GitHub, never on the computer where the model works.
+
+- Every release carries `release.json` (version, tag, the commit of the program and its tree,
+  name, size and SHA-256 of the ZIP of the program) and `release.json.sig`, an RSA signature
+  (3072 bits, SHA-256) over the exact bytes of `release.json`. The public keys are in
+  `config\release-keys.json` and, for the one-liner, in `install.ps1`; `config\machine.json`
+  cannot add one.
+- The updater and the one-liner check the signature first, then the files: with git the fetched
+  tag must be the signed commit with the signed tree, and that commit itself is checked out;
+  without git the ZIP must have the signed size and SHA-256 before it is unpacked. A release
+  without a valid signature is not installed, and `unzensiert` says so at start.
+- The one-liner installs only a signed release, never the unreleased state of `main`; without
+  an answer from GitHub it installs nothing.
+- On GitHub a published release cannot be changed (immutable releases), and the tags `v*` and
+  `main` cannot be deleted or rewritten. Security problems can be reported privately
+  ([SECURITY.md](../SECURITY.md)).
+- **Limits:** whoever has both the stick and its passphrase can sign. The one-liner itself comes
+  from GitHub, so a first installation trusts that file; started from a copy on the disk
+  (`install.ps1` as a file, or `Install.cmd`) it does not.
+
+## Downloads
+
+Everything the installer downloads has its SHA-256 in `config\`: the llama.cpp packages per build
+in `sha256` of `config\server.json` (the release of llama.cpp must name the same), the model files
+with a pinned revision in `config\models.json`, the font in the style file. Nothing is downloaded
+without one, a file that does not match is deleted, and `curl` follows a server to `https` only.
+An installed llama.cpp build is removed only after every file of the new one is known.
+
+## Images
+
+An image the model reads or you paste with Alt+V goes to the server only as a PNG that Windows
+decoded and wrote again (32-bit pixels, without metadata, an animated image as its first
+frame): the image decoders of `llama-server` never get the bytes of a foreign file. A file Windows
+cannot read as an image, or one with more than 50 million pixels, is not sent, and the model gets
+a note instead. Measured: 1 to 3 ms for a small picture. Every chat template comes from
+`config\templates`, none from a model file.
+
 ## Programs, git and the environment of commands
 
 - **Programs by their full path.** Unzensiert starts Windows programs and git by their full path
@@ -365,5 +415,6 @@ before the session, everything the model changes can be seen with `git diff` and
 
 `scripts\Test-Setup.ps1` checks in a few seconds that the configuration files are valid and
 consistent with each other, the scripts are readable (ASCII, syntax), model files and templates
-are present and the guard answers. It needs no graphics card and ends with exit code 1 on an
-error.
+are present and the guard answers; also that every download has its SHA-256, that `install.ps1`
+carries the release keys of `config\release-keys.json`, and that nothing but `llama-server` holds
+the port of the server. It needs no graphics card and ends with exit code 1 on an error.

@@ -40,6 +40,7 @@
 #                    AgentUiPlan  the task list, the frame of a question, the plan to approve
 #                    AgentLoop    one request: model, guard, permissions, tools, closing check
 #                    AgentRepl    the conversation, commands with a slash, the -p run
+#   lib\Signature.ps1 signed releases: check the signature of a release, sign one, the key file
 #   lib\Update.ps1   automatic updates from the releases on GitHub (config\updates.json)
 # Keep these files ASCII-only: Windows PowerShell 5.1 reads BOM-less files as ANSI.
 
@@ -86,6 +87,7 @@ if ($env:PATH -match '(^|;)\s*"?(\.|\s*;)') { $env:PATH = (@($env:PATH.Split(';'
 . "$PSScriptRoot\lib\AgentUiPlan.ps1"
 . "$PSScriptRoot\lib\AgentLoop.ps1"
 . "$PSScriptRoot\lib\AgentRepl.ps1"
+. "$PSScriptRoot\lib\Signature.ps1"
 . "$PSScriptRoot\lib\Update.ps1"
 
 # install folder and projects folder for the hooks, which Claude Code starts as processes

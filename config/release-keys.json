@@ -1,0 +1,6 @@
+{
+  "_comment": "Public keys a release must be signed with (scripts\\lib\\Signature.ps1, docs\\security.md#signed-releases). The updater and install.ps1 install a release only when its release.json is signed with one of them; config\\machine.json cannot add one. Written by scripts\\New-ReleaseKey.ps1, which writes the same keys into install.ps1; the private key lies encrypted on a USB stick of the maintainer.",
+  "keys": [
+    { "id": "271fc71b73012fb7", "created": "2026-11-25", "modulus": "5RHCt/amDeoXq8UdpWnZH53rQ+64mk3vismreySjFGOW3e8QoEjnutt7HsmdbAmlxmwWydm0d0KWw/6UkMMJVWOQjMJmSx0MHjYLUC5z1vhGU2AT+hg/FyBECrbTi7N0eR0TtklMQ2zsR0fo4AOrvyMKNb15NMM1CKU8EC8CXzjKdqTNbPz4yFgh27ZQw0S3XnVPtJTw4r18cdSqMR1lRMhf3CXcpfBo7kzb8fiX7cHbsdooR5+QdqjZpG1SVuc6TAWx5MrobHcJ4TrETOVOm09+oYt5GqfrZaLYVX6EOinisDrkFc2uZHGAX6bIEwmfa3CmBuGHWsePOb5qPu6Uvf+SQV41XfNOVKYk0dZloX5H/PgzOXkGTZKWLsbe10lYSlVPXp5Jw8LPGdVqOfPnWBjPTvzApDy+8q3im25LnbppkgifDMpXdgPyVBusrtqY35Pxj7j+cujWr/zx/1NId/oBjrMMHN7Y6fhKp/CKdG9qHeHdsfy/TV9YW5e76sCV", "exponent": "AQAB" }
+  ]
+}

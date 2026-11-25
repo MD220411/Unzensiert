@@ -475,11 +475,14 @@ value in `config\machine.json` under `"unzensiert"`.
 
 New versions appear as releases on GitHub (tag `vX.Y.Z`; the file `VERSION` in the project
 names its own). At start in a terminal `unzensiert` looks at most every `checkHours` hours (24)
-(`config\updates.json`, time limit `timeoutSeconds`). If a newer release is there, it gets the
-program files – with git the tag, otherwise the ZIP of the tag, laid over the folder;
-`config\machine.json` stays untouched –, installs the llama.cpp build of the new version
-(`Install-LlamaCpp.ps1`), restarts the server when the build changed and no other session is
-running, and restarts itself.
+(`config\updates.json`, time limit `timeoutSeconds`). If a newer release is there and its
+`release.json` is signed with a release key of `config\release-keys.json`
+([security.md](security.md#signed-releases)), it gets the program files – with git the tag,
+checked against the signed commit and tree, otherwise the signed ZIP of the release, checked
+against its size and SHA-256 and laid over the folder; `config\machine.json` stays untouched –,
+installs the llama.cpp build of the new version (`Install-LlamaCpp.ps1`), restarts the server when
+the build changed and no other session is running, and restarts itself. A release without a valid
+signature is not installed; the start says so.
 
 - **Switching off:** `unzensiert --updates off` (then noted in `config\machine.json` under
   `"updates"`), on again with `--updates on`. The installer asks once.
@@ -501,7 +504,8 @@ running, and restarts itself.
 - **The question frames** read single keys; they have been checked as output and with fixed
   answers, not yet by typing into a real window.
 - **Images** only go to models with an image encoder (`mmproj`); otherwise Unzensiert replaces
-  them by a note and asks again.
+  them by a note and asks again. Every image goes as a PNG that Windows decoded and wrote again
+  ([security.md](security.md#images)); a file Windows cannot read as an image is not sent.
 - **Without PSReadLine** (very old systems) there is only a simple input line without history
   and without Shift+Enter.
 - **Wide characters** (Chinese script, emoji) count as one column in the terminal. In such

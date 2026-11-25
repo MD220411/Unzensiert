@@ -14,6 +14,37 @@
 #   noop     an Edit or Write that would leave the file as it is (lib\AgentLoop.ps1 counts them)
 
 $script:ImageTypes = @{ '.png' = 'image/png'; '.jpg' = 'image/jpeg'; '.jpeg' = 'image/jpeg'; '.gif' = 'image/gif'; '.webp' = 'image/webp'; '.bmp' = 'image/bmp' }
+# images larger than this many pixels are not decoded (a small file can unpack to gigabytes)
+$script:ImageMaxPixels = 50000000
+
+function ConvertTo-CleanImage([byte[]]$Bytes) {
+    # The image decoded by Windows (WIC) and written again as a PNG of 32-bit pixels, without
+    # its metadata: the image decoders of llama-server only ever get a PNG made by Windows, never
+    # the bytes of a foreign file (docs\security.md). An animated image gives its first frame.
+    # Returns @{ mime; data (base64); width; height }; throws when Windows cannot read it.
+    Add-Type -AssemblyName PresentationCore
+    Add-Type -AssemblyName WindowsBase
+    $in = New-Object System.IO.MemoryStream(, $Bytes)
+    try {
+        $decoder = $null
+        try { $decoder = [System.Windows.Media.Imaging.BitmapDecoder]::Create($in, [System.Windows.Media.Imaging.BitmapCreateOptions]::IgnoreColorProfile, [System.Windows.Media.Imaging.BitmapCacheOption]::Default) }
+        catch { throw 'Windows cannot read this image' }
+        if ($decoder.Frames.Count -lt 1) { throw 'the image has no picture in it' }
+        $frame = $decoder.Frames[0]
+        $w = [long]$frame.PixelWidth
+        $h = [long]$frame.PixelHeight
+        if ($w -lt 1 -or $h -lt 1 -or $w * $h -gt $script:ImageMaxPixels) { throw "the image has $w x $h pixels (at most $($script:ImageMaxPixels / 1000000) million)" }
+        $pixels = New-Object System.Windows.Media.Imaging.FormatConvertedBitmap($frame, [System.Windows.Media.PixelFormats]::Bgra32, $null, 0)
+        $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+        $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($pixels, $null, $null, $null))
+        $out = New-Object System.IO.MemoryStream
+        try {
+            $encoder.Save($out)
+            return @{ mime = 'image/png'; data = [Convert]::ToBase64String($out.ToArray()); width = [int]$w; height = [int]$h }
+        } finally { $out.Dispose() }
+    } finally { $in.Dispose() }
+}
+
 $script:SkipFolders = @('.git', 'node_modules', '__pycache__', '.venv', 'venv', '.mypy_cache', '.pytest_cache', '.idea', '.vs')
 
 # a regular expression of the model or over foreign text may not run for ever
@@ -255,8 +286,11 @@ function Invoke-ToolRead($Session, $A) {
     if ($script:ImageTypes.ContainsKey($ext)) {
         $bytes = [System.IO.File]::ReadAllBytes($path)
         if ($bytes.Length -gt 10MB) { return (New-ToolResult "Image too large ($([int]($bytes.Length / 1MB)) MB)." $true) }
-        $r = New-ToolResult "Image $(Get-DisplayPath $path $Session.cwd) ($([int]($bytes.Length / 1KB)) KB), shown below."
-        $r.image = @{ mime = $script:ImageTypes[$ext]; data = [Convert]::ToBase64String($bytes) }
+        $clean = $null
+        try { $clean = ConvertTo-CleanImage $bytes }
+        catch { return (New-ToolResult "$(Get-DisplayPath $path $Session.cwd) cannot be shown: $($_.Exception.Message)." $true) }
+        $r = New-ToolResult "Image $(Get-DisplayPath $path $Session.cwd) ($([int]($bytes.Length / 1KB)) KB, $($clean.width) x $($clean.height) pixels), shown below."
+        $r.image = @{ mime = $clean.mime; data = $clean.data }
         $r.info = @{ image = $true }
         return $r
     }
