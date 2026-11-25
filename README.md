@@ -187,6 +187,7 @@ In a terminal (also the one in VS Code) in your project folder. All details:
 | `!command` | run a command yourself, the model sees it |
 | `/model` | switch between "Unzensiert", "Fast" and "Qwen 3.8" without ending the session |
 | `/gpu` | choose the graphics cards the models may use (`/gpu 2`, `/gpu 1 2`, `/gpu all`); how much goes on which card the planner works out again |
+| `/undo` | take back the file changes of the last request, also those of its commands |
 | `/compact`, `/clear`, `/resume`, `/status`, `/think`, `/init`, `/help`, `/exit` | summarise, start over, continue, state, show thinking, let it write an `AGENTS.md`, help, quit |
 
 Workflows with fixed steps:
@@ -224,6 +225,13 @@ The models are uncensored: they do not refuse requests, not even instructions hi
 the model reads. So the protection lies outside the model and serves only your computer and
 your data:
 
+- a **sandbox** (one administrator question when you set it up): the commands of the model run
+  as a Windows account of their own, in a sign-in of their own that shares nothing with your
+  programs and desktop; they can change files only in the project folder of the session (not your
+  repository or files that run later by themselves, such as git hooks and editor settings) and
+  reach no other computer;
+- the **install and program folders** are only open to your account, so other accounts of the
+  computer can neither change the program nor read your conversations;
 - the **server** only listens on `127.0.0.1` and requires a key, so web pages in your browser
   cannot use it;
 - a **guard** checks every tool call before it runs: what would destroy data (formatting a
@@ -236,11 +244,12 @@ your data:
   understood; everything else asks;
 - **every question shows what would happen, completely**, and nothing in files, pages or output
   can steer the terminal;
+- **`/undo`** takes back what the last request changed in the project folder;
 - a **git note** at start warns when your work is not committed;
 - **web searches and web pages** ask before they go out and show the search terms or the
   address (except in the mode `all`); switch them off in `config\unzensiert.json`.
 
-It is no sandbox; see [docs/security.md](docs/security.md) for the rules and their limits.
+None of this is perfect; see [docs/security.md](docs/security.md) for the rules and their limits.
 
 ## Status
 
@@ -320,6 +329,7 @@ Each one is called with `powershell -ExecutionPolicy Bypass -File scripts\<name>
 | `Install-Path.ps1` | add `bin\` to the PATH |
 | `Install-Continue.ps1` | install Continue and copy its configuration |
 | `Install-Font.ps1` | install the font of the look (IBM Plex Mono) for the user |
+| `Setup-Sandbox.ps1` | set up the sandbox: a hidden Windows account for the commands of the model, its firewall rule and its service, which runs them in a sign-in of their own (one administrator question; `-Remove` takes it away) |
 | `Install-Style.ps1` | apply the style chosen in `config\style.json` (`config\styles\`) to Windows Terminal and Claude Code, also after a switch (`-Remove` takes it back) |
 | `unzensiert.ps1` | starter behind the command `unzensiert` |
 | `claude-local.ps1` | starter behind the command `claude-local` (Claude Code for comparison) |

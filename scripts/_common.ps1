@@ -5,6 +5,7 @@
 #                    for programs (no program from the current folder)
 #   lib\Config.ps1   reads config\*.json (server, models, agent) and config\machine.json
 #   lib\Machine.ps1  this machine: graphics cards, memory, disk space, programs, setups
+#   lib\FolderRights.ps1 install and program folder only for the user, SYSTEM, administrators
 #   lib\Download.ps1 downloads with resume and checksum (llama.cpp, model files)
 #   lib\Planner.ps1  computes how each model is best spread over cards and main memory
 #   lib\Dialog.ps1   steps, notes and yes/no questions of the installer and uninstaller
@@ -29,6 +30,8 @@
 #                    CommandRules what a command line is made of: does it only read, is it covered
 #                                 by a rule, does it only change files of the project
 #                    AgentSession messages, saved conversations, size of the context
+#                    Undo         /undo: the project folder kept before and after each request
+#                    Sandbox      commands of the model as a Windows account of their own
 #                    AgentUi      the terminal: welcome, activity line, notes, input, the end
 #                                 of a request and of the session
 #                    AgentUiBar   the status bar at the bottom, Write-UiOut for all output
@@ -53,6 +56,7 @@ if ($env:PATH -match '(^|;)\s*"?(\.|\s*;)') { $env:PATH = (@($env:PATH.Split(';'
 . "$PSScriptRoot\hooks\TrustRules.ps1"
 . "$PSScriptRoot\lib\Config.ps1"
 . "$PSScriptRoot\lib\Machine.ps1"
+. "$PSScriptRoot\lib\FolderRights.ps1"
 . "$PSScriptRoot\lib\Download.ps1"
 . "$PSScriptRoot\lib\Planner.ps1"
 . "$PSScriptRoot\lib\Dialog.ps1"
@@ -73,6 +77,8 @@ if ($env:PATH -match '(^|;)\s*"?(\.|\s*;)') { $env:PATH = (@($env:PATH.Split(';'
 . "$PSScriptRoot\lib\CommandRules.ps1"
 . "$PSScriptRoot\lib\AgentPrompt.ps1"
 . "$PSScriptRoot\lib\AgentSession.ps1"
+. "$PSScriptRoot\lib\Undo.ps1"
+. "$PSScriptRoot\lib\Sandbox.ps1"
 . "$PSScriptRoot\lib\AgentUi.ps1"
 . "$PSScriptRoot\lib\AgentUiBar.ps1"
 . "$PSScriptRoot\lib\AgentUiMarkdown.ps1"

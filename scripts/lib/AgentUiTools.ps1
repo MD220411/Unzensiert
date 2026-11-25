@@ -616,6 +616,7 @@ function Show-UiPermission([string]$Name, [string]$Subject, [string]$Why, [bool]
         elseif ($reason -eq 'web' -and $Name -eq 'WebSearch') { $reason = Get-UiText 'permission.webSearch' }
         elseif ($reason -eq 'web') { $reason = Get-UiText 'permission.webFetch' }
         elseif ($reason -eq 'plan') { $reason = Get-UiText 'permission.planMode' }
+        elseif ($reason -eq 'outside the sandbox') { $reason = Get-UiText 'permission.outsideSandbox' }
         foreach ($l in (Format-UiWrapped @(New-UiSpan $reason $mode.dim 'i') (Format-UiInk $label $hex) (' ' * $label.Length) $label.Length $inner)) { $null = $body.Add($l) }
     }
     if ($CanAlways -and $A) {

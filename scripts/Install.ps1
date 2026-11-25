@@ -90,6 +90,17 @@ try {
     if (-not $Plan) { New-Item -ItemType Directory -Force -Path $root | Out-Null }
     Set-MachineValue 'server' 'installRoot' $root
     Publish-ConfigEnvironment
+    # install folder and program folder only for this account, SYSTEM and the administrators
+    # (lib\FolderRights.ps1): on another drive every account of the computer may change them
+    if ($Plan) {
+        foreach ($f in @($root, $script:ProjectRoot)) {
+            if (-not (Test-Path -LiteralPath $f)) { continue }
+            $strangers = Get-FolderStrangers $f
+            if ($strangers -and @($strangers).Count -gt 0) { Write-Note "would close $f to $(@($strangers) -join ', ')" }
+        }
+    } else {
+        foreach ($n in @(Protect-ProgramFolders @($root, $script:ProjectRoot))) { Write-Note $n }
+    }
 
     # --- 3. Git and (for comparison) Claude Code ---------------------------------------------
     Write-Step 'Git for Windows and Claude Code' $steps
@@ -240,6 +251,18 @@ try {
         $on = Confirm-Step 'Install new releases automatically?'
         Set-UpdatesEnabled $on
         if (-not $on) { Write-Note 'switched off; switch on later with: unzensiert --updates on' }
+    }
+    # the sandbox (lib\Sandbox.ps1): the commands of the model as a Windows account of their own;
+    # Windows asks for an administrator once, so not without a person at the terminal
+    if ($Plan) { Write-Note 'would offer the sandbox (scripts\Setup-Sandbox.ps1)' }
+    elseif ((Get-SandboxSetup -Fresh).ready) { Write-Note 'sandbox: set up' }
+    elseif ($Yes) { Write-Note 'sandbox: not set up without a person to answer the administrator question (later: scripts\Setup-Sandbox.ps1)' }
+    else {
+        Write-Note 'The commands of the model can run as a Windows account of their own: it may change files only'
+        Write-Note 'in the project folder, cannot read your user folder and reaches no other computer.'
+        if (Confirm-Step 'Set up this sandbox now? (Windows asks once for administrator rights)') {
+            if ((Invoke-ProjectScript 'Setup-Sandbox.ps1') -ne 0) { Write-Warn 'the sandbox is not set up; later: scripts\Setup-Sandbox.ps1' }
+        } else { Write-Note 'not set up; later: scripts\Setup-Sandbox.ps1' }
     }
 
     # --- 7. test ---------------------------------------------------------------------------------

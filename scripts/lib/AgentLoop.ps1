@@ -292,6 +292,10 @@ function Get-CallDecision($Session, [string]$Name, $A, $Guard) {
         if ($Session.mode -eq 'all' -or (Test-ToolAllowed $Session $Name $A $Guard)) { return @{ action = 'run' } }
         return @{ action = 'ask'; guard = $false; why = 'web' }
     }
+    if (($Name -eq 'Bash' -or $Name -eq 'PowerShell') -and [bool]$Session.sandbox -and [bool](Get-DictValue $A 'outside_sandbox')) {
+        # out of the sandbox (lib\Sandbox.ps1): the user decides every time, in every mode
+        return @{ action = 'ask'; guard = $false; noAlways = $true; why = 'outside the sandbox' }
+    }
     if ($Session.mode -eq 'plan') {
         # research yes, changes no: file changes are refused, commands that only read run,
         # other commands ask (some only look something up)
@@ -504,6 +508,10 @@ function Invoke-ToolCalls($Session, $Calls, $Guard) {
                 continue
             }
         }
+        # the project folder as it was before this request, for /undo (lib\Undo.ps1); a failure
+        # there only ends /undo for this conversation, never the work
+        try { if (Test-UndoChange $Session $c.name $parsed) { Save-UndoBefore $Session $c.name $parsed } }
+        catch { if ($Session.undo) { Set-UndoOff $Session 'error' $_.Exception.Message } }
         $result = Invoke-AgentTool $Session $c.name $parsed { Test-UiStop }
         if ($result.changed -and $asked) { Update-TrustAfterWrite $Session $result.changed ($c.name -ceq 'Write') }
         if ($result.changed) {
@@ -581,7 +589,7 @@ function Invoke-AgentTurn($Session, $Content) {
     # Returns done, stopped (Esc or a no), loop, limit or error.
     $cfg = Get-AgentSettings
     $guard = Get-SessionGuard $Session
-    $schemas = Get-AgentToolSchemas $Session.gitBash @(Get-AgentOwnTools $Session)
+    $schemas = Get-AgentToolSchemas $Session.gitBash @(Get-AgentOwnTools $Session) ([bool]$Session.sandbox)
     # The thinking of earlier requests stays in the conversation: the chat templates show it
     # (preserve_thinking), so removing it would change the text the server has cached and make
     # it read the whole previous request again (21k tokens, 22 s measured, docs\unzensiert.md).
@@ -612,59 +620,64 @@ function Invoke-AgentTurn($Session, $Content) {
     $Session.emptyAnswers = 0
     $maxRounds = [int]$cfg.maxToolRounds
     if ($Session.maxTurns -gt 0) { $maxRounds = [int]$Session.maxTurns }
-
-    for ($round = 1; $round -le $maxRounds; $round++) {
-        Invoke-AutoCompact $Session
-        $answer = Invoke-ModelRound $Session $schemas
-        if ($null -eq $answer) { return 'error' }
-        if ($answer.cancelled) {
-            $text = [string]$answer.content
-            if ($text) { $text += "`n" }
-            Add-SessionMessage $Session @{ role = 'assistant'; content = $text + '[stopped by the user]' }
-            return 'stopped'
+    try { Start-UndoRequest $Session $Session.lastPrompt } catch {}
+    # the end of the request also keeps the project folder for /undo, however it ends
+    try {
+        for ($round = 1; $round -le $maxRounds; $round++) {
+            Invoke-AutoCompact $Session
+            $answer = Invoke-ModelRound $Session $schemas
+            if ($null -eq $answer) { return 'error' }
+            if ($answer.cancelled) {
+                $text = [string]$answer.content
+                if ($text) { $text += "`n" }
+                Add-SessionMessage $Session @{ role = 'assistant'; content = $text + '[stopped by the user]' }
+                return 'stopped'
+            }
+            $calls = @($answer.toolCalls)
+            if ($calls.Count -eq 0) {
+                $msg = @{ role = 'assistant'; content = [string]$answer.content }
+                if ($answer.reasoning) { $msg['reasoning_content'] = [string]$answer.reasoning }
+                Add-SessionMessage $Session $msg
+                $Session.lastAnswer = [string]$answer.content
+                if ($answer.finish -eq 'length') { Write-UiNote (Get-UiText 'notes.cutOff' $Session.lastBudget) 'warn' }
+                # neither text nor a tool call: the model thought but gave no result, which is no
+                # end of the work (it failed the task pinwechsel of the run plan1 after two rounds)
+                if (-not ([string]$answer.content).Trim() -and $Session.emptyAnswers -lt [int]$cfg.emptyAnswerNotes) {
+                    $Session.emptyAnswers++
+                    Write-UiNote (Get-UiText 'notes.emptyAnswer') 'warn'
+                    Add-SessionMessage $Session @{ role = 'user'; content = "$($script:NotePrefix): your answer was empty, without text and without a tool call. Go on with the task: make the tool call you planned next, or give your final report.]" }
+                    continue
+                }
+                # open steps of the task list first: the work is not done yet
+                $reminder = Get-TodoReminder $Session
+                if ($reminder) {
+                    $openCount = @(Get-OpenTodos $Session).Count
+                    Write-UiNote (Get-UiText 'notes.todoOpen' (Get-UiCount $openCount 'steps')) 'warn'
+                    Add-SessionMessage $Session @{ role = 'user'; content = $reminder }
+                    continue
+                }
+                $hook = Invoke-AgentClosingCheck $Session
+                if ($hook -and $hook.decision -eq 'block') {
+                    $first = ([string]$hook.reason).Split("`n")[0]
+                    if ($first.Length -gt 110) { $first = $first.Substring(0, 110) + '...' }
+                    Write-UiNote (Get-UiText 'notes.checkSays' $first) 'warn'
+                    Add-SessionMessage $Session @{ role = 'user'; content = $script:HookPrefix + "`n" + [string]$hook.reason }
+                    $Session.stopActive = $true
+                    continue
+                }
+                if ($hook -and $hook.systemMessage) { Write-UiNote ([string]$hook.systemMessage) 'warn' }
+                return 'done'
+            }
+            Add-SessionMessage $Session (New-AssistantCallMessage $answer $calls)
+            $Session.requestTools += $calls.Count
+            $outcome = Invoke-ToolCalls $Session $calls $guard
+            if ($outcome -ne 'ok') { return $outcome }
         }
-        $calls = @($answer.toolCalls)
-        if ($calls.Count -eq 0) {
-            $msg = @{ role = 'assistant'; content = [string]$answer.content }
-            if ($answer.reasoning) { $msg['reasoning_content'] = [string]$answer.reasoning }
-            Add-SessionMessage $Session $msg
-            $Session.lastAnswer = [string]$answer.content
-            if ($answer.finish -eq 'length') { Write-UiNote (Get-UiText 'notes.cutOff' $Session.lastBudget) 'warn' }
-            # neither text nor a tool call: the model thought but gave no result, which is no
-            # end of the work (it failed the task pinwechsel of the run plan1 after two rounds)
-            if (-not ([string]$answer.content).Trim() -and $Session.emptyAnswers -lt [int]$cfg.emptyAnswerNotes) {
-                $Session.emptyAnswers++
-                Write-UiNote (Get-UiText 'notes.emptyAnswer') 'warn'
-                Add-SessionMessage $Session @{ role = 'user'; content = "$($script:NotePrefix): your answer was empty, without text and without a tool call. Go on with the task: make the tool call you planned next, or give your final report.]" }
-                continue
-            }
-            # open steps of the task list first: the work is not done yet
-            $reminder = Get-TodoReminder $Session
-            if ($reminder) {
-                $openCount = @(Get-OpenTodos $Session).Count
-                Write-UiNote (Get-UiText 'notes.todoOpen' (Get-UiCount $openCount 'steps')) 'warn'
-                Add-SessionMessage $Session @{ role = 'user'; content = $reminder }
-                continue
-            }
-            $hook = Invoke-AgentClosingCheck $Session
-            if ($hook -and $hook.decision -eq 'block') {
-                $first = ([string]$hook.reason).Split("`n")[0]
-                if ($first.Length -gt 110) { $first = $first.Substring(0, 110) + '...' }
-                Write-UiNote (Get-UiText 'notes.checkSays' $first) 'warn'
-                Add-SessionMessage $Session @{ role = 'user'; content = $script:HookPrefix + "`n" + [string]$hook.reason }
-                $Session.stopActive = $true
-                continue
-            }
-            if ($hook -and $hook.systemMessage) { Write-UiNote ([string]$hook.systemMessage) 'warn' }
-            return 'done'
-        }
-        Add-SessionMessage $Session (New-AssistantCallMessage $answer $calls)
-        $Session.requestTools += $calls.Count
-        $outcome = Invoke-ToolCalls $Session $calls $guard
-        if ($outcome -ne 'ok') { return $outcome }
+        Write-UiNote (Get-UiText 'notes.maxRounds' $maxRounds) 'warn'
+        return 'limit'
+    } finally {
+        try { $null = Complete-UndoRequest $Session } catch { if ($Session.undo) { Set-UndoOff $Session 'error' $_.Exception.Message } }
     }
-    Write-UiNote (Get-UiText 'notes.maxRounds' $maxRounds) 'warn'
-    return 'limit'
 }
 
 # --- context window -----------------------------------------------------------------------------

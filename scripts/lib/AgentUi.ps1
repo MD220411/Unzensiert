@@ -903,6 +903,10 @@ function Show-UiStatus($Session, $Info) {
         $changed = @($Session.changed | ForEach-Object { Get-DisplayPath ([string]$_) $Session.cwd })
         $rows += , @((Get-UiText 'statusPanel.changed'), ((Format-UiInk (Get-UiCount $changed.Count 'files') $mode.foreground) + (Format-UiInk ('  ' + (Limit-UiText ($changed -join '  ') ($max - 12))) $mode.dim)))
     }
+    $box = Get-UiText 'sandbox.on' (Get-SandboxSetup).account
+    $boxInk = $mode.foreground
+    if (-not $Session.sandbox) { $box = Get-SandboxWhyText $Session; $boxInk = $mode.dim }
+    $rows += , @((Get-UiText 'statusPanel.sandbox'), (Format-UiInk (Limit-UiText $box $max) $boxInk))
     $rows += , @((Get-UiText 'statusPanel.file'), (Format-UiInk (Limit-UiText ([string]$Session.file) $max) $mode.faint))
     Write-UiRows $rows 11
 }

@@ -52,8 +52,9 @@ function Get-PromptFlags($Session) {
     # What the conditions of the prompt ask about: every tool of Unzensiert's own that this
     # session offers (lib\AgentPlan.ps1, Get-AgentOwnTools), "web" when one of the web tools is
     # among them, "terminal" when someone is there to answer, "parallel" when several tool
-    # calls in one answer are welcome ("parallelToolCalls" in config\unzensiert.json).
-    $flags = @{ terminal = [bool]$script:Ui.on; web = $false; parallel = [bool](Get-AgentSettings).parallelToolCalls }
+    # calls in one answer are welcome ("parallelToolCalls" in config\unzensiert.json),
+    # "sandbox" when the commands of the session run in the sandbox (lib\Sandbox.ps1).
+    $flags = @{ terminal = [bool]$script:Ui.on; web = $false; parallel = [bool](Get-AgentSettings).parallelToolCalls; sandbox = [bool]$Session.sandbox }
     foreach ($name in @(Get-AgentOwnTools $Session)) { $flags[$name] = $true }
     $flags.web = [bool]($flags['WebSearch'] -or $flags['WebFetch'])
     return $flags

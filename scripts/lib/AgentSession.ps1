@@ -43,6 +43,10 @@ function New-AgentSession([string]$Cwd, [string]$Model) {
         # trust in the folder (lib\Trust.ps1): --trust for this run, the answer about the check
         # command; the guard rules of this session, read once
         trustOnce = $false; checkAnswer = $null; guard = $null
+        # /undo (lib\Undo.ps1): set up with the first change of the conversation
+        undo = $null
+        # the sandbox (lib\Sandbox.ps1): whether the commands run in it, and why not
+        sandbox = $false; sandboxWhy = ''
     }
 }
 

@@ -90,6 +90,7 @@
     "webSearch": "the search terms go out to the search engine on the internet",
     "webFetch": "the address goes out to the internet",
     "planMode": "plan mode: the model wants to run this while it plans",
+    "outsideSandbox": "it would run as you, outside the sandbox: with internet, your files and your credentials",
     "protected": "this file runs or is obeyed later by itself (protectedFiles in config\\guard.json)",
     "hidden": "{0} more lines, v shows everything",
     "view": "show everything",
@@ -123,6 +124,44 @@
     "checkAlways": "always in this project",
     "checkNo": "no",
     "checkSkipped": "The check command {0} was not run: not confirmed."
+  },
+  "sandbox": {
+    "failed": "The sandbox could not start a command ({0}); it is off for this session, commands run as you again. scripts\\Setup-Sandbox.ps1 repairs it.",
+    "unprotected": "The sandbox could not protect the project folder ({0}); it is off for this session, commands run as you again under the usual questions.",
+    "blocked": "sandbox: {0}",
+    "off": "no sandbox in this session: {0}",
+    "on": "on: commands run as {0}",
+    "why": {
+      "off": "switched off (\"sandbox\" in config\\unzensiert.json)",
+      "notSetUp": "not set up on this computer (scripts\\Setup-Sandbox.ps1)",
+      "broken": "incomplete (scripts\\Setup-Sandbox.ps1 repairs it)",
+      "noService": "set up before the sandbox had its service: scripts\\Setup-Sandbox.ps1 sets it up (one administrator question)"
+    }
+  },
+  "undo": {
+    "title": "Take back the last request?",
+    "restore": "back as before ({0}):",
+    "remove": "made by the request, removed ({0}):",
+    "kept": "changed again since, they stay ({0}):",
+    "more": "and {0} more",
+    "yes": "take back",
+    "no": "keep",
+    "declined": "nothing changed",
+    "done": "taken back: {0} files as before the request; the model learns it with your next message",
+    "failed": "not everything could be taken back: {0}",
+    "nothing": "Nothing to take back in this conversation.",
+    "allChanged": "The files of the last request were all changed again since ({0}); nothing is taken back.",
+    "disabled": "/undo is switched off (\"undo\" in config\\unzensiert.json).",
+    "off": "No /undo in this conversation: {0}",
+    "outside": "a link leads out of the project",
+    "why": {
+      "root": "a drive, your user folder or a folder of Windows is no project folder",
+      "network": "the folder lies on another computer",
+      "git": "git is not installed",
+      "tooMany": "more than {0} new files at once",
+      "slow": "keeping the files took longer than {0} s",
+      "error": "{0}"
+    }
   },
   "question": {
     "title": "Question",
@@ -235,6 +274,7 @@
       ["/clear", "new conversation"],
       ["/resume", "continue an earlier conversation of this folder"],
       ["/status", "model, context, tokens, rights, files"],
+      ["/undo", "take back the file changes of the last request (again: the one before)"],
       ["/think", "show or hide the model's thinking"],
       ["/init", "the model writes an AGENTS.md for the project"],
       ["/exit", "quit"]
@@ -255,6 +295,7 @@
     "nothingAllowed": "nothing extra",
     "rules": "Rules",
     "changed": "Changed",
+    "sandbox": "Sandbox",
     "file": "File"
   },
 

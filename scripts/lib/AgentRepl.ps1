@@ -23,7 +23,7 @@ function Reset-AgentSession($Session, [string]$File = '') {
     # Starts over in the same object (/clear), or with an earlier session (/resume). Model,
     # mode and the "always" answers stay.
     $fresh = New-AgentSession $Session.cwd $Session.model
-    foreach ($k in 'mode', 'modeBeforePlan', 'allowed', 'allowedTools', 'showThinking', 'maxTurns', 'trustOnce', 'checkAnswer', 'guard') { $fresh[$k] = $Session[$k] }
+    foreach ($k in 'mode', 'modeBeforePlan', 'allowed', 'allowedTools', 'showThinking', 'maxTurns', 'trustOnce', 'checkAnswer', 'guard', 'sandbox', 'sandboxWhy') { $fresh[$k] = $Session[$k] }
     foreach ($k in @($fresh.Keys)) { $Session[$k] = $fresh[$k] }
     Initialize-AgentSession $Session
     if ($File) { Import-AgentSession $Session $File }
@@ -292,6 +292,7 @@ function Invoke-SlashCommand($Session, [string]$Line) {
             }
         }
         'status' { Show-AgentStatus $Session }
+        'undo' { Invoke-UndoCommand $Session }
         'think' {
             $Session.showThinking = -not $Session.showThinking
             $script:Ui.showThinking = $Session.showThinking

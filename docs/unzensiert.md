@@ -73,7 +73,8 @@ session ends, the models are unloaded as with `claude-local` (`onExit` in
 | `/compact [what to keep]` | summarise the conversation now |
 | `/clear` | new conversation |
 | `/resume [number]` | continue an earlier conversation of this folder |
-| `/status` | model, context, tokens, rights, project instructions, file of the conversation |
+| `/status` | model, context, tokens, rights, project instructions, sandbox, file of the conversation |
+| `/undo` | take back the file changes of the last request; the next `/undo` the one before ([below](#undo)) |
 | `/think` | show the model's thinking or only its length |
 | `/init` | the model writes an `AGENTS.md` for the project |
 | `/feature`, `/bugfix`, `/review` (also `/local:feature` etc.) | workflows from `config\workflows\commands\` ([agent.md](agent.md)) |
@@ -160,6 +161,12 @@ what is blocked never runs, what is delicate always asks. After that the mode ap
 - Command lines are split at `&&`, `||`, `;`, `|`, `&` and line breaks as the shell does it; every
   piece must be allowed, `python -c "a; b"` stays one command. A line that cannot be taken apart
   with certainty asks as a whole.
+- **Sandbox:** when `scripts\Setup-Sandbox.ps1` has set it up, the commands of the model run as
+  a Windows account of their own, through its service in a sign-in of their own: they can change
+  only the project folder of the session, see none of your programs and reach no other computer;
+  your repository and the files that run later by themselves (git hooks, editor settings,
+  `CLAUDE.md`) are read-only for them. With `outside_sandbox` a command runs as you, after a
+  question every time, for example `git commit` ([security.md](security.md#sandbox)).
 - **Trust:** what a folder brings along (instructions, check command, programs of its git
   configuration) is used after one yes at the start; `--trust` for a run without a terminal
   ([security.md](security.md#trust-in-a-folder)).
@@ -344,6 +351,31 @@ per line; images are not saved, only a note. After a summary there is a mark; co
 (`-c`, `--resume`, `/resume`) begins behind it and gets a fresh system prompt (date, git
 state, today's rules). The task list comes back from the last `TodoWrite` call.
 
+## Undo
+
+`/undo` takes back what the last request changed in the project folder, also what its commands
+changed, not only Edit and Write. Before the first change of a request Unzensiert keeps the folder
+as it is, and again when the request ends. `/undo` shows the request and its files; after `y` it
+puts back what the request changed or deleted and removes the files it made, with the folders only
+they filled. A file changed again since, by you or by a later request, stays as it is and is named.
+The next `/undo` takes back the request before. The model learns it with your next message.
+
+- **Kept:** the files git would not ignore in the folder (`.gitignore`; the folder need not be a
+  repository), and every file Edit or Write changes, also an ignored one such as `.env`. Byte for
+  byte: line ends and binary files come back as they were.
+- **Not kept:** files larger than 20 MB, folders tools make again (`node_modules`, `.venv`,
+  `target` ...), whatever lies behind a junction or a link, files that are only in the cloud
+  (OneDrive), the repository itself (`.git`), changes outside the folder. A drive, your user folder
+  and folders of Windows get no `/undo`; more than 30,000 new files at once, or keeping that takes
+  longer than 60 s, end it for the conversation with a note.
+- **Where:** in a repository of its own next to the saved conversations
+  (`<installRoot>\sessions\<project folder>\undo`), never in the project. Its git reads no
+  configuration of yours or of the project: no filters, no hooks, no change of line ends.
+  Conversations older than seven days leave it. A continued conversation (`/resume`, `-c`) keeps
+  its requests; after `/clear` there is nothing to take back.
+- **Cost:** measured on this repository (368 files) 0.2 s each time, 1.2 s the first time in a
+  folder; twice per request that changes something.
+
 ## System prompt
 
 `config\unzensiert-prompt.md` with the facts of the session (date, Windows, folder, git with
@@ -432,6 +464,8 @@ starting" go to the error output in a one-off run; standard output only contains
 | `maxOutputTokens` | `16384` | longest answer; never more than fits into the window |
 | `showThinking` | `false` | show the thinking (in the session `/think`) |
 | `historyFile` | `unzensiert-history.txt` | earlier input, in the install folder |
+| `undo` | `enabled`, `maxFileMB` 20, `maxFiles` 30000, `keepDays` 7, `timeoutSeconds` 60, `exclude` | `/undo` ([above](#undo)) |
+| `sandbox` | `use` `auto`, `account`, `group`, `firewallRule`, `disableGroups` | the sandbox; `off` switches it off ([security.md](security.md#sandbox)) |
 
 Model, short names, choice of `/model`, working rules, closing check, second look, tools and
 `onExit` come from `config\agent.json` as with `claude-local`. A computer can change every

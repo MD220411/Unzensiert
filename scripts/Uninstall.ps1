@@ -2,11 +2,13 @@
 #   1. stops llama-server
 #   2. takes the commands unzensiert and claude-local off the PATH
 #   3. removes the look of the project, if it is installed (Install-Style.ps1 -Remove)
-#   4. deletes what the installer put into the install folder: llama.cpp, the model files
+#   4. removes the sandbox, if it is set up (Setup-Sandbox.ps1 -Remove: the account, its group
+#      and firewall rule; Windows asks for an administrator once)
+#   5. deletes what the installer put into the install folder: llama.cpp, the model files
 #      named in config\models.json, run state, logs, downloads, benchmark work folder,
 #      the saved conversations of Unzensiert and its input history.
 #      Other files in that folder stay, and so does the folder if anything is left in it.
-#   5. deletes config\machine.json
+#   6. deletes config\machine.json
 # Claude Code, Git for Windows and the settings of the VS Code extension Continue stay:
 # they are programs of their own; how to remove them is printed at the end. The program
 # folder itself can be deleted by hand afterwards.
@@ -20,7 +22,7 @@ param([switch]$Yes, [switch]$KeepModels)
 . "$PSScriptRoot\_common.ps1"
 
 $script:AssumeYes = [bool]$Yes
-$steps = 5
+$steps = 6
 Assert-CanAsk
 $server = Get-ServerConfig
 $root = $server.installRoot
@@ -46,6 +48,15 @@ if (Test-StyleInstalled) {
     if ((Invoke-ProjectScript 'Install-Style.ps1' @('-Remove')) -ne 0) { Write-Warn 'could not be removed completely (see above)' }
 } else {
     Write-Note 'not installed'
+}
+
+Write-Step 'Sandbox' $steps
+if ((Get-SandboxSetup -Fresh).account) {
+    if (Confirm-Step "Remove the sandbox (account $((Get-SandboxSetup).account), its group and firewall rule)?") {
+        if ((Invoke-ProjectScript 'Setup-Sandbox.ps1' @('-Remove')) -ne 0) { Write-Warn 'could not be removed completely (see above)' }
+    }
+} else {
+    Write-Note 'not set up'
 }
 
 Write-Step "Install folder $root" $steps

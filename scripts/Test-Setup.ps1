@@ -118,6 +118,14 @@ foreach ($m in [regex]::Matches($continue, '(?m)^\s+model:\s*(\S+)\s*$')) {
 }
 Assert-That ($continue -match "apiBase: $([regex]::Escape($server.baseUrl))") "continue.config.yaml: address matches server.json ($($server.baseUrl))"
 
+# --- 5b. install folder and program folder only for this account ----------------------------
+foreach ($f in @(Get-ProgramFolders)) {
+    if (-not (Test-Path -LiteralPath $f)) { continue }
+    $strangers = Get-FolderStrangers $f
+    if ($null -eq $strangers) { "note  the rights of $f cannot be read (a drive without rights?)"; continue }
+    Assert-That (@($strangers).Count -eq 0) "only this account, SYSTEM and administrators may open $f$(if (@($strangers).Count -gt 0) { ' (also: ' + (@($strangers) -join ', ') + '; start unzensiert once or run Install.cmd again)' })"
+}
+
 # --- 6. safety guard -------------------------------------------------------------------
 $guard = Get-GuardConfig
 Assert-That (Test-Path (Get-GuardScript)) 'guard script exists'

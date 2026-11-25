@@ -27,11 +27,12 @@ function Get-AgentSettings {
     return $script:AgentSettings
 }
 
-function Get-AgentToolSchemas([string]$GitBash, $Own = @()) {
+function Get-AgentToolSchemas([string]$GitBash, $Own = @(), [bool]$Sandbox = $false) {
     # Descriptions for the model (OpenAI function format) of the tools listed in "tools" of
     # config\agent.json, the same set claude-local gives Claude Code; without Git Bash the
     # Bash tool becomes the PowerShell tool (lib\Machine.ps1, Get-AgentTools). $Own: tools of
     # Unzensiert's own this session offers on top (lib\AgentPlan.ps1, Get-AgentOwnTools).
+    # $Sandbox: the commands run in the sandbox (lib\Sandbox.ps1); they get outside_sandbox.
     $cfg = Get-AgentSettings
     $wanted = @(([string](Get-AgentTools ([string](Get-AgentConfig).tools) $GitBash)) -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     if ($wanted.Count -eq 0) { $wanted = @('Bash', 'PowerShell', 'Read', 'Edit', 'Write', 'Glob', 'Grep') }
@@ -44,6 +45,7 @@ function Get-AgentToolSchemas([string]$GitBash, $Own = @()) {
         timeout     = @{ type = 'integer'; description = "Seconds before the command is stopped (default $t, at most $max)." }
         description = @{ type = 'string'; description = 'What the command does, in a few words.' }
     }
+    if ($Sandbox) { $cmdProps['outside_sandbox'] = @{ type = 'boolean'; description = 'true runs the command as the user, outside the sandbox: only when it needs the internet, the credentials of the user, files outside the project folder, or changes the git repository (git add, commit, checkout ...). The user is asked every time.' } }
     if ($GitBash -and $wanted -contains 'Bash') {
         $tools += @{ type = 'function'; function = @{ name = 'Bash'; description = "Runs a command in Git Bash (POSIX shell) in the project folder and returns stdout and stderr. Chain steps with &&. Do not start programs that wait for input or never end."; parameters = @{ type = 'object'; properties = $cmdProps; required = @('command') } } }
     }
@@ -633,15 +635,19 @@ function Invoke-ToolShell($Session, [string]$Kind, $A, [scriptblock]$ShouldStop,
     $timeout = [int](Get-DictValue $A 'timeout')
     if ($timeout -le 0) { $timeout = [int]$cfg.commandTimeoutSeconds }
     $timeout = [math]::Min($timeout, [int]$cfg.commandMaxSeconds)
+    # commands of the model run in the sandbox when this session has one (lib\Sandbox.ps1); the
+    # runner writes the script into the temp folder of the sandbox account itself
+    $sandboxed = (-not $ByUser) -and [bool]$Session.sandbox -and -not [bool](Get-DictValue $A 'outside_sandbox')
+    $script = ''
     $dir = Join-Path $env:TEMP 'unzensiert'
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    if ($Kind -eq 'Bash') {
+    if (-not $sandboxed -and $Kind -eq 'Bash') {
         $script = Join-Path $dir ("cmd-" + [guid]::NewGuid().ToString('N').Substring(0, 10) + '.sh')
         [System.IO.File]::WriteAllText($script, $command.Replace("`r`n", "`n") + "`n", (New-Object System.Text.UTF8Encoding($false)))
         $psi.FileName = $Session.gitBash
         $psi.Arguments = '"' + $script.Replace('\', '/') + '"'
-    } else {
+    } elseif (-not $sandboxed) {
         $script = Join-Path $dir ("cmd-" + [guid]::NewGuid().ToString('N').Substring(0, 10) + '.ps1')
         $prefix = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; `$OutputEncoding = [System.Text.Encoding]::UTF8; `$ProgressPreference = 'SilentlyContinue'`r`n"
         # the exit code of the last program the command called, as a terminal would show it
@@ -667,39 +673,84 @@ function Invoke-ToolShell($Session, [string]$Kind, $A, [scriptblock]$ShouldStop,
     $psi.RedirectStandardInput = $true
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $stopped = ''
+    # the watch of the sandbox (lib\Sandbox.ps1): repositories and protected files read-only for
+    # the account, and what appears while the command runs
+    $sbWatch = $null
+    $sbNotes = @()
+    $proc = $null
     try {
-        $proc = Start-ChildProcess $psi
-        $proc.StandardInput.Close()
-        # the bytes as they come; decoded line by line below (ConvertFrom-OutputBytes)
-        $outBytes = New-Object System.IO.MemoryStream
-        $errBytes = New-Object System.IO.MemoryStream
-        $outTask = $proc.StandardOutput.BaseStream.CopyToAsync($outBytes)
-        $errTask = $proc.StandardError.BaseStream.CopyToAsync($errBytes)
+        if ($sandboxed) {
+            try { $sbWatch = Start-SandboxWatch $Session }
+            catch {
+                # without the watch the command could change what runs as the user: no sandbox
+                # for the rest of the session, the usual questions instead
+                $Session.sandbox = $false
+                $Session.sandboxWhy = $_.Exception.Message
+                Write-UiNote (Get-UiText 'sandbox.unprotected' $_.Exception.Message) 'error'
+                return (New-ToolResult "The sandbox could not protect the project folder ($($_.Exception.Message)). It is off for the rest of this session; run the command again if it is still needed." $true)
+            }
+            try { $proc = Start-SandboxProcess $Session (New-SandboxPayload $Session $Kind $command) }
+            catch {
+                $null = Stop-SandboxWatch $sbWatch
+                $sbWatch = $null
+                # the account cannot start any more (password or account changed): no sandbox for
+                # the rest of the session, said to the user and the model
+                $Session.sandbox = $false
+                $Session.sandboxWhy = $_.Exception.Message
+                Write-UiNote (Get-UiText 'sandbox.failed' $_.Exception.Message) 'error'
+                return (New-ToolResult "The sandbox could not start this command ($($_.Exception.Message)). It is off for the rest of this session; run the command again if it is still needed." $true)
+            }
+        } else {
+            $proc = Start-ChildProcess $psi
+            $proc.StandardInput.Close()
+        }
+        # the bytes as they come; decoded line by line below (ConvertFrom-OutputBytes); in the
+        # sandbox the client collects them from the pipe of the runner (scripts\sandbox\Client.cs)
+        $outTask = $null
+        $errTask = $null
+        if ($sandboxed) {
+            $outBytes = $proc.Output
+            $errBytes = $proc.Errors
+        } else {
+            $outBytes = New-Object System.IO.MemoryStream
+            $errBytes = New-Object System.IO.MemoryStream
+            $outTask = $proc.StandardOutput.BaseStream.CopyToAsync($outBytes)
+            $errTask = $proc.StandardError.BaseStream.CopyToAsync($errBytes)
+        }
         while (-not $proc.WaitForExit(100)) {
             if ($watch.Elapsed.TotalSeconds -ge $timeout) { $stopped = "[stopped after $timeout s: time limit]"; break }
             if ($ShouldStop -and (& $ShouldStop)) { $stopped = '[stopped by the user]'; break }
+            if ($sbWatch -and $sbWatch.Violation) { $stopped = '[stopped by the sandbox, see the note below]'; break }
         }
         if ($stopped) {
-            Stop-ProcessTree $proc.Id
-            $null = $proc.WaitForExit(5000)
+            # in the sandbox closing the pipe ends the job of the runner, and with it everything
+            # the command started
+            if ($sandboxed) { try { $proc.Kill() } catch {} } else { Stop-ProcessTree $proc.Id; $null = $proc.WaitForExit(5000) }
         }
-        $null = $outTask.Wait(5000); $null = $errTask.Wait(5000)
+        if ($outTask) { $null = $outTask.Wait(5000); $null = $errTask.Wait(5000) }
         $output = ConvertFrom-OutputBytes $outBytes.ToArray()
         $errors = ConvertFrom-OutputBytes $errBytes.ToArray()
         $code = 0
         if (-not $stopped) { $code = $proc.ExitCode }
     } finally {
-        Remove-Item -Force -Path $script -ErrorAction SilentlyContinue
+        if ($script) { Remove-Item -Force -Path $script -ErrorAction SilentlyContinue }
+        if ($sandboxed -and $proc) { try { $proc.Dispose() } catch {} }
+        if ($sbWatch) { $sbNotes = @(Stop-SandboxWatch $sbWatch) }
     }
     $text = $output.Replace("`r`n", "`n").TrimEnd()
     if ($errors.Trim()) { $text = ($text + "`n" + $errors.Replace("`r`n", "`n").TrimEnd()).Trim() }
     $text = Limit-Text $text ([int]$cfg.toolResultChars)
-    $info = @{ exit = $code; seconds = $watch.Elapsed.TotalSeconds; stopped = $stopped; output = $text }
+    $info = @{ exit = $code; seconds = $watch.Elapsed.TotalSeconds; stopped = $stopped; output = $text; sandboxNotes = $sbNotes }
     if (-not $text) { $text = '(no output)' }
     if ($stopped) { $text += "`n$stopped" }
     elseif ($code -ne 0) { $text += "`n[exit code $code]" }
+    if ($sbNotes.Count -gt 0) {
+        $text += "`n[sandbox: $($sbNotes -join '; '). Commands in the sandbox cannot change the repository (.git) or files that run or are obeyed outside it (editor settings, git hooks, CLAUDE.md, the check command ...): change such files with Edit or Write, and run git commands that change the repository with outside_sandbox.]"
+        Write-UiNote (Get-UiText 'sandbox.blocked' ($sbNotes -join '; ')) 'warn'
+    }
     $r = New-ToolResult $text ([bool]$stopped)
     $r.summary = "exit code $code, $([math]::Round($watch.Elapsed.TotalSeconds, 1)) s"
+    if ($sandboxed) { $r.summary += ', sandbox' }
     if ($stopped) { $r.summary = $stopped.Trim('[', ']') }
     $r.userStop = ($stopped -eq '[stopped by the user]')
     $r.info = $info

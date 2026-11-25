@@ -45,11 +45,11 @@ anything. Enter always takes the suggestion.
 | Step | Content |
 |---|---|
 | 1. Check the computer | Windows version, graphics cards (`nvidia-smi`, Windows display adapters), main memory |
-| 2. Install folder | Suggestion: `claude-local` on the drive with the most room, on the system drive `%LOCALAPPDATA%\claude-local`. Never a whole drive, never in the program files folder. A folder chosen earlier stays. |
+| 2. Install folder | Suggestion: `claude-local` on the drive with the most room, on the system drive `%LOCALAPPDATA%\claude-local`. Never a whole drive, never in the program files folder. A folder chosen earlier stays. Install folder and program folder are then only open to your account, SYSTEM and the administrators ([security.md](security.md#install-and-program-folder)). |
 | 3. Git, Claude Code | Git for Windows through `winget`. Without Git the agent gets the tool PowerShell instead of Bash ([agent.md](agent.md)). Claude Code only for the comparison command `claude-local`, with Anthropic's official command (`irm https://claude.ai/install.ps1 \| iex`, in a process of its own); the question defaults to no, and `-Yes` does not install it either. |
 | 4. llama.cpp | `Install-LlamaCpp.ps1`: package by graphics card (`packages` in `config\server.json`). Afterwards it checks with `llama-server --list-devices` whether llama.cpp sees the card; if not, it takes the next package ([backend.md](backend.md)). |
 | 5. Model | Tier from `config\setups.json` by graphics memory (sum of all cards without integrated graphics) and installed main memory (sum of the memory modules), see below. Download with `Get-Model.ps1`. Then `Plan-Models.ps1 -Verify` computes the distribution over cards and main memory and checks it ([planner.md](planner.md)); if that fails, llama.cpp distributes the model itself (`--fit`). An existing plan stays. |
-| 6. Commands, updates | `bin\` onto the user's PATH (`Install-Path.ps1`): commands `unzensiert` and `claude-local`. Once the question whether new releases come automatically (suggestion: yes), remembered in `machine.json` under `updates`; a later run does not ask again. |
+| 6. Commands, updates | `bin\` onto the user's PATH (`Install-Path.ps1`): commands `unzensiert` and `claude-local`. Once the question whether new releases come automatically (suggestion: yes), remembered in `machine.json` under `updates`; a later run does not ask again. Then the offer of the sandbox (`Setup-Sandbox.ps1`): the commands of the model run as a Windows account of their own; Windows asks once for administrator rights, so not with `-Yes` ([security.md](security.md#sandbox)). |
 | 7. Test | `Test-Setup.ps1` (only errors are shown), then `Test-Model.ps1 -NoLog` if the planner has not already tested the model |
 
 | Switch | Effect |
@@ -121,6 +121,7 @@ The files in `config\` apply on every computer and are in the repository.
 | `agent` | `agent.json` | `model` (default model of this computer) |
 | `modelDefaults` | `defaults` in `models.json` | `gpu-layers` |
 | `models` | a profile in `models.json` | `args` (split, card, context), `file` |
+| `sandbox` | written by `Setup-Sandbox.ps1` | `account`, `groupSid` of the sandbox account |
 
 Objects are merged key by key, `null` removes a key. Paths may contain `%VARIABLES%`. Then
 there are the sections `plans` and `calibration` of the planner ([planner.md](planner.md)) and
@@ -172,12 +173,15 @@ changes the file ([security.md](security.md)).
 1. Stop the server.
 2. Take `bin\` off the PATH.
 3. Take back the look ([style.md](style.md)), if it is installed.
-4. In the install folder delete only what the installer created: llama.cpp folders
+4. Remove the sandbox, if it is set up (`Setup-Sandbox.ps1 -Remove`: its service, account, its
+   profile and logon rights, group, firewall rule and the entries for its group and the projects;
+   Windows asks once for administrator rights).
+5. In the install folder delete only what the installer created: llama.cpp folders
    (`b<number>` with `llama-server.exe`), the files of the profiles from `models.json`, `run`,
    `logs`, `downloads`, `bench-work`, the saved conversations of Unzensiert (`sessions`), the
    record of confirmed folders (`trust.json`, `trust`) and its input history. Other files stay
    and with them the folder. `-KeepModels` keeps the models.
-5. Delete `config\machine.json`.
+6. Delete `config\machine.json`.
 
 Claude Code, Git for Windows and the settings of Continue stay. The script shows at the end
 how to remove them. Delete the program folder by hand afterwards.

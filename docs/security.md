@@ -23,6 +23,9 @@ There are two things it explicitly does not do:
 | Files that run later by themselves | a file change that becomes a running program | `protectedFiles` in `config\guard.json` |
 | The question before a call | saying yes to something you could not see | built in |
 | Programs, git and environment | programs lying in the project folder, programs a repository names, keys in the environment | built in, `envDeny` in `config\unzensiert.json` |
+| Install and program folder | other accounts of the computer changing the program or reading conversations and the key | built in |
+| Sandbox | a command that would change files outside the project or reach the internet | `scripts\Setup-Sandbox.ps1`, `sandbox` in `config\unzensiert.json` |
+| `/undo` | a request that changed or deleted files of the project by mistake | `undo` in `config\unzensiert.json` |
 | Git note at start | changes that cannot be undone | `config\agent.json` |
 | Check script | configuration errors that silently switch the protection off | `scripts\Test-Setup.ps1` |
 
@@ -199,6 +202,8 @@ Some files of a project are started or obeyed without anyone calling them: git h
 `CLAUDE.md`, the check command, shortcuts, or a program named like one of the system (`git.cmd`,
 `powershell.exe`). Changing one asks in the modes `ask` and `edits` every time, and "always" does
 not cover it (`protectedFiles` in `config\guard.json`; take an entry out if it gets in your way).
+For commands in the [sandbox](#sandbox) these files and your repositories are read-only in every
+mode; Edit and Write change them under the question.
 All other files stay as free as the mode says. That includes build files and tests (`package.json`,
 `conftest.py`, `build.rs`, `*.csproj` ...), because changing them is normal work; an open editor or a
 running watcher may start them as soon as they change.
@@ -216,6 +221,84 @@ running watcher may start them as soon as they change.
 - **Nothing foreign steers the terminal:** escape sequences and invisible characters in commands,
   output, files, pages and answers become visible (`^[`, `<U+202E>`). Links can only be web
   addresses; when a label looks like another address, the real host stands behind it.
+
+## Sandbox
+
+The guard and the questions look at what a command says. In the sandbox Windows itself refuses
+what a command would do. `scripts\Setup-Sandbox.ps1`, which the installer offers, makes a hidden
+Windows account `unzensiert-sandbox` and a service of that account with one administrator
+question. From then on every command of the model (Bash, PowerShell) runs as that account, in a
+sign-in of its own:
+
+| A command of the model in the sandbox | |
+|---|---|
+| changes files in the project folder of the session | yes (the folder gets entries for it the first time; never in the program or install folder of Unzensiert) |
+| changes files in another project folder the sandbox was used in | no, not even files it made there itself |
+| sees your programs, your desktop, your clipboard; reads or ends one of your programs | no: it runs in a sign-in of its own (session 0), which shares nothing with yours |
+| changes files that run or are obeyed later as you: the repository (`.git`), editor settings, `CLAUDE.md`, the check command, shortcuts ([below](#files-that-run-later-by-themselves)) | no: they are read-only for it, and so are the folders above them (no renaming); such a file it makes is removed at once (a folder with something in it is renamed), and a link or something of yours moved there is renamed to `*.blocked-by-sandbox` and ends the command |
+| changes or deletes files anywhere else, on other drives too, in `C:\Users\Public` or `C:\ProgramData` | no |
+| reads your user folder | no; folders of tools on your PATH may be read and run (Python, VS Code ...) |
+| reads other drives | yes: there Windows lets every account read |
+| reaches other computers, the internet | no (firewall rule); this computer itself (`127.0.0.1`) yes |
+| reads your repository (`git status`, `log`, `diff`) | yes |
+| changes your repository (`git add`, `commit`, `checkout`) | only with `outside_sandbox`; a repository it makes itself it may change, with your name and the co-author line in commits, but git refuses it for you ("dubious ownership") |
+| ends with everything it started on Esc or at the time limit | yes |
+
+**How it works:** the account is an ordinary user without administrator rights, hidden from the
+sign-in screen; it may sign in as a service and in no other way, and its random password is kept
+by the service alone. The service (`scripts\sandbox\Runner.cs`, built with the C# compiler of
+Windows; Unzensiert starts it when needed, it stops itself after a while without commands, and
+only you may start and stop it) runs in a sign-in of its own, so a command shares no group with
+your programs, your desktop or their named objects. Unzensiert hands it each command through a
+pipe only you may write to, after checking that the process at the other end is that service. The
+service starts the command with a restricted token: "Authenticated Users" only for deny (on other
+drives Windows lets every account change everything through that group), and a write must also be
+allowed to the SID of the project of the session, which only the project folder grants. So
+neither "Users" (Public, ProgramData) nor the entries that stay on folders the sandbox was used
+in before let it write anywhere else. What it made in one project does not become changeable for it
+in another through being its owner: an entry for OWNER RIGHTS on the project folder leaves the
+owner of a file only the right to read its rights, the folders a command makes are handed to you
+after it, and a folder it made with rights of its own (Python's `tempfile`, the cache of pytest)
+takes the rights of the project folder, so you can open and delete it. Everything the
+command starts lives in a job object that ends with the command, and the service cannot be opened
+by anything of the account (its token has none of these limits). Programs with windows show
+nothing in the sign-in of the sandbox.
+For a project in your user folder or in the install folder the group may list the folders above
+it (names only), because PowerShell reads them on the way to its folder. Around every command a
+watch (`scripts\sandbox\Watch.cs`) gives the group a deny entry on your repositories and on the
+protected files of the project (git, editors and Explorer would run them as you), and on the
+folders above them against renaming, and looks at what appears while the command runs. It acts
+through handles of what it checked, never again by name, so a folder swapped for a link meanwhile
+cannot lead it elsewhere. A link of yours under a protected name (settings shared through a
+junction) stays, and what it points to inside the project is protected too. Saving a protected
+file in your editor while a command runs is fine: it is protected again. The entries name only the
+group: you, your editors and your git are not touched; `Setup-Sandbox.ps1 -Remove` takes them away
+again. If another program holds a repository open so that Windows cannot pass the entry on, the
+session continues without the sandbox, with the usual questions.
+
+**`outside_sandbox`:** a command that needs the internet (installing packages, `git push`), your
+credentials or files outside the project runs as you, but only after a question, every time and
+in every mode, `all` included; without a terminal it is refused. Commands you type yourself (`!`)
+run as you. If the service cannot run a command, the sandbox switches itself off for the session
+with a note, and commands run as you under the usual questions.
+
+**What stays as before:** the guard and the modes; the sandbox only adds protection. The check
+command of the closing check and the second look run as you (they ask once per project). Name
+lookups (DNS) go out through Windows. Measured on this computer: 0.003 s more per command in Git
+Bash, 0.28 s in PowerShell. `/status` shows whether the session uses the sandbox. A sandbox set up
+before it had its service: run `scripts\Setup-Sandbox.ps1` once more (one administrator question).
+Take it away: `scripts\Setup-Sandbox.ps1 -Remove`, or the uninstaller.
+
+## Install and program folder
+
+On a drive other than the system drive Windows lets every account of the computer change a new
+folder ("Authenticated Users: Modify"). Another account could then change `llama-server.exe` or
+the scripts, which run as you, or read the conversations, the copies of `/undo` and the key of
+the server. So the install folder and the program folder are only open to your account, SYSTEM
+and the administrators: the installer sets this, and `unzensiert` and `claude-local` check it at
+every start and close a folder that is open, with a note. Inside your user folder
+(`%LOCALAPPDATA%`) this is how Windows has it already, and nothing changes. A drive, your user
+folder and folders of Windows are never changed. `Test-Setup.ps1` reports an open folder.
 
 ## Programs, git and the environment of commands
 
@@ -259,6 +342,17 @@ What that means for your data and your computer:
   `all` or when `--allowedTools` names them; otherwise the model does not even get them.
 - **Off:** remove `WebSearch` and `WebFetch` from `addTools` in `config\unzensiert.json` (for
   one computer in `config\machine.json` under `"unzensiert"`).
+
+## Taking a request back
+
+The model makes mistakes more often than anybody attacks. `/undo` takes back what the last request
+changed in the project folder, whether by Edit, Write or a command; files changed again since
+stay as they are. Before the first change of a request and at its end Unzensiert keeps the folder
+in a repository of its own next to the saved conversations, never in the project, with a git
+that reads no configuration of yours or of the project. It writes nothing back through a link that
+leads out of the project and keeps nothing that lies behind one. That repository holds copies of
+the files, also of ignored ones a file tool changed (such as `.env`), for seven days
+(`keepDays`). What `/undo` keeps and what not: [unzensiert.md](unzensiert.md#undo).
 
 ## Git note at start
 

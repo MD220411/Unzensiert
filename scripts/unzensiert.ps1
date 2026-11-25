@@ -74,6 +74,10 @@ if ($interactive -and -not $env:UNZENSIERT_UPDATED) {
     }
 }
 
+# install folder and program folder only for this account (lib\FolderRights.ps1); an update
+# brings this to installations that had them open
+foreach ($n in @(Protect-ProgramFolders)) { Write-LaunchNote $n }
+
 $start = Resolve-StartModel $opt.model
 if ($start.problem) { [Console]::Error.WriteLine("unzensiert: $($start.problem)"); exit 1 }
 $model = $start.model
@@ -91,6 +95,10 @@ $session.trustOnce = [bool]$opt.trust
 if ($opt.trust) { Set-TrustOnce $cwd }
 $trusted = Confirm-ProjectTrust $session
 if ($trusted -eq 'quit') { Exit-AgentUi; [Console]::OutputEncoding = $savedEncoding; exit 0 }
+# commands of the model as an account of their own, when this computer has the sandbox
+# (lib\Sandbox.ps1); a sandbox that is set up but cannot be used is said
+Initialize-SandboxSession $session
+if (-not $session.sandbox -and @('off', 'notSetUp') -notcontains $session.sandboxWhy) { Write-LaunchNote (Get-UiText 'sandbox.off' (Get-SandboxWhyText $session)) }
 if ($trusted -eq 'limited' -and -not $script:Ui.on) {
     $open = @((Get-FolderTrust $cwd).open | ForEach-Object { [string]$_.name }) -join ', '
     Write-LaunchNote (Get-UiText 'trust.note' $open)

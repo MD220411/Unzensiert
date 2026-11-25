@@ -160,6 +160,9 @@ $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
 # Model, context and address; styled in a terminal, plain text when the output is redirected.
 Get-LocalLookBanner $Model $server.baseUrl ([int]$env:CLAUDE_CODE_MAX_CONTEXT_TOKENS) $ctx $pickerModels
 
+# install folder and program folder only for this account (lib\FolderRights.ps1)
+foreach ($n in @(Protect-ProgramFolders)) { "claude-local: $n" }
+
 # Git is the way back from anything the model changes. Only said to a person at a terminal.
 if ($agent.gitCheck -and -not [Console]::IsOutputRedirected) {
     $note = Get-GitSafetyNote (Get-Location).Path
