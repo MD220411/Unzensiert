@@ -75,7 +75,7 @@ function Read-ApiError($Exception) {
 function New-ChatStreamState {
     return @{
         content = New-Object System.Text.StringBuilder; reasoning = New-Object System.Text.StringBuilder
-        calls = New-Object System.Collections.ArrayList; finish = ''; cancelled = $false; done = $false
+        calls = New-Object System.Collections.ArrayList; finish = ''; cancelled = $false; done = $false; error = ''
         promptTokens = 0; completionTokens = 0; cachedTokens = 0; tokensPerSecond = 0.0; promptMs = 0.0
     }
 }
@@ -87,6 +87,14 @@ function Update-ChatStreamState($State, [string]$Line, [scriptblock]$OnEvent) {
     $data = $Line.Substring(6)
     if ($data -eq '[DONE]') { $State.done = $true; return }
     $chunk = ConvertFrom-AgentJson $data
+    # an error in the middle of the stream (the model process failed): the answer is not done
+    $err = Get-DictValue $chunk 'error'
+    if ($err) {
+        $msg = [string](Get-DictValue $err 'message')
+        if (-not $msg) { $msg = [string]$err }
+        $State.error = $msg
+        return
+    }
     $usage = Get-DictValue $chunk 'usage'
     if ($usage) {
         $State.promptTokens = [int](Get-DictValue $usage 'prompt_tokens')
@@ -156,15 +164,17 @@ function Complete-ChatStreamState($State) {
     }
 }
 
-function New-ChatRequestBody([string]$Model, $Messages, $Tools, [int]$MaxTokens, [bool]$ParallelToolCalls) {
+function New-ChatRequestBody([string]$Model, $Messages, $Tools, [int]$MaxTokens, [bool]$ParallelToolCalls, [bool]$NoThinking = $false) {
     # The body of a chat request. parallel_tool_calls says that several tool calls in one
     # answer are welcome; llama-server b12433 takes them with the Qwen templates also without
     # it (measured on 2026-11-21), a build that keeps to the OpenAI default would allow one.
+    # $NoThinking: the chat templates (config\templates) write no thinking for this request.
     $body = @{ model = $Model; messages = $Messages; stream = $true; stream_options = @{ include_usage = $true }; max_tokens = $MaxTokens }
     if ($Tools) {
         $body['tools'] = $Tools
         if ($ParallelToolCalls) { $body['parallel_tool_calls'] = $true }
     }
+    if ($NoThinking) { $body['chat_template_kwargs'] = @{ enable_thinking = $false } }
     return $body
 }
 
@@ -174,7 +184,9 @@ function Invoke-ChatStream {
     #   ShouldStop script block; $true stops the request (Esc or Ctrl+C at the terminal)
     #   ParallelToolCalls  several tool calls in one answer are welcome ("parallelToolCalls"
     #              in config\unzensiert.json, New-ChatRequestBody)
-    # Returns the result of Complete-ChatStreamState.
+    #   NoThinking the model writes no thinking (the summary of a conversation)
+    # Returns the result of Complete-ChatStreamState. Throws when the server sends an error in
+    # the stream or the stream ends without its last line ([DONE]): a cut answer is no answer.
     param(
         [string]$Model,
         $Messages,
@@ -182,9 +194,10 @@ function Invoke-ChatStream {
         [int]$MaxTokens = 16384,
         [scriptblock]$OnEvent,
         [scriptblock]$ShouldStop,
-        [bool]$ParallelToolCalls = $false
+        [bool]$ParallelToolCalls = $false,
+        [bool]$NoThinking = $false
     )
-    $body = New-ChatRequestBody $Model $Messages $Tools $MaxTokens $ParallelToolCalls
+    $body = New-ChatRequestBody $Model $Messages $Tools $MaxTokens $ParallelToolCalls $NoThinking
     $bytes = [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-AgentJson $body))
 
     $request = [System.Net.HttpWebRequest]::Create("$((Get-ServerConfig).baseUrl)/v1/chat/completions")
@@ -230,5 +243,14 @@ function Invoke-ChatStream {
         try { $reader.Close() } catch {}
         try { $response.Close() } catch {}
     }
+    Assert-ChatStreamDone $state
     return (Complete-ChatStreamState $state)
+}
+
+function Assert-ChatStreamDone($State) {
+    # Throws when the stream did not end as it should: an error came in it, or it stopped before
+    # its last line ([DONE]). A request stopped by the user is fine.
+    if ($State.cancelled) { return }
+    if ($State.error) { throw "llama-server: $($State.error) (the answer broke off)" }
+    if (-not $State.done) { throw 'llama-server: the answer broke off before its end (the stream ended without [DONE])' }
 }

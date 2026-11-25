@@ -201,10 +201,10 @@ tasks stay within the spread between runs. It makes nothing faster or better, so
 | Tool | What it does |
 |---|---|
 | `Bash` | command in Git Bash, `PowerShell` in Windows PowerShell 5.1; always in the project folder. The command goes into a script file (no trouble with quotes), runs without input, at most `commandTimeoutSeconds` (up to `commandMaxSeconds` when the model asks for more) and is ended with all its child processes. Long output keeps its beginning and end, because that is usually where the error is. Python writes UTF-8 (`PYTHONIOENCODING`); a line that is not UTF-8, such as the localised messages of a `powershell.exe` started from Git Bash, is read in the code page of the console. |
-| `Read` | file with line numbers, parts with `offset`/`limit`; the model sees images as images |
+| `Read` | file with line numbers, parts with `offset`/`limit`; at most `readChars` (40,000) characters at once, then it names the line to read on from; lines longer than 2,000 characters are cut. Text in UTF-8, ANSI or UTF-16 (known by its byte order mark, as Windows PowerShell 5.1 writes it with `>`). The model sees images as images. |
 | `Edit` | replace text; only after `Read` and only if the file has not changed since. The text must appear exactly once (or `replace_all`). Line endings (CR LF), encoding and byte order mark of the file stay as they were. If it does not find the text, it says whether only indentation or line breaks differ. |
 | `EditLines` | only with `editLines`: replace whole lines by their numbers (`start_line` to `end_line`, as `Read` shows them) with `new_text`; the model quotes the first and the last of these lines as proof (`first_line`, `last_line`). If they do not match, nothing changes and the result names the real line and shows the place. The model writes only the new lines instead of copying the old ones into `old_string`. The result names the new numbers, because the lines below move. Same rules as `Edit`: only after `Read`, line endings and encoding stay. |
-| `Write` | new file, or replace a file that was read completely. If the file already has exactly this content, it writes nothing and says so. |
+| `Write` | new file, or replace a file that was read completely: every line seen, also over several reads with `offset`, none cut (after reading part of a file the model changes it with `Edit`). A file the model wrote itself counts as known. If the file already has exactly this content, it writes nothing and says so. A new PowerShell script (`.ps1`, `.psm1`, `.psd1`) with characters beyond ASCII gets a byte order mark, because Windows PowerShell 5.1 reads one without as ANSI; so does a plain ASCII script that gets such characters by `Edit` or `Write`. |
 | `Glob` | files by pattern (`**/*.py`, `src/*.{ts,tsx}`), newest first, without `.git`, `node_modules`, `__pycache__`, `.venv` |
 | `Grep` | content by regular expression (.NET), output `path:line:text`, with `glob`, `ignore_case`, `files_only` |
 | `TodoWrite` | the task list: the model always sends the whole list, each step `pending`, `in_progress` or `completed` (other words such as "done" or "in progress" are understood). The terminal shows it; it survives a summary of the conversation and comes back with `-c` and `--resume`. |
@@ -335,7 +335,14 @@ token count from the server and only estimates what came since. When the convers
 `keepRecentRounds` rounds) to `oldToolResultChars` characters and drops the thinking of those
 rounds; if that is not enough, the model summarises the conversation and keeps working
 afterwards, with the last request and the task list word for word. If a request still does
-not fit, it summarises and tries once more.
+not fit, it summarises and tries once more. The summary is written without thinking, which
+would count towards its 6,000 tokens: measured on a conversation of 37,500 characters, 445 to 562
+tokens in 7 to 24 s instead of 1,864 to 2,171 tokens in 28 to 54 s with thinking, with the facts
+in both.
+
+An answer counts as done only when the stream of the server ends as it should (`[DONE]`). If it
+breaks off before (the model process ended) or the server reports an error in it, Unzensiert
+says so and asks the model once more.
 
 The thinking of the model stays in the conversation, also that of earlier requests: the chat
 templates of the Qwen models show it (`preserve_thinking`), so the text the server has cached
@@ -460,6 +467,7 @@ starting" go to the error output in a one-off run; standard output only contains
 | `editLines` | `false` | `true` offers `EditLines` next to `Edit`, for trying it with another model |
 | `toolResultChars` | `30000` | longest output of a command |
 | `readLines` | `2000` | lines `Read` returns without `limit` |
+| `readChars` | `40000` | at most this many characters per `Read`; it names the line to go on from |
 | `commandTimeoutSeconds`, `commandMaxSeconds` | `120`, `600` | time limits for commands |
 | `maxOutputTokens` | `16384` | longest answer; never more than fits into the window |
 | `showThinking` | `false` | show the thinking (in the session `/think`) |

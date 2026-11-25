@@ -65,6 +65,7 @@
   "_undo": "/undo (lib\\Undo.ps1): before the first change of a request the project folder is kept in a repository of its own next to the saved conversations (never in the project), and again at the end of the request; /undo puts back what the last request changed, where nothing changed since. Kept: what git does not ignore in the folder, and every file a file tool changes. Not kept: files larger than maxFileMB, folders in exclude (made again by tools), the repository itself (.git), changes outside the folder. More than maxFiles new files at once, or keeping that takes longer than timeoutSeconds, ends /undo for the conversation; a drive, the user folder and folders of Windows get none. Conversations older than keepDays leave the repository.",
   "toolResultChars": 30000,
   "readLines": 2000,
+  "readChars": 40000,
   "commandTimeoutSeconds": 120,
   "commandMaxSeconds": 600,
   "maxOutputTokens": 16384,

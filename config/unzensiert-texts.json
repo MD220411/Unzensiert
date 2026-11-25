@@ -215,6 +215,7 @@
     "serverStarting": "llama-server is not running, starting it now …",
     "contextFull": "The conversation no longer fits into the context.",
     "noImages": "The model takes no images; they are left out.",
+    "answerBroke": "The answer broke off before its end; asking the model once more.",
     "error": "Error: {0}",
     "refused": "{0} calls were refused; the request ends.",
     "repeating": "The model repeats the same call ({0}); the request ends.",

@@ -365,7 +365,8 @@ function Get-AnswerTokenBudget($Session) {
 
 function Invoke-ModelRound($Session, $Schemas) {
     # One answer of the model, shown as it streams in. Tries again once each when the server
-    # is down (starts it), the window is full (summarises) or the model takes no images.
+    # is down (starts it), the window is full (summarises), the model takes no images or the
+    # answer broke off.
     # $null after an error that remains.
     $retried = @{}
     while ($true) {
@@ -414,6 +415,13 @@ function Invoke-ModelRound($Session, $Schemas) {
                     Write-UiNote (Get-UiText 'notes.noImages') 'warn'
                     continue
                 }
+            }
+            # a cut answer (the model process ended in the middle, an error in the stream) is
+            # not taken as done: one new try (lib\AgentApi.ps1, Invoke-ChatStream)
+            if (-not $retried['broken'] -and $msg -match 'broke off') {
+                $retried['broken'] = $true
+                Write-UiNote (Get-UiText 'notes.answerBroke') 'warn'
+                continue
             }
             Write-UiNote (Get-UiText 'notes.error' $msg) 'error'
             return $null
@@ -742,7 +750,9 @@ function Invoke-Compaction($Session, [string]$Focus) {
     )
     Start-UiActivity 'compact'
     try {
-        $answer = Invoke-ChatStream -Model $Session.model -Messages $request -Tools $null -MaxTokens 6000 `
+        # without thinking: it would count towards the 6,000 tokens and could leave no room for
+        # the summary itself
+        $answer = Invoke-ChatStream -Model $Session.model -Messages $request -Tools $null -MaxTokens 6000 -NoThinking $true `
             -OnEvent { param($kind, $t) if ($kind -eq 'reasoning' -or $kind -eq 'content') { Add-UiActivityChars $t.Length } } -ShouldStop { Test-UiStop }
     } catch {
         Stop-UiActivity
@@ -762,6 +772,8 @@ function Invoke-Compaction($Session, [string]$Focus) {
     $summary += "`n`nContinue from here. Files you read before the summary must be read again before you change them."
     Add-SessionMessage $Session @{ role = 'user'; content = $summary }
     $Session.reads = @{}
+    $Session.readsPartial = @{}
+    $Session.readCover = @{}
     $Session.promptTokens = 0
     $Session.charsAtPrompt = 0
     Write-UiNote (Get-UiText 'notes.summarised' (Get-UiCount (Get-EstimatedTokens $Session) 'tokens')) 'ok'

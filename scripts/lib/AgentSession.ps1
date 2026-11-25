@@ -25,7 +25,7 @@ function New-AgentSession([string]$Cwd, [string]$Model) {
         id = $id; cwd = $Cwd; model = $Model; folder = $folder
         file = [System.IO.Path]::Combine($folder, "$id.jsonl"); hookTranscript = [System.IO.Path]::Combine($folder, "$id.hook.jsonl")
         messages = [System.Collections.ArrayList]::new()
-        reads = @{}; changed = [System.Collections.ArrayList]::new()
+        reads = @{}; readsPartial = @{}; readCover = @{}; changed = [System.Collections.ArrayList]::new()
         mode = [string]$cfg.permissionMode; allowed = @{}; allowedTools = @()
         gitBash = [string](Find-GitBash); showThinking = [bool]$cfg.showThinking
         ctx = 0; ctxModel = ''; lastBudget = 0; lastFinish = ''
